@@ -1,0 +1,38 @@
+import ProjectDescription
+
+let project = Project(
+    name: "TinyAudioUnitHost",
+    settings: .settings(
+        base: [
+            "SWIFT_VERSION": "6.0",
+            "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+            "SWIFT_EMIT_LOC_STRINGS": "YES",
+            "CODE_SIGN_STYLE": "Manual",
+            "CODE_SIGN_IDENTITY": "Apple Development",
+            "DEVELOPMENT_TEAM": "",
+        ],
+        configurations: [
+            .debug(name: "Debug"),
+            .release(name: "Release"),
+        ]
+    ),
+    targets: [
+        .target(
+            name: "TinyAudioUnitHost",
+            destinations: .macOS,
+            product: .app,
+            bundleId: "com.alexshubin.TinyAudioUnitHost",
+            deploymentTargets: .macOS("26.0"),
+            infoPlist: .extendingDefault(with: [
+                "NSMicrophoneUsageDescription": "Audio Unit hosting requires audio access.",
+            ]),
+            sources: ["Sources/**"],
+            resources: ["Resources/**"],
+            settings: .settings(
+                base: [
+                    "ENABLE_APP_SANDBOX": "NO",
+                ]
+            )
+        ),
+    ]
+)

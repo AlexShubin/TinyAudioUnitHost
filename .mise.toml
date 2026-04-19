@@ -1,0 +1,6 @@
+[tools]
+tuist = "4.180.0"
+
+[tasks.generate]
+description = "Generate the Xcode project"
+run = "tuist install && tuist generate"

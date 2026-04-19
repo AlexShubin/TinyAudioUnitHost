@@ -1,0 +1,63 @@
+//
+//  HostView.swift
+//  TinyAudioUnitHost
+//
+//  Created by Alex Shubin on 19.04.26.
+//  Copyright © 2026 Alex Shubin. All rights reserved.
+//
+
+import AudioToolbox
+import SwiftUI
+
+struct HostView: View {
+    @State var viewModel: HostViewModelType
+
+    var body: some View {
+        NavigationSplitView {
+            InstrumentListView(
+                instruments: viewModel.state.instruments,
+                selectedID: Binding(
+                    get: { viewModel.state.selectedID },
+                    set: { newID in
+                        if let component = viewModel.state.instruments.first(where: { $0.id == newID }) {
+                            Task { await viewModel.accept(action: .selected(component)) }
+                        }
+                    }
+                )
+            )
+            .navigationSplitViewColumnWidth(min: 200, ideal: 280, max: 400)
+        } detail: {
+            if let audioUnit = viewModel.state.audioUnit {
+                AudioUnitView(audioUnit: audioUnit)
+            } else if viewModel.state.selectedID != nil {
+                ProgressView("Loading Audio Unit...")
+            } else {
+                Text("Select an instrument")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .task {
+            await viewModel.accept(action: .appeared)
+        }
+    }
+}
+
+// MARK: - View State
+
+struct HostViewState {
+    var instruments: [AudioUnitComponent]
+    var selectedID: String?
+    var audioUnit: AUAudioUnit?
+}
+
+// MARK: - Preview
+
+@MainActor @Observable
+private class PreviewHostViewModel: HostViewModelType {
+    var state = HostViewState(instruments: [], selectedID: nil, audioUnit: nil)
+    func accept(action: HostViewModelAction) async {}
+}
+
+#Preview {
+    HostView(viewModel: PreviewHostViewModel())
+}
