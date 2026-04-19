@@ -9,16 +9,6 @@
 import AVFoundation
 import CoreMIDI
 
-// Sendable reference-type container for the AU MIDI block. The block is
-// written only from the MainActor (inside `select(_:)`) and read from the
-// CoreMIDI thread. A Mutex would add unacceptable priority inversion for
-// real-time MIDI; pointer-sized writes are effectively atomic on supported
-// hardware and the AU contract already requires the block to tolerate being
-// called from arbitrary threads.
-private final class MIDIBlockBox: @unchecked Sendable {
-    nonisolated(unsafe) var block: AUScheduleMIDIEventBlock?
-}
-
 struct AudioUnitComponent: Sendable, Identifiable, Hashable {
     let id: String
     let name: String
@@ -34,7 +24,6 @@ struct AudioUnitComponent: Sendable, Identifiable, Hashable {
     }
 }
 
-@MainActor
 protocol AudioUnitHostEngineType: Observable, Sendable {
     var availableInstruments: [AudioUnitComponent] { get }
 
@@ -42,8 +31,7 @@ protocol AudioUnitHostEngineType: Observable, Sendable {
     func select(_ component: AudioUnitComponent) async -> AUAudioUnit?
 }
 
-@MainActor
-final class AudioUnitHostEngine: AudioUnitHostEngineType {
+final class AudioUnitHostEngine: AudioUnitHostEngineType, @unchecked Sendable {
     private(set) var availableInstruments: [AudioUnitComponent] = []
 
     private let engine = AVAudioEngine()
@@ -51,15 +39,6 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType {
     private var midiClient = MIDIClientRef()
     private var midiInputPort = MIDIPortRef()
     private var midiSetUp = false
-
-    // Holds the AU MIDI block in a Sendable box so CoreMIDI callbacks never
-    // need to touch `self`. Capturing `[weak self]` of a @MainActor class in a
-    // Sendable callback triggers Swift 6's runtime isolation check
-    // (swift_task_isCurrentExecutorWithFlagsImpl) on the CoreMIDI thread, which
-    // crashes via dispatch_assert_queue_fail.
-    private let midiBlockBox = MIDIBlockBox()
-
-    nonisolated init() {}
 
     func loadInstruments() async {
         let components = await withCheckedContinuation { continuation in
@@ -110,9 +89,7 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType {
             engine.connect(engine.mainMixerNode, to: engine.outputNode, format: hardwareFormat)
 
             try engine.start()
-            // scheduleMIDIEventBlock is only valid after render resources are
-            // allocated, which happens during engine.start().
-            midiBlockBox.block = avAudioUnit.auAudioUnit.scheduleMIDIEventBlock
+
             setupMIDI()
 
             return currentAudioUnit
@@ -122,7 +99,6 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType {
     }
 
     private func removeCurrentNode() {
-        midiBlockBox.block = nil
         if let node = currentNode {
             engine.stop()
             engine.disconnectNodeInput(engine.mainMixerNode)
@@ -135,56 +111,39 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType {
         guard !midiSetUp else { return }
         midiSetUp = true
 
-        MIDIClientCreateWithBlock("TinyAUHost" as CFString, &midiClient) { [weak self] notification in
+        var status = MIDIClientCreateWithBlock("TinyAUHost" as CFString, &midiClient) { [weak self] notification in
             if notification.pointee.messageID == .msgSetupChanged {
-                Task { @MainActor in
-                    self?.connectAllMIDISources()
-                }
+                self?.connectAllMIDISources()
             }
         }
+        guard status == noErr else { return }
 
-        // Capture only the Sendable box — never `self`. Touching a
-        // @MainActor-isolated class (even via [weak self]) from the CoreMIDI
-        // thread triggers Swift 6's runtime isolation assertion.
-        let box = midiBlockBox
-        MIDIInputPortCreateWithBlock(midiClient, "Input" as CFString, &midiInputPort) { packetListPtr, _ in
-            // Copy packet bytes off the CoreMIDI thread into plain Swift arrays,
-            // then deliver to the AU on the main queue. Out-of-process AUv3
-            // extensions frequently assert their scheduleMIDIEventBlock is
-            // invoked on a specific (usually main) queue, even though the
-            // header claims any thread is safe.
-            var events: [[UInt8]] = []
-            for packetPtr in packetListPtr.unsafeSequence() {
-                let length = Int(packetPtr.pointee.length)
-                guard length >= 1 else { continue }
+        status = MIDIInputPortCreateWithBlock(midiClient, "Input" as CFString, &midiInputPort) { [weak self] packetList, srcConnRefCon in
+            guard let self = self else {
+                return
+            }
+            guard let noteBlock = self.currentNode?.auAudioUnit.scheduleMIDIEventBlock else {
+                return
+            }
 
-                var packet = packetPtr.pointee
-                var buffer = [UInt8](repeating: 0, count: length)
-                withUnsafePointer(to: &packet.data) { tuplePtr in
-                    tuplePtr.withMemoryRebound(to: UInt8.self, capacity: length) { src in
-                        buffer.withUnsafeMutableBufferPointer { dst in
-                            dst.baseAddress?.initialize(from: src, count: length)
+            let packets = packetList.pointee
+            var packet = packets.packet
+            for _ in 0..<packets.numPackets {
+                let length = Int(packet.length)
+                if length >= 1 {
+                    let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: length)
+                    withUnsafePointer(to: &packet.data) { tuplePtr in
+                        tuplePtr.withMemoryRebound(to: UInt8.self, capacity: length) { src in
+                            bytes.initialize(from: src, count: length)
                         }
                     }
+                    noteBlock(AUEventSampleTimeImmediate, 0, length, bytes)
+                    bytes.deallocate()
                 }
-
-                // Skip MIDI real-time messages (0xF8...0xFF).
-                guard buffer[0] < 0xF8 else { continue }
-                events.append(buffer)
-            }
-
-            guard !events.isEmpty else { return }
-
-            DispatchQueue.main.async {
-                for event in events {
-                    event.withUnsafeBufferPointer { ptr in
-                        guard let base = ptr.baseAddress,
-                              let noteBlock = box.block else { return }
-                        noteBlock(AUEventSampleTimeImmediate, 0, event.count, base)
-                    }
-                }
+                packet = MIDIPacketNext(&packet).pointee
             }
         }
+        guard status == noErr else { return }
 
         connectAllMIDISources()
     }
