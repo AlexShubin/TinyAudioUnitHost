@@ -16,19 +16,19 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
 
-//    private let coreMidiManager: CoreMidiManagerType
+    private let coreMidiManager: CoreMidiManagerType
     private let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
 
     init(
-//        coreMidiManager: CoreMidiManagerType,
+        coreMidiManager: CoreMidiManagerType,
          audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
     ) {
-//        self.coreMidiManager = coreMidiManager
+        self.coreMidiManager = coreMidiManager
         self.audioUnitComponentsLibrary = audioUnitComponentsLibrary
     }
 
     func load(componentId: String) async -> AUAudioUnit? {
-//        coreMidiManager.teardownMIDI()
+        coreMidiManager.teardownMIDI()
         removeCurrentNode()
 
         guard let componentDescription = audioUnitComponentsLibrary.components.first(where: { $0.id == componentId })?.componentDescription else {
@@ -56,7 +56,7 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
 
             try engine.start()
 
-//            coreMidiManager.setupMIDI(for: currentAudioUnit)
+            coreMidiManager.setupMIDI(for: currentAudioUnit)
 
             return currentAudioUnit
         } catch {
