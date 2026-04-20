@@ -10,85 +10,60 @@ import AudioToolbox
 import CoreAudioKit
 import SwiftUI
 
-struct AudioUnitView: NSViewControllerRepresentable {
+struct AudioUnitView: View {
     let audioUnit: AUAudioUnit
-    let onSizeChange: (CGSize) -> Void
+    @State private var controller: NSViewController?
+    @State private var size = CGSize(width: 480, height: 320)
 
-    func makeNSViewController(context: Context) -> AudioUnitHostViewController {
-        let host = AudioUnitHostViewController()
-        host.audioUnit = audioUnit
-        host.onSizeChange = onSizeChange
-        return host
+    var body: some View {
+        Color.clear
+            .frame(width: size.width, height: size.height)
+            .overlay {
+                if let controller {
+                    Representable(controller: controller)
+                }
+            }
+            .task(id: ObjectIdentifier(audioUnit)) {
+                controller = nil
+                guard let vc = await audioUnit.requestViewControllerAsync() else { return }
+                controller = vc
+
+                for await newSize in vc.preferredContentSizeStream() {
+                    size = newSize
+                }
+            }
     }
+}
 
-    func updateNSViewController(_ controller: AudioUnitHostViewController, context: Context) {
-        controller.onSizeChange = onSizeChange
-        if controller.audioUnit !== audioUnit {
-            controller.audioUnit = audioUnit
-            controller.loadAudioUnitView()
+private struct Representable: NSViewControllerRepresentable {
+    let controller: NSViewController
+
+    func makeNSViewController(context: Context) -> NSViewController { controller }
+    func updateNSViewController(_ controller: NSViewController, context: Context) {}
+}
+
+private extension AUAudioUnit {
+    @MainActor
+    func requestViewControllerAsync() async -> NSViewController? {
+        await withCheckedContinuation { continuation in
+            requestViewController { continuation.resume(returning: $0) }
         }
     }
 }
 
-final class AudioUnitHostViewController: NSViewController {
-    var audioUnit: AUAudioUnit?
-    var onSizeChange: ((CGSize) -> Void)?
-    private var auViewController: NSViewController?
-    private var sizeObservation: NSKeyValueObservation?
-
-    override func loadView() {
-        view = NSView()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        loadAudioUnitView()
-    }
-
-    func loadAudioUnitView() {
-        sizeObservation?.invalidate()
-        sizeObservation = nil
-        auViewController?.view.removeFromSuperview()
-        auViewController = nil
-
-        guard let audioUnit else { return }
-
-        audioUnit.requestViewController { viewController in
-            guard let viewController else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.install(viewController: viewController)
+private extension NSViewController {
+    @MainActor
+    func preferredContentSizeStream() -> AsyncStream<CGSize> {
+        AsyncStream { continuation in
+            continuation.yield(preferredContentSize)
+            let observation = observe(\.preferredContentSize, options: [.new]) { vc, _ in
+                Task { @MainActor in
+                    continuation.yield(vc.preferredContentSize)
+                }
+            }
+            continuation.onTermination = { _ in
+                observation.invalidate()
             }
         }
-    }
-
-    private func install(viewController: NSViewController) {
-        let auView = viewController.view
-        auView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(auView)
-
-        NSLayoutConstraint.activate([
-            auView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            auView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            auView.topAnchor.constraint(equalTo: view.topAnchor),
-            auView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-
-        auViewController = viewController
-
-        let preferred = viewController.preferredContentSize
-        let initialSize = (preferred.width > 0 && preferred.height > 0) ? preferred : auView.fittingSize
-        onSizeChange?(initialSize)
-
-        sizeObservation = viewController.observe(\.preferredContentSize, options: [.new]) { [weak self] vc, _ in
-            let size = vc.preferredContentSize
-            guard size.width > 0 && size.height > 0 else { return }
-            DispatchQueue.main.async {
-                self?.onSizeChange?(size)
-            }
-        }
-    }
-
-    deinit {
-        sizeObservation?.invalidate()
     }
 }

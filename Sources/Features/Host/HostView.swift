@@ -11,48 +11,40 @@ import SwiftUI
 
 struct HostView: View {
     @State var viewModel: HostViewModelType
-    @State private var audioUnitSize = CGSize(width: 480, height: 320)
 
     var body: some View {
-        VStack {
-            HStack {
-                Picker(
-                    "Instrument",
-                    selection: Binding(
-                        get: { viewModel.state.selectedID },
-                        set: { id in
-                            if let id {
-                                Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
-                            }
+        VStack(alignment: .leading) {
+            Picker(
+                "Instrument",
+                selection: Binding(
+                    get: { viewModel.state.selectedID },
+                    set: { id in
+                        if let id {
+                            Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
                         }
-                    )
-                ) {
-                    ForEach(viewModel.state.instruments) { instrument in
-                        Text(instrument.name).tag(Optional(instrument.id))
                     }
+                )
+            ) {
+                ForEach(viewModel.state.instruments) { instrument in
+                    Text(instrument.name).tag(Optional(instrument.id))
                 }
-                .pickerStyle(.automatic)
-                Spacer()
             }
+            .pickerStyle(.automatic)
             .padding(16)
-            .frame(width: audioUnitSize.width)
 
-            Rectangle()
-                .fill(Color.gray.opacity(0.1))
-                .overlay {
-                    if let audioUnit = viewModel.state.audioUnit {
-                        AudioUnitView(audioUnit: audioUnit) { size in
-                            audioUnitSize = size
-                        }
-                    } else if viewModel.state.selectedID != nil {
-                        ProgressView("Loading Audio Unit...")
-                    } else {
-
-                        Text("Select an instrument")
-                            .foregroundStyle(.secondary)
-                    }
+            Group {
+                if let audioUnit = viewModel.state.audioUnit {
+                    AudioUnitView(audioUnit: audioUnit)
+                } else if viewModel.state.selectedID != nil {
+                    ProgressView("Loading Audio Unit...")
+                        .frame(width: 480, height: 320)
+                } else {
+                    Text("Select an instrument")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 480, height: 320)
                 }
-                .frame(width: audioUnitSize.width, height: audioUnitSize.height)
+            }
+            .background(Color.gray.opacity(0.1))
         }
         .task {
             await viewModel.accept(action: .task)
