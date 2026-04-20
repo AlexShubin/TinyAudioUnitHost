@@ -37,7 +37,7 @@ struct HostView: View {
             }
         }
         .task {
-            await viewModel.accept(action: .appeared)
+            await viewModel.accept(action: .task)
         }
     }
 }
@@ -45,7 +45,7 @@ struct HostView: View {
 // MARK: - View State
 
 struct HostViewState {
-    var instruments: [AudioUnitComponent]
+    var instruments: [AudioUnitViewState]
     var selectedID: String?
     var audioUnit: AUAudioUnit?
 }

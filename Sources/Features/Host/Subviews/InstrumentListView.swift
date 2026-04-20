@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct InstrumentListView: View {
-    let instruments: [AudioUnitComponent]
+    let instruments: [AudioUnitViewState]
     @Binding var selectedID: String?
 
     var body: some View {
@@ -24,4 +24,10 @@ struct InstrumentListView: View {
         }
         .navigationTitle("Instruments")
     }
+}
+
+struct AudioUnitViewState: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let manufacturer: String
 }

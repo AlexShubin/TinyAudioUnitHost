@@ -12,7 +12,12 @@ struct Dependencies: Sendable {
     static let live = Dependencies()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
-        HostViewModel(engine: AudioUnitHostEngine())
+        let library = AudioUnitComponentsLibrary()
+
+        return HostViewModel(
+            engine: AudioUnitHostEngine(coreMidiManager: CoreMidiManager(), audioUnitComponentsLibrary: library),
+            library: library
+        )
     }
 }
 
