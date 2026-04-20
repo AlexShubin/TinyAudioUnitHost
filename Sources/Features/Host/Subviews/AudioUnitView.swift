@@ -12,14 +12,17 @@ import SwiftUI
 
 struct AudioUnitView: NSViewControllerRepresentable {
     let audioUnit: AUAudioUnit
+    let onSizeChange: (CGSize) -> Void
 
     func makeNSViewController(context: Context) -> AudioUnitContainerViewController {
         let container = AudioUnitContainerViewController()
         container.audioUnit = audioUnit
+        container.onSizeChange = onSizeChange
         return container
     }
 
     func updateNSViewController(_ controller: AudioUnitContainerViewController, context: Context) {
+        controller.onSizeChange = onSizeChange
         if controller.audioUnit !== audioUnit {
             controller.audioUnit = audioUnit
             controller.loadAudioUnitView()
@@ -29,6 +32,7 @@ struct AudioUnitView: NSViewControllerRepresentable {
 
 final class AudioUnitContainerViewController: NSViewController {
     var audioUnit: AUAudioUnit?
+    var onSizeChange: ((CGSize) -> Void)?
     private var auViewController: NSViewController?
 
     override func loadView() {
@@ -69,5 +73,9 @@ final class AudioUnitContainerViewController: NSViewController {
         ])
 
         auViewController = viewController
+
+        let preferred = viewController.preferredContentSize
+        let size = (preferred.width > 0 && preferred.height > 0) ? preferred : auView.fittingSize
+        onSizeChange?(size)
     }
 }

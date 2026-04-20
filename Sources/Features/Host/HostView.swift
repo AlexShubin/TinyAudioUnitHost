@@ -11,6 +11,7 @@ import SwiftUI
 
 struct HostView: View {
     @State var viewModel: HostViewModelType
+    @State private var audioUnitSize = CGSize(width: 480, height: 320)
 
     var body: some View {
         VStack {
@@ -33,20 +34,25 @@ struct HostView: View {
                 .pickerStyle(.automatic)
                 Spacer()
             }
+            .padding(16)
+            .frame(width: audioUnitSize.width)
 
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.2))
+            Rectangle()
+                .fill(Color.gray.opacity(0.1))
                 .overlay {
                     if let audioUnit = viewModel.state.audioUnit {
-                        AudioUnitView(audioUnit: audioUnit)
+                        AudioUnitView(audioUnit: audioUnit) { size in
+                            audioUnitSize = size
+                        }
                     } else if viewModel.state.selectedID != nil {
                         ProgressView("Loading Audio Unit...")
                     } else {
-                        
+
                         Text("Select an instrument")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(width: audioUnitSize.width, height: audioUnitSize.height)
         }
         .task {
             await viewModel.accept(action: .task)
