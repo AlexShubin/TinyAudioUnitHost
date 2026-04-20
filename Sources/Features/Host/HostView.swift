@@ -13,33 +13,51 @@ struct HostView: View {
     @State var viewModel: HostViewModelType
 
     var body: some View {
-        NavigationSplitView {
-            InstrumentListView(
-                instruments: viewModel.state.instruments,
-                selectedID: Binding(
-                    get: { viewModel.state.selectedID },
-                    set: { id in
-                        if let id {
-                            Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
+        VStack {
+            HStack {
+                Picker(
+                    "Instrument",
+                    selection: Binding(
+                        get: { viewModel.state.selectedID },
+                        set: { id in
+                            if let id {
+                                Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
+                            }
                         }
+                    )
+                ) {
+                    ForEach(viewModel.state.instruments) { instrument in
+                        Text(instrument.name).tag(Optional(instrument.id))
                     }
-                )
-            )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 280, max: 400)
-        } detail: {
-            if let audioUnit = viewModel.state.audioUnit {
-                AudioUnitView(audioUnit: audioUnit)
-            } else if viewModel.state.selectedID != nil {
-                ProgressView("Loading Audio Unit...")
-            } else {
-                Text("Select an instrument")
-                    .foregroundStyle(.secondary)
+                }
+                .pickerStyle(.automatic)
+                Spacer()
             }
+
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.2))
+                .overlay {
+                    if let audioUnit = viewModel.state.audioUnit {
+                        AudioUnitView(audioUnit: audioUnit)
+                    } else if viewModel.state.selectedID != nil {
+                        ProgressView("Loading Audio Unit...")
+                    } else {
+                        
+                        Text("Select an instrument")
+                            .foregroundStyle(.secondary)
+                    }
+                }
         }
         .task {
             await viewModel.accept(action: .task)
         }
     }
+}
+
+struct AudioUnitViewState: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let manufacturer: String
 }
 
 // MARK: - View State
