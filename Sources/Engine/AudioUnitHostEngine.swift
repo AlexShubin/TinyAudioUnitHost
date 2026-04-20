@@ -6,30 +6,32 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AVFoundation
+@preconcurrency import AVFoundation
 
 protocol AudioUnitHostEngineType: Observable, Sendable {
     func load(componentId: String) async -> AUAudioUnit?
 }
 
-final class AudioUnitHostEngine: AudioUnitHostEngineType, @unchecked Sendable {
+final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
 
-    private let coreMidiManager: CoreMidiManagerType
+//    private let coreMidiManager: CoreMidiManagerType
     private let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
 
-    init(coreMidiManager: CoreMidiManagerType,
-         audioUnitComponentsLibrary: AudioUnitComponentsLibraryType) {
-        self.coreMidiManager = coreMidiManager
+    init(
+//        coreMidiManager: CoreMidiManagerType,
+         audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
+    ) {
+//        self.coreMidiManager = coreMidiManager
         self.audioUnitComponentsLibrary = audioUnitComponentsLibrary
     }
 
     func load(componentId: String) async -> AUAudioUnit? {
-        coreMidiManager.teardownMIDI()
+//        coreMidiManager.teardownMIDI()
         removeCurrentNode()
 
-        guard let componentDescription = await audioUnitComponentsLibrary.componentDescription(for: componentId) else {
+        guard let componentDescription = audioUnitComponentsLibrary.components.first(where: { $0.id == componentId })?.componentDescription else {
             return nil
         }
 
@@ -54,7 +56,7 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType, @unchecked Sendable {
 
             try engine.start()
 
-            coreMidiManager.setupMIDI(for: currentAudioUnit)
+//            coreMidiManager.setupMIDI(for: currentAudioUnit)
 
             return currentAudioUnit
         } catch {
@@ -69,49 +71,5 @@ final class AudioUnitHostEngine: AudioUnitHostEngineType, @unchecked Sendable {
             engine.detach(node)
             currentAVAudioUnit = nil
         }
-    }
-}
-
-struct AudioUnitComponent: Sendable {
-    let id: String
-    let name: String
-    let manufacturer: String
-    let componentDescription: AudioComponentDescription
-}
-
-protocol AudioUnitComponentsLibraryType: Sendable {
-    var components: [AudioUnitComponent] { get async }
-    func componentDescription(for componentId: String) async -> AudioComponentDescription?
-}
-
-final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType, @unchecked Sendable {
-    var components: [AudioUnitComponent] {
-        get async {
-            await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    var desc = AudioComponentDescription()
-                    desc.componentType = kAudioUnitType_MusicDevice
-                    desc.componentSubType = 0
-                    desc.componentManufacturer = 0
-                    desc.componentFlags = 0
-                    desc.componentFlagsMask = 0
-
-                    let found = AVAudioUnitComponentManager.shared().components(matching: desc)
-                    let mapped = found.map { component in
-                        AudioUnitComponent(
-                            id: "\(component.manufacturerName).\(component.name)",
-                            name: component.name,
-                            manufacturer: component.manufacturerName,
-                            componentDescription: component.audioComponentDescription
-                        )
-                    }
-                    continuation.resume(returning: mapped)
-                }
-            }
-        }
-    }
-
-    func componentDescription(for componentId: String) async -> AudioComponentDescription? {
-        await components.first(where: { $0.id == componentId })?.componentDescription
     }
 }

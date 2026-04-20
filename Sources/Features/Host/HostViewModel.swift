@@ -35,7 +35,7 @@ final class HostViewModel: HostViewModelType {
     func accept(action: HostViewModelAction) async {
         switch action {
         case .task:
-            state.instruments = await library.components.map(AudioUnitViewState.init)
+            state.instruments = library.components.map(AudioUnitViewState.init)
         case .selected(let component):
             state.selectedID = component.id
             state.audioUnit = nil

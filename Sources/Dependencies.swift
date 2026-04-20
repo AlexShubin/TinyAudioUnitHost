@@ -15,7 +15,10 @@ struct Dependencies: Sendable {
         let library = AudioUnitComponentsLibrary()
 
         return HostViewModel(
-            engine: AudioUnitHostEngine(coreMidiManager: CoreMidiManager(), audioUnitComponentsLibrary: library),
+            engine: AudioUnitHostEngine(
+//                coreMidiManager: CoreMidiManager(),
+                audioUnitComponentsLibrary: library
+            ),
             library: library
         )
     }

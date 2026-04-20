@@ -14,7 +14,7 @@ protocol CoreMidiManagerType {
     func teardownMIDI()
 }
 
-class CoreMidiManager: CoreMidiManagerType {
+final class CoreMidiManager: CoreMidiManagerType {
     private var midiClient = MIDIClientRef()
     private var midiInputPort = MIDIPortRef()
     private var midiSetUp = false
