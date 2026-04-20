@@ -18,9 +18,9 @@ struct HostView: View {
                 instruments: viewModel.state.instruments,
                 selectedID: Binding(
                     get: { viewModel.state.selectedID },
-                    set: { newID in
-                        if let component = viewModel.state.instruments.first(where: { $0.id == newID }) {
-                            Task { await viewModel.accept(action: .selected(component)) }
+                    set: { id in
+                        if let id {
+                            Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
                         }
                     }
                 )

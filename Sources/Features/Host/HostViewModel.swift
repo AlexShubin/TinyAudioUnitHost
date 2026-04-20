@@ -11,7 +11,7 @@ import Observation
 
 enum HostViewModelAction {
     case task
-    case selected(AudioUnitViewState)
+    case selected(audioUnitId: String)
 }
 
 @MainActor
@@ -36,10 +36,10 @@ final class HostViewModel: HostViewModelType {
         switch action {
         case .task:
             state.instruments = library.components.map(AudioUnitViewState.init)
-        case .selected(let component):
-            state.selectedID = component.id
+        case .selected(let id):
+            state.selectedID = id
             state.audioUnit = nil
-            state.audioUnit = await engine.load(componentId: component.id)
+            state.audioUnit = await engine.load(componentId: id)
         }
     }
 }
