@@ -25,8 +25,8 @@ struct HostView: View {
                     }
                 )
             ) {
-                ForEach(viewModel.state.instruments) { instrument in
-                    Text(instrument.name).tag(Optional(instrument.id))
+                ForEach(viewModel.state.audioUnits) { instrument in
+                    Text(instrument.name).tag(instrument.id)
                 }
             }
             .pickerStyle(.automatic)
@@ -52,25 +52,26 @@ struct HostView: View {
     }
 }
 
-struct AudioUnitViewState: Identifiable, Equatable {
-    let id: String
-    let name: String
-    let manufacturer: String
-}
+
 
 // MARK: - View State
 
 struct HostViewState {
-    var instruments: [AudioUnitViewState]
+    var audioUnits: [AudioUnitViewState]
     var selectedID: String?
     var audioUnit: AUAudioUnit?
+}
+
+struct AudioUnitViewState: Identifiable, Equatable {
+    let id: String
+    let name: String
 }
 
 // MARK: - Preview
 
 @MainActor @Observable
 private class PreviewHostViewModel: HostViewModelType {
-    var state = HostViewState(instruments: [], selectedID: nil, audioUnit: nil)
+    var state = HostViewState(audioUnits: [], selectedID: nil, audioUnit: nil)
     func accept(action: HostViewModelAction) async {}
 }
 
