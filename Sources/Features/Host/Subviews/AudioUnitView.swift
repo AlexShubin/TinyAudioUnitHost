@@ -35,10 +35,6 @@ final class AudioUnitContainerViewController: NSViewController {
     var onSizeChange: ((CGSize) -> Void)?
     private var auViewController: NSViewController?
 
-    override func loadView() {
-        view = NSView()
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         loadAudioUnitView()
@@ -51,9 +47,9 @@ final class AudioUnitContainerViewController: NSViewController {
 
         guard let audioUnit else { return }
 
-        audioUnit.requestViewController { [weak self] viewController in
+        audioUnit.requestViewController { viewController in
             guard let viewController else { return }
-            Task { @MainActor in
+            DispatchQueue.main.async { [weak self] in
                 self?.install(viewController: viewController)
             }
         }
