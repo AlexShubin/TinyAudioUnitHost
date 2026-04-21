@@ -22,21 +22,23 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
     let components: [AudioUnitComponent]
 
     init() {
-        var desc = AudioComponentDescription()
-        desc.componentType = kAudioUnitType_MusicDevice
-        desc.componentSubType = 0
-        desc.componentManufacturer = 0
-        desc.componentFlags = 0
-        desc.componentFlagsMask = 0
-
-        let found = AVAudioUnitComponentManager.shared().components(matching: desc)
-        components = found.map { component in
-            AudioUnitComponent(
-                id: "\(component.manufacturerName).\(component.name)",
-                name: component.name,
-                manufacturer: component.manufacturerName,
-                componentDescription: component.audioComponentDescription
-            )
-        }
+        AVAudioUnitComponentManager.shared()
+            .components(matching: AudioComponentDescription(
+                componentType: 0,
+                componentSubType: 0,
+                componentManufacturer: 0,
+                componentFlags: 0,
+                componentFlagsMask: 0
+            ))
+            .found
+            .map { component in
+                AudioUnitComponent(
+                    id: "\(component.manufacturerName).\(component.name)",
+                    name: component.name,
+                    manufacturer: component.manufacturerName,
+                    componentDescription: component.audioComponentDescription
+                )
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }

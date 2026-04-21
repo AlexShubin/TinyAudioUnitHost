@@ -25,12 +25,14 @@ let project = Project(
             deploymentTargets: .macOS("26.0"),
             infoPlist: .extendingDefault(with: [
                 "NSMicrophoneUsageDescription": "Audio Unit hosting requires audio access.",
+                "CFBundleIconName": "AppIcon",
             ]),
             sources: ["Sources/**"],
             resources: ["Resources/**"],
             settings: .settings(
                 base: [
                     "ENABLE_APP_SANDBOX": "NO",
+                    "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                 ]
             )
         ),

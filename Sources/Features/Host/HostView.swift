@@ -13,9 +13,9 @@ struct HostView: View {
     @State var viewModel: HostViewModelType
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Picker(
-                "Instrument",
+        NavigationSplitView {
+            List(
+                viewModel.state.audioUnits,
                 selection: Binding(
                     get: { viewModel.state.selectedID },
                     set: { id in
@@ -24,27 +24,20 @@ struct HostView: View {
                         }
                     }
                 )
-            ) {
-                ForEach(viewModel.state.audioUnits) { instrument in
-                    Text(instrument.name).tag(instrument.id)
-                }
+            ) { instrument in
+                Text(instrument.name).tag(instrument.id)
             }
-            .pickerStyle(.automatic)
-            .padding(16)
-
-            Group {
-                if let audioUnit = viewModel.state.audioUnit {
-                    AudioUnitView(audioUnit: audioUnit)
-                } else if viewModel.state.selectedID != nil {
-                    ProgressView("Loading Audio Unit...")
-                        .frame(width: 480, height: 320)
-                } else {
-                    Text("Select an instrument")
-                        .foregroundStyle(.secondary)
-                        .frame(width: 480, height: 320)
-                }
+        } detail: {
+            if let audioUnit = viewModel.state.audioUnit {
+                AudioUnitView(audioUnit: audioUnit)
+            } else if viewModel.state.selectedID != nil {
+                ProgressView("Loading Audio Unit...")
+                    .frame(width: 480, height: 320)
+            } else {
+                Text("Select an instrument")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 480, height: 320)
             }
-            .background(Color.gray.opacity(0.1))
         }
         .task {
             await viewModel.accept(action: .task)
