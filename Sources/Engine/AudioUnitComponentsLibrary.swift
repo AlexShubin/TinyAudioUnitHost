@@ -22,7 +22,7 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
     let components: [AudioUnitComponent]
 
     init() {
-        AVAudioUnitComponentManager.shared()
+        components = AVAudioUnitComponentManager.shared()
             .components(matching: AudioComponentDescription(
                 componentType: 0,
                 componentSubType: 0,
@@ -30,7 +30,6 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
                 componentFlags: 0,
                 componentFlagsMask: 0
             ))
-            .found
             .map { component in
                 AudioUnitComponent(
                     id: "\(component.manufacturerName).\(component.name)",
