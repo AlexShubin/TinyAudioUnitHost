@@ -14,7 +14,6 @@ struct HostView: View {
     var body: some View {
         NavigationSplitView {
             List(
-                viewModel.state.components,
                 selection: Binding(
                     get: { viewModel.state.selectedComponent },
                     set: { component in
@@ -23,15 +22,32 @@ struct HostView: View {
                         }
                     }
                 )
-            ) { instrument in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(instrument.name)
-                    Text(instrument.manufacturer)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            ) {
+                ForEach(viewModel.state.groups) { group in
+                    Section(
+                        isExpanded: Binding(
+                            get: { group.isExpanded },
+                            set: { isExpanded in
+                                Task {
+                                    await viewModel.accept(
+                                        action: .groupExpansionChanged(
+                                            manufacturer: group.manufacturer,
+                                            isExpanded: isExpanded
+                                        )
+                                    )
+                                }
+                            }
+                        )
+                    ) {
+                        ForEach(group.components) { component in
+                            Text(component.name).tag(component)
+                        }
+                    } header: {
+                        Text(group.manufacturer)
+                    }
                 }
-                .tag(instrument)
             }
+            .listStyle(.sidebar)
         } detail: {
             if let audioUnit = viewModel.state.audioUnit {
                 AudioUnitView(audioUnit: audioUnit)
@@ -55,11 +71,19 @@ struct HostView: View {
 // MARK: - View State
 
 struct HostViewState {
-    var components: [AudioUnitComponent]
+    var groups: [ManufacturerGroup]
     var selectedComponent: AudioUnitComponent?
     var audioUnit: LoadedAudioUnit?
 
     static var initial: Self {
-        .init(components: [], selectedComponent: nil, audioUnit: nil)
+        .init(groups: [], selectedComponent: nil, audioUnit: nil)
     }
+}
+
+struct ManufacturerGroup: Identifiable, Hashable {
+    let manufacturer: String
+    let components: [AudioUnitComponent]
+    var isExpanded: Bool
+
+    var id: String { manufacturer }
 }
