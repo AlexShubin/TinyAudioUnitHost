@@ -7,9 +7,10 @@
 //
 
 @preconcurrency import AVFoundation
+@preconcurrency import CoreAudioKit
 
 protocol AudioUnitHostEngineType: Observable, Sendable {
-    func load(componentId: String) async -> AUAudioUnit?
+    func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
 }
 
 final actor AudioUnitHostEngine: AudioUnitHostEngineType {
@@ -17,31 +18,23 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private var currentAVAudioUnit: AVAudioUnit?
 
     private let coreMidiManager: CoreMidiManagerType
-    private let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
 
     init(
-        coreMidiManager: CoreMidiManagerType,
-         audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
+        coreMidiManager: CoreMidiManagerType
     ) {
         self.coreMidiManager = coreMidiManager
-        self.audioUnitComponentsLibrary = audioUnitComponentsLibrary
     }
 
-    func load(componentId: String) async -> AUAudioUnit? {
+    func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
         coreMidiManager.teardownMIDI()
         removeCurrentNode()
 
-        guard let componentDescription = audioUnitComponentsLibrary.components.first(where: { $0.id == componentId })?.componentDescription else {
-            return nil
-        }
-
         do {
             let avAudioUnit = try await AVAudioUnit.instantiate(
-                with: componentDescription,
+                with: component.componentDescription,
                 options: .loadOutOfProcess
             )
 
-            let currentAudioUnit = avAudioUnit.auAudioUnit
             currentAVAudioUnit = avAudioUnit
 
             engine.attach(avAudioUnit)
@@ -56,9 +49,13 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
 
             try engine.start()
 
-            coreMidiManager.setupMIDI(for: currentAudioUnit)
+            coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
 
-            return currentAudioUnit
+            return LoadedAudioUnit(component: component) {
+                await withCheckedContinuation { continuation in
+                    avAudioUnit.auAudioUnit.requestViewController { continuation.resume(returning: $0) }
+                }
+            }
         } catch {
             return nil
         }

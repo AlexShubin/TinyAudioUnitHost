@@ -6,12 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioToolbox
 import Observation
 
 enum HostViewModelAction {
     case task
-    case selected(audioUnitId: String)
+    case selected(AudioUnitComponent)
 }
 
 @MainActor
@@ -22,7 +21,7 @@ protocol HostViewModelType: Observable {
 
 @MainActor @Observable
 final class HostViewModel: HostViewModelType {
-    private(set) var state = HostViewState(audioUnits: [], selectedID: nil, audioUnit: nil)
+    private(set) var state = HostViewState.initial
 
     @ObservationIgnored private let engine: AudioUnitHostEngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
@@ -35,18 +34,11 @@ final class HostViewModel: HostViewModelType {
     func accept(action: HostViewModelAction) async {
         switch action {
         case .task:
-            state.audioUnits = library.components.map(AudioUnitViewState.init)
-        case .selected(let id):
-            state.selectedID = id
+            state.components = library.components
+        case .selected(let component):
+            state.selectedComponent = component
             state.audioUnit = nil
-            state.audioUnit = await engine.load(componentId: id)
+            state.audioUnit = await engine.load(component: component)
         }
-    }
-}
-
-private extension AudioUnitViewState {
-    init(from audioUnitComponent: AudioUnitComponent) {
-        self.id = audioUnitComponent.id
-        self.name = audioUnitComponent.name
     }
 }

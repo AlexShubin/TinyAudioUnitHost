@@ -6,12 +6,10 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioToolbox
-import CoreAudioKit
 import SwiftUI
 
 struct AudioUnitView: View {
-    let audioUnit: AUAudioUnit
+    let audioUnit: LoadedAudioUnit
     @State private var controller: NSViewController?
     @State private var size = CGSize(width: 480, height: 320)
 
@@ -23,9 +21,9 @@ struct AudioUnitView: View {
                     Representable(controller: controller)
                 }
             }
-            .task(id: ObjectIdentifier(audioUnit)) {
+            .task(id: audioUnit.component.id) {
                 controller = nil
-                guard let vc = await audioUnit.requestViewControllerAsync() else { return }
+                guard let vc = await audioUnit.requestViewController() else { return }
                 controller = vc
 
                 for await newSize in vc.preferredContentSizeStream() {
@@ -40,15 +38,6 @@ private struct Representable: NSViewControllerRepresentable {
 
     func makeNSViewController(context: Context) -> NSViewController { controller }
     func updateNSViewController(_ controller: NSViewController, context: Context) {}
-}
-
-private extension AUAudioUnit {
-    @MainActor
-    func requestViewControllerAsync() async -> NSViewController? {
-        await withCheckedContinuation { continuation in
-            requestViewController { continuation.resume(returning: $0) }
-        }
-    }
 }
 
 private extension NSViewController {

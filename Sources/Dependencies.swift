@@ -16,8 +16,7 @@ struct Dependencies: Sendable {
 
         return HostViewModel(
             engine: AudioUnitHostEngine(
-                coreMidiManager: CoreMidiManager(),
-                audioUnitComponentsLibrary: library
+                coreMidiManager: CoreMidiManager()
             ),
             library: library
         )

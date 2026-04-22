@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioToolbox
 import SwiftUI
 
 struct HostView: View {
@@ -15,22 +14,28 @@ struct HostView: View {
     var body: some View {
         NavigationSplitView {
             List(
-                viewModel.state.audioUnits,
+                viewModel.state.components,
                 selection: Binding(
-                    get: { viewModel.state.selectedID },
-                    set: { id in
-                        if let id {
-                            Task { await viewModel.accept(action: .selected(audioUnitId: id)) }
+                    get: { viewModel.state.selectedComponent },
+                    set: { component in
+                        if let component {
+                            Task { await viewModel.accept(action: .selected(component)) }
                         }
                     }
                 )
             ) { instrument in
-                Text(instrument.name).tag(instrument.id)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(instrument.name)
+                    Text(instrument.manufacturer)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .tag(instrument)
             }
         } detail: {
             if let audioUnit = viewModel.state.audioUnit {
                 AudioUnitView(audioUnit: audioUnit)
-            } else if viewModel.state.selectedID != nil {
+            } else if viewModel.state.selectedComponent != nil {
                 ProgressView("Loading Audio Unit...")
                     .frame(width: 480, height: 320)
             } else {
@@ -50,24 +55,11 @@ struct HostView: View {
 // MARK: - View State
 
 struct HostViewState {
-    var audioUnits: [AudioUnitViewState]
-    var selectedID: String?
-    var audioUnit: AUAudioUnit?
-}
+    var components: [AudioUnitComponent]
+    var selectedComponent: AudioUnitComponent?
+    var audioUnit: LoadedAudioUnit?
 
-struct AudioUnitViewState: Identifiable, Equatable {
-    let id: String
-    let name: String
-}
-
-// MARK: - Preview
-
-@MainActor @Observable
-private class PreviewHostViewModel: HostViewModelType {
-    var state = HostViewState(audioUnits: [], selectedID: nil, audioUnit: nil)
-    func accept(action: HostViewModelAction) async {}
-}
-
-#Preview {
-    HostView(viewModel: PreviewHostViewModel())
+    static var initial: Self {
+        .init(components: [], selectedComponent: nil, audioUnit: nil)
+    }
 }

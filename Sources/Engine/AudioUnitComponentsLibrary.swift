@@ -7,13 +7,6 @@
 
 import AVFoundation
 
-struct AudioUnitComponent: Sendable, Identifiable {
-    let id: String
-    let name: String
-    let manufacturer: String
-    let componentDescription: AudioComponentDescription
-}
-
 protocol AudioUnitComponentsLibraryType: Sendable {
     var components: [AudioUnitComponent] { get }
 }
@@ -32,7 +25,6 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
             ))
             .map { component in
                 AudioUnitComponent(
-                    id: "\(component.manufacturerName).\(component.name)",
                     name: component.name,
                     manufacturer: component.manufacturerName,
                     componentDescription: component.audioComponentDescription
