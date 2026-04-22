@@ -17,5 +17,9 @@ struct TinyAudioUnitHostApp: App {
             HostView(viewModel: dependencies.makeHostViewModel())
         }
         .windowResizability(.contentSize)
+
+        Settings {
+            SettingsView(viewModel: dependencies.makeSettingsViewModel())
+        }
     }
 }

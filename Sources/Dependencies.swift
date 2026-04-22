@@ -21,6 +21,10 @@ struct Dependencies: Sendable {
             library: library
         )
     }
+
+    @MainActor func makeSettingsViewModel() -> SettingsViewModelType {
+        SettingsViewModel()
+    }
 }
 
 // MARK: - Environment
