@@ -39,6 +39,8 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
 
             engine.attach(avAudioUnit)
 
+            setInputChannelMap([2, 3])
+
             let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
             let stereoFormat = AVAudioFormat(
                 standardFormatWithSampleRate: hardwareFormat.sampleRate,
@@ -61,6 +63,21 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         } catch {
             return nil
         }
+    }
+
+    private func setInputChannelMap(_ map: [Int32]) {
+        guard let inputAudioUnit = engine.inputNode.audioUnit else { return }
+        var mutableMap = map
+        let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
+        let status = AudioUnitSetProperty(
+            inputAudioUnit,
+            kAudioOutputUnitProperty_ChannelMap,
+            kAudioUnitScope_Output,
+            1,
+            &mutableMap,
+            size
+        )
+        assert(status == noErr, "Failed to set input channel map: \(status)")
     }
 
     private func removeCurrentNode() {
