@@ -16,6 +16,7 @@
 
 - MVVM with `@Observable` ViewModels
 - DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey`
+- Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Views, `*ViewState`, and `*Action` should traffic in domain model types defined in `Common/` (e.g., `AudioInputDevice`, not `AudioDeviceID`). Framework imports belong in `Engine/` and model definitions.
 
 ## Code Style
 

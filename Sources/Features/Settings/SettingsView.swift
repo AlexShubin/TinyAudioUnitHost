@@ -12,15 +12,44 @@ struct SettingsView: View {
     @State var viewModel: SettingsViewModelType
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "hammer.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("Under construction")
-                .font(.title2)
-                .foregroundStyle(.secondary)
+        Form {
+            Picker(
+                "Audio Input Device:",
+                selection: Binding<AudioInputDevice?>(
+                    get: { viewModel.state.selectedDevice },
+                    set: { device in
+                        guard let device else { return }
+                        Task { await viewModel.accept(action: .selectDevice(device)) }
+                    }
+                )
+            ) {
+                ForEach(viewModel.state.devices) { device in
+                    Text(device.name).tag(Optional(device))
+                }
+            }
+
+            if let device = viewModel.state.selectedDevice {
+                Section("Audio Input Channels") {
+                    ForEach(device.channels) { channel in
+                        Toggle(
+                            channel.name,
+                            isOn: Binding(
+                                get: { viewModel.state.selectedChannels.contains(channel) },
+                                set: { isOn in
+                                    Task {
+                                        await viewModel.accept(
+                                            action: .setChannel(channel, isOn: isOn)
+                                        )
+                                    }
+                                }
+                            )
+                        )
+                    }
+                }
+            }
         }
-        .frame(width: 480, height: 320)
+        .formStyle(.grouped)
+        .frame(width: 480, height: 400)
         .task {
             await viewModel.accept(action: .task)
         }
@@ -30,5 +59,11 @@ struct SettingsView: View {
 // MARK: - View State
 
 struct SettingsViewState {
-    static var initial: Self { .init() }
+    var devices: [AudioInputDevice]
+    var selectedDevice: AudioInputDevice?
+    var selectedChannels: Set<AudioInputChannel>
+
+    static var initial: Self {
+        .init(devices: [], selectedDevice: nil, selectedChannels: [])
+    }
 }

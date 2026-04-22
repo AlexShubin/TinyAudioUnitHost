@@ -23,7 +23,7 @@ struct Dependencies: Sendable {
     }
 
     @MainActor func makeSettingsViewModel() -> SettingsViewModelType {
-        SettingsViewModel()
+        SettingsViewModel(devicesProvider: AudioInputDevicesProvider())
     }
 }
 
