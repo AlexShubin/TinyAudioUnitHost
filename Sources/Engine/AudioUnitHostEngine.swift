@@ -44,6 +44,8 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
                 standardFormatWithSampleRate: hardwareFormat.sampleRate,
                 channels: 2
             )
+
+            engine.connect(engine.inputNode, to: avAudioUnit, format: stereoFormat)
             engine.connect(avAudioUnit, to: engine.mainMixerNode, format: stereoFormat)
             engine.connect(engine.mainMixerNode, to: engine.outputNode, format: hardwareFormat)
 
@@ -65,8 +67,14 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         if let node = currentAVAudioUnit {
             engine.stop()
             engine.disconnectNodeInput(engine.mainMixerNode)
+            engine.disconnectNodeOutput(engine.inputNode)
             engine.detach(node)
             currentAVAudioUnit = nil
         }
+    }
+
+    private func acceptsAudioInput(component: AudioUnitComponent) -> Bool {
+        let type = component.componentDescription.componentType
+        return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
     }
 }
