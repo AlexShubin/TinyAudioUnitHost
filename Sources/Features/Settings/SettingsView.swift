@@ -15,7 +15,7 @@ struct SettingsView: View {
         Form {
             Picker(
                 "Audio Input Device:",
-                selection: Binding<AudioInputDevice?>(
+                selection: Binding<AudioDevice?>(
                     get: { viewModel.state.selectedDevice },
                     set: { device in
                         guard let device else { return }
@@ -35,7 +35,7 @@ struct SettingsView: View {
                         Toggle(
                             channel.name,
                             isOn: Binding(
-                                get: { selected.contains(channel.id) },
+                                get: { selected.contains(channel) },
                                 set: { isOn in
                                     Task {
                                         await viewModel.accept(
@@ -45,7 +45,7 @@ struct SettingsView: View {
                                 }
                             )
                         )
-                        .disabled(selected.count == 2 && !selected.contains(channel.id))
+                        .disabled(selected.count == 2 && !selected.contains(channel))
                     }
                 }
             }
@@ -61,9 +61,9 @@ struct SettingsView: View {
 // MARK: - View State
 
 struct SettingsViewState {
-    var devices: [AudioInputDevice]
-    var selectedDevice: AudioInputDevice?
-    var selectedInputChannel: SelectedInputChannel?
+    var devices: [AudioDevice]
+    var selectedDevice: AudioDevice?
+    var selectedInputChannel: SelectedChannel?
 
     static var initial: Self {
         .init(devices: [], selectedDevice: nil, selectedInputChannel: nil)

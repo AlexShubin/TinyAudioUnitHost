@@ -7,8 +7,8 @@
 //
 
 struct AudioSettings: Sendable, Equatable {
-    var device: AudioInputDevice?
-    var selectedInputChannel: SelectedInputChannel?
+    var inputDevice: AudioDevice?
+    var selectedInputChannel: SelectedChannel?
 
-    static let empty = AudioSettings(device: nil, selectedInputChannel: nil)
+    static let empty = AudioSettings(inputDevice: nil, selectedInputChannel: nil)
 }

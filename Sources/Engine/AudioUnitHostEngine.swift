@@ -11,13 +11,13 @@
 
 protocol AudioUnitHostEngineType: Observable, Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
-    func setSelectedInputChannel(_ selection: SelectedInputChannel?) async
+    func setSelectedInputChannel(_ selection: SelectedChannel?) async
 }
 
 final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
-    private var selectedInputChannel: SelectedInputChannel?
+    private var selectedInputChannel: SelectedChannel?
 
     private let coreMidiManager: CoreMidiManagerType
 
@@ -55,7 +55,7 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         }
     }
 
-    func setSelectedInputChannel(_ selection: SelectedInputChannel?) async {
+    func setSelectedInputChannel(_ selection: SelectedChannel?) async {
         selectedInputChannel = selection
         guard let avAudioUnit = currentAVAudioUnit else { return }
         engine.stop()
@@ -89,18 +89,18 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
     }
 
-    private func auInputChannelCount(for selection: SelectedInputChannel) -> UInt32 {
+    private func auInputChannelCount(for selection: SelectedChannel) -> UInt32 {
         switch selection {
         case .mono: return 1
         case .stereo: return 2
         }
     }
 
-    private func channelMap(for selection: SelectedInputChannel) -> [Int32] {
-        // SelectedInputChannel ids are 1-indexed; CoreAudio channel maps are 0-indexed.
+    private func channelMap(for selection: SelectedChannel) -> [Int32] {
+        // AudioChannel ids are 1-indexed; CoreAudio channel maps are 0-indexed.
         switch selection {
-        case .mono(let id): return [Int32(id) - 1]
-        case .stereo(let l, let r): return [Int32(l) - 1, Int32(r) - 1]
+        case .mono(let l): return [Int32(l.id) - 1]
+        case .stereo(let l, let r): return [Int32(l.id) - 1, Int32(r.id) - 1]
         }
     }
 

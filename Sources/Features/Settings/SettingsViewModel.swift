@@ -10,8 +10,8 @@ import Observation
 
 enum SettingsViewModelAction {
     case task
-    case selectDevice(AudioInputDevice)
-    case setChannel(AudioInputDevice.InputChannel, isOn: Bool)
+    case selectDevice(AudioDevice)
+    case setChannel(AudioChannel, isOn: Bool)
 }
 
 @MainActor
@@ -24,12 +24,12 @@ protocol SettingsViewModelType: Observable {
 final class SettingsViewModel: SettingsViewModelType {
     private(set) var state = SettingsViewState.initial
 
-    @ObservationIgnored private let devicesProvider: AudioInputDevicesProviderType
+    @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
     @ObservationIgnored private let engine: AudioUnitHostEngineType
 
     init(
-        devicesProvider: AudioInputDevicesProviderType,
+        devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
         engine: AudioUnitHostEngineType
     ) {
@@ -41,10 +41,10 @@ final class SettingsViewModel: SettingsViewModelType {
     func accept(action: SettingsViewModelAction) async {
         switch action {
         case .task:
-            state.devices = devicesProvider.inputDevices()
+            state.devices = devicesProvider.devices()
             guard state.selectedDevice == nil else { return }
             let stored = await settingsStore.current()
-            if let storedDevice = stored.device, state.devices.contains(storedDevice) {
+            if let storedDevice = stored.inputDevice, state.devices.contains(storedDevice) {
                 state.selectedDevice = storedDevice
                 state.selectedInputChannel = stored.selectedInputChannel
             } else {
@@ -61,10 +61,10 @@ final class SettingsViewModel: SettingsViewModelType {
             var selected = state.selectedInputChannel?.channels ?? []
 
             if isOn && selected.count < 2 {
-                selected.append(channel.id)
-                selected.sort()
+                selected.append(channel)
+                selected.sort { $0.id < $1.id }
             } else {
-                selected.removeAll { $0 == channel.id }
+                selected.removeAll { $0 == channel }
             }
 
             state.selectedInputChannel = .init(from: selected)
@@ -76,7 +76,7 @@ final class SettingsViewModel: SettingsViewModelType {
     private func persist() async {
         await settingsStore.update(
             AudioSettings(
-                device: state.selectedDevice,
+                inputDevice: state.selectedDevice,
                 selectedInputChannel: state.selectedInputChannel
             )
         )

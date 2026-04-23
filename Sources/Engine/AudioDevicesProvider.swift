@@ -1,5 +1,5 @@
 //
-//  AudioInputDevicesProvider.swift
+//  AudioDevicesProvider.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 22.04.26.
@@ -8,25 +8,25 @@
 
 import CoreAudio
 
-protocol AudioInputDevicesProviderType: Sendable {
-    func inputDevices() -> [AudioInputDevice]
+protocol AudioDevicesProviderType: Sendable {
+    func devices() -> [AudioDevice]
 }
 
-struct AudioInputDevicesProvider: AudioInputDevicesProviderType {
-    func inputDevices() -> [AudioInputDevice] {
+struct AudioDevicesProvider: AudioDevicesProviderType {
+    func devices() -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
         return ids.compactMap(makeInputDevice(id:))
     }
 
-    private func makeInputDevice(id: AudioDeviceID) -> AudioInputDevice? {
+    private func makeInputDevice(id: AudioDeviceID) -> AudioDevice? {
         let count = inputChannelCount(deviceID: id)
         guard count > 0 else { return nil }
         let name: String = id.getString(selector: kAudioObjectPropertyName) ?? "Unknown device"
         let channels = (1...count).map {
-            AudioInputDevice.InputChannel(id: UInt32($0), name: "Channel \($0)")
+            AudioChannel(id: UInt32($0), name: "Channel \($0)")
         }
-        return AudioInputDevice(id: id, name: name, inputChannels: channels)
+        return AudioDevice(id: id, name: name, inputChannels: channels)
     }
 
     private func inputChannelCount(deviceID: AudioDeviceID) -> Int {
