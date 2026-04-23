@@ -6,10 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreAudio
-
 struct AudioDevice: Sendable, Identifiable, Hashable {
-    let id: AudioDeviceID
+    let id: UInt32
     let name: String
     let inputChannels: [AudioChannel]
 }
