@@ -114,7 +114,7 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
         case .input:
             await engine.setSelectedInputChannel(selectedChannel)
         case .output:
-            break
+            await engine.setSelectedOutputChannel(selectedChannel)
         }
     }
 }

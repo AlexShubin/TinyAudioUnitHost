@@ -12,12 +12,14 @@
 protocol AudioUnitHostEngineType: Observable, Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
     func setSelectedInputChannel(_ selection: SelectedChannel?) async
+    func setSelectedOutputChannel(_ selection: SelectedChannel?) async
 }
 
 final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
     private var selectedInputChannel: SelectedChannel?
+    private var selectedOutputChannel: SelectedChannel?
 
     private let coreMidiManager: CoreMidiManagerType
 
@@ -57,6 +59,15 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
 
     func setSelectedInputChannel(_ selection: SelectedChannel?) async {
         selectedInputChannel = selection
+        rebuildGraph()
+    }
+
+    func setSelectedOutputChannel(_ selection: SelectedChannel?) async {
+        selectedOutputChannel = selection
+        rebuildGraph()
+    }
+
+    private func rebuildGraph() {
         guard let avAudioUnit = currentAVAudioUnit else { return }
         engine.stop()
         engine.disconnectNodeInput(engine.mainMixerNode)
@@ -75,9 +86,9 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         if acceptsAudioInput(avAudioUnit), let selection = selectedInputChannel {
             let inputFormat = AVAudioFormat(
                 standardFormatWithSampleRate: hardwareFormat.sampleRate,
-                channels: auInputChannelCount(for: selection)
+                channels: channelCount(for: selection)
             )
-            setInputChannelMap(channelMap(for: selection))
+            setInputChannelMap(for: selection)
             engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
         }
 
@@ -87,36 +98,67 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         )
 
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
+
+        if let selection = selectedOutputChannel {
+            setOutputChannelMap(for: selection)
+        }
     }
 
-    private func auInputChannelCount(for selection: SelectedChannel) -> UInt32 {
+    private func channelCount(for selection: SelectedChannel) -> UInt32 {
         switch selection {
         case .mono: return 1
         case .stereo: return 2
         }
     }
 
-    private func channelMap(for selection: SelectedChannel) -> [Int32] {
-        // AudioChannel ids are 1-indexed; CoreAudio channel maps are 0-indexed.
-        switch selection {
-        case .mono(let l): return [Int32(l.id) - 1]
-        case .stereo(let l, let r): return [Int32(l.id) - 1, Int32(r.id) - 1]
-        }
+    private func setInputChannelMap(for selection: SelectedChannel) {
+        guard let inputAudioUnit = engine.inputNode.audioUnit else { return }
+        // Input HAL: length = virtual channels, map[virtual] = physical (0-indexed).
+        let map: [Int32] = selection.channels.map { Int32($0.id) - 1 }
+        setChannelMap(map, on: inputAudioUnit, element: 1)
     }
 
-    private func setInputChannelMap(_ map: [Int32]) {
-        guard let inputAudioUnit = engine.inputNode.audioUnit else { return }
+    private func setOutputChannelMap(for selection: SelectedChannel) {
+        guard let outputAudioUnit = engine.outputNode.audioUnit,
+              let physicalCount = physicalChannelCount(of: outputAudioUnit)
+        else { return }
+        // Output HAL: length = physical channels, map[physical] = virtual (0-indexed) or -1.
+        var map = [Int32](repeating: -1, count: physicalCount)
+        for (virtualIdx, channel) in selection.channels.enumerated() {
+            let physicalIdx = Int(channel.id) - 1
+            guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
+            map[physicalIdx] = Int32(virtualIdx)
+        }
+        setChannelMap(map, on: outputAudioUnit, element: 0)
+    }
+
+    private func physicalChannelCount(of audioUnit: AudioUnit) -> Int? {
+        var streamFormat = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = AudioUnitGetProperty(
+            audioUnit,
+            kAudioUnitProperty_StreamFormat,
+            kAudioUnitScope_Output,
+            0,
+            &streamFormat,
+            &size
+        )
+        guard status == noErr else { return nil }
+        return Int(streamFormat.mChannelsPerFrame)
+    }
+
+    private func setChannelMap(_ map: [Int32], on audioUnit: AudioUnit, element: AudioUnitElement) {
         var mutableMap = map
         let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
         let status = AudioUnitSetProperty(
-            inputAudioUnit,
+            audioUnit,
             kAudioOutputUnitProperty_ChannelMap,
             kAudioUnitScope_Output,
-            1,
+            element,
             &mutableMap,
             size
         )
-        assert(status == noErr, "Failed to set input channel map: \(status)")
+        assert(status == noErr, "Failed to set channel map: \(status)")
     }
 
     private func removeCurrentNode() {
