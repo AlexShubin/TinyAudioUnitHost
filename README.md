@@ -29,5 +29,3 @@ Then open `TinyAudioUnitHost.xcworkspace` in Xcode and run.
 1. Add tests.
 2. **Audio settings** — pick input/output channels, sample rate, and buffer size.
 3. **Presets** — save and restore AU state between launches.
-
-🚀 Feel free to use any code here to build more complex apps. If you're only interested in the hosting engine, check out [`AudioUnitHostEngine.swift`](Sources/Engine/AudioUnitHostEngine.swift).
