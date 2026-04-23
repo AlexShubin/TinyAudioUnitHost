@@ -71,23 +71,28 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
 
     private func connectGraph(for avAudioUnit: AVAudioUnit) throws {
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
-        let auFormat = AVAudioFormat(
+
+        if acceptsAudioInput(avAudioUnit), let selection = selectedInputChannel {
+            let inputFormat = AVAudioFormat(
+                standardFormatWithSampleRate: hardwareFormat.sampleRate,
+                channels: auInputChannelCount(for: selection)
+            )
+            setInputChannelMap(channelMap(for: selection))
+            engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
+        }
+
+        let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: auChannelCount(for: selectedInputChannel)
+            channels: 2
         )
 
-        if let selection = selectedInputChannel {
-            setInputChannelMap(channelMap(for: selection))
-            engine.connect(engine.inputNode, to: avAudioUnit, format: auFormat)
-        }
-        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: auFormat)
-        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: hardwareFormat)
+        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
     }
 
-    private func auChannelCount(for selection: SelectedInputChannel?) -> UInt32 {
+    private func auInputChannelCount(for selection: SelectedInputChannel) -> UInt32 {
         switch selection {
         case .mono: return 1
-        case .stereo, nil: return 2
+        case .stereo: return 2
         }
     }
 
@@ -124,8 +129,8 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         }
     }
 
-    private func acceptsAudioInput(component: AudioUnitComponent) -> Bool {
-        let type = component.componentDescription.componentType
+    private func acceptsAudioInput(_ avAudioUnit: AVAudioUnit) -> Bool {
+        let type = avAudioUnit.audioComponentDescription.componentType
         return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
     }
 }
