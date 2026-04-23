@@ -11,10 +11,12 @@ import CoreAudio
 struct AudioInputDevice: Sendable, Identifiable, Hashable {
     let id: AudioDeviceID
     let name: String
-    let channels: [AudioInputChannel]
+    let inputChannels: [InputChannel]
+
+    struct InputChannel: Sendable, Identifiable, Hashable {
+        let id: UInt32
+        let name: String
+    }
 }
 
-struct AudioInputChannel: Sendable, Identifiable, Hashable {
-    let id: UInt32
-    let name: String
-}
+

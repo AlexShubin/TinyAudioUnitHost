@@ -24,9 +24,9 @@ struct AudioInputDevicesProvider: AudioInputDevicesProviderType {
         guard count > 0 else { return nil }
         let name: String = id.getString(selector: kAudioObjectPropertyName) ?? "Unknown device"
         let channels = (1...count).map {
-            AudioInputChannel(id: UInt32($0), name: "Channel \($0)")
+            AudioInputDevice.InputChannel(id: UInt32($0), name: "Channel \($0)")
         }
-        return AudioInputDevice(id: id, name: name, channels: channels)
+        return AudioInputDevice(id: id, name: name, inputChannels: channels)
     }
 
     private func inputChannelCount(deviceID: AudioDeviceID) -> Int {

@@ -30,11 +30,12 @@ struct SettingsView: View {
 
             if let device = viewModel.state.selectedDevice {
                 Section("Audio Input Channels") {
-                    ForEach(device.channels) { channel in
+                    ForEach(device.inputChannels) { channel in
+                        let selected = viewModel.state.selectedInputChannel?.channels ?? []
                         Toggle(
                             channel.name,
                             isOn: Binding(
-                                get: { viewModel.state.selectedChannels.contains(channel) },
+                                get: { selected.contains(channel.id) },
                                 set: { isOn in
                                     Task {
                                         await viewModel.accept(
@@ -44,6 +45,7 @@ struct SettingsView: View {
                                 }
                             )
                         )
+                        .disabled(selected.count == 2 && !selected.contains(channel.id))
                     }
                 }
             }
@@ -61,9 +63,9 @@ struct SettingsView: View {
 struct SettingsViewState {
     var devices: [AudioInputDevice]
     var selectedDevice: AudioInputDevice?
-    var selectedChannels: Set<AudioInputChannel>
+    var selectedInputChannel: SelectedInputChannel?
 
     static var initial: Self {
-        .init(devices: [], selectedDevice: nil, selectedChannels: [])
+        .init(devices: [], selectedDevice: nil, selectedInputChannel: nil)
     }
 }

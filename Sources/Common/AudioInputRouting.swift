@@ -8,7 +8,7 @@
 
 struct AudioInputRouting: Sendable, Equatable {
     var device: AudioInputDevice?
-    var channels: [AudioInputChannel]
+    var channels: [AudioInputDevice.InputChannel]
 
     static let empty = AudioInputRouting(device: nil, channels: [])
 }

@@ -11,7 +11,7 @@ import Observation
 enum SettingsViewModelAction {
     case task
     case selectDevice(AudioInputDevice)
-    case setChannel(AudioInputChannel, isOn: Bool)
+    case setChannel(AudioInputDevice.InputChannel, isOn: Bool)
 }
 
 @MainActor
@@ -40,13 +40,18 @@ final class SettingsViewModel: SettingsViewModelType {
         case .selectDevice(let device):
             guard state.selectedDevice != device else { return }
             state.selectedDevice = device
-            state.selectedChannels = []
-        case .setChannel(let channel, let isOn):
-            if isOn {
-                state.selectedChannels.insert(channel)
+            state.selectedInputChannel = nil
+        case let .setChannel(channel, isOn):
+            var selected = state.selectedInputChannel?.channels ?? []
+
+            if isOn && selected.count < 2 {
+                selected.append(channel.id)
+                selected.sort()
             } else {
-                state.selectedChannels.remove(channel)
+                selected.removeAll { $0 == channel.id }
             }
+
+            state.selectedInputChannel = .init(from: selected)
         }
     }
 }
