@@ -51,10 +51,10 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
         case .task:
             devices = devicesProvider.devices().filter { !channels(in: $0).isEmpty }
             guard selectedDevice == nil else { return }
-            let stored = await settingsStore.current()
-            if let storedDevice = storedDevice(in: stored), devices.contains(storedDevice) {
+            let stored = slice(in: await settingsStore.current())
+            if let storedDevice = stored.device, devices.contains(storedDevice) {
                 selectedDevice = storedDevice
-                selectedChannel = storedChannel(in: stored)
+                selectedChannel = stored.selectedChannel
             } else {
                 selectedDevice = devices.first
             }
@@ -86,31 +86,26 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
         }
     }
 
-    private func storedDevice(in settings: AudioSettings) -> AudioDevice? {
+    private func slice(in settings: AudioSettings) -> DeviceSettings {
         switch kind {
-        case .input: settings.inputDevice
-        case .output: nil
-        }
-    }
-
-    private func storedChannel(in settings: AudioSettings) -> SelectedChannel? {
-        switch kind {
-        case .input: settings.selectedInputChannel
-        case .output: nil
+        case .input: settings.input
+        case .output: settings.output
         }
     }
 
     private func persist() async {
-        switch kind {
-        case .input:
-            await settingsStore.update(
-                AudioSettings(
-                    inputDevice: selectedDevice,
-                    selectedInputChannel: selectedChannel
-                )
-            )
-        case .output:
-            break
+        let kind = self.kind
+        let device = selectedDevice
+        let channel = selectedChannel
+        await settingsStore.update { settings in
+            switch kind {
+            case .input:
+                settings.input.device = device
+                settings.input.selectedChannel = channel
+            case .output:
+                settings.output.device = device
+                settings.output.selectedChannel = channel
+            }
         }
     }
 
