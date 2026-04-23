@@ -13,41 +13,9 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Picker(
-                "Audio Input Device:",
-                selection: Binding<AudioDevice?>(
-                    get: { viewModel.state.selectedDevice },
-                    set: { device in
-                        guard let device else { return }
-                        Task { await viewModel.accept(action: .selectDevice(device)) }
-                    }
-                )
-            ) {
-                ForEach(viewModel.state.devices) { device in
-                    Text(device.name).tag(Optional(device))
-                }
-            }
-
-            if let device = viewModel.state.selectedDevice {
-                Section("Audio Input Channels") {
-                    ForEach(device.inputChannels) { channel in
-                        let selected = viewModel.state.selectedInputChannel?.channels ?? []
-                        Toggle(
-                            channel.name,
-                            isOn: Binding(
-                                get: { selected.contains(channel) },
-                                set: { isOn in
-                                    Task {
-                                        await viewModel.accept(
-                                            action: .setChannel(channel, isOn: isOn)
-                                        )
-                                    }
-                                }
-                            )
-                        )
-                        .disabled(selected.count == 2 && !selected.contains(channel))
-                    }
-                }
+            HStack {
+                DevicePickerView(viewState: viewModel.state.inputDevicePciker)
+                DevicePickerView(viewState: viewModel.state.outputDevicePciker)
             }
         }
         .formStyle(.grouped)
@@ -61,11 +29,10 @@ struct SettingsView: View {
 // MARK: - View State
 
 struct SettingsViewState {
-    var devices: [AudioDevice]
-    var selectedDevice: AudioDevice?
-    var selectedInputChannel: SelectedChannel?
+    var inputDevicePciker: DevicePickerViewState
+    var outputDevicePciker: DevicePickerViewState
 
     static var initial: Self {
-        .init(devices: [], selectedDevice: nil, selectedInputChannel: nil)
+        .init(inputDevicePciker: .initial, outputDevicePciker: .initial)
     }
 }

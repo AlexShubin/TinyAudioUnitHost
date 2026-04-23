@@ -10,6 +10,7 @@ struct AudioDevice: Sendable, Identifiable, Hashable {
     let id: UInt32
     let name: String
     let inputChannels: [AudioChannel]
+    let outputChannels: [AudioChannel]
 }
 
 struct AudioChannel: Sendable, Identifiable, Hashable {

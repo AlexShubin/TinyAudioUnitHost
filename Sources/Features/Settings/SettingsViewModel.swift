@@ -41,48 +41,50 @@ final class SettingsViewModel: SettingsViewModelType {
     func accept(action: SettingsViewModelAction) async {
         switch action {
         case .task:
-            state.devices = devicesProvider.devices()
-            guard state.selectedDevice == nil else { return }
-            let stored = await settingsStore.current()
-            if let storedDevice = stored.inputDevice, state.devices.contains(storedDevice) {
-                state.selectedDevice = storedDevice
-                state.selectedInputChannel = stored.selectedInputChannel
-            } else {
-                state.selectedDevice = state.devices.first
-            }
-            await pushToEngine()
+            let devices = devicesProvider.devices()
+            state.inputDevicePciker.devices = devices
+            state.outputDevicePciker.devices = devices
+
+         //  let stored = await settingsStore.current()
+         //  if let storedDevice = stored.inputDevice, state.devices.contains(storedDevice) {
+         //      state.selectedDevice = storedDevice
+         //      state.selectedInputChannel = stored.selectedInputChannel
+         //  } else {
+         //      state.selectedDevice = state.devices.first
+         //  }
+         //  await pushToEngine()
         case .selectDevice(let device):
-            guard state.selectedDevice != device else { return }
-            state.selectedDevice = device
-            state.selectedInputChannel = nil
-            await persist()
-            await pushToEngine()
+         //   guard state.selectedDevice != device else { return }
+         //   state.selectedDevice = device
+         //   state.selectedInputChannel = nil
+         //   await persist()
+         //   await pushToEngine()
         case let .setChannel(channel, isOn):
-            var selected = state.selectedInputChannel?.channels ?? []
-
-            if isOn && selected.count < 2 {
-                selected.append(channel)
-                selected.sort { $0.id < $1.id }
-            } else {
-                selected.removeAll { $0 == channel }
-            }
-
-            state.selectedInputChannel = .init(from: selected)
-            await persist()
-            await pushToEngine()
+         //   var selected = state.selectedInputChannel?.channels ?? []
+//
+         //   if isOn && selected.count < 2 {
+         //       selected.append(channel)
+         //       selected.sort { $0.id < $1.id }
+         //   } else {
+         //       selected.removeAll { $0 == channel }
+         //   }
+//
+         //   state.selectedInputChannel = .init(from: selected)
+         //   await persist()
+         //   await pushToEngine()
         }
     }
 
     private func persist() async {
-        await settingsStore.update(
-            AudioSettings(
-                inputDevice: state.selectedDevice,
-                selectedInputChannel: state.selectedInputChannel
-            )
-        )
+      //  await settingsStore.update(
+      //      AudioSettings(
+      //          inputDevice: state.selectedDevice,
+      //          selectedInputChannel: state.selectedInputChannel
+      //      )
+      //  )
     }
 
     private func pushToEngine() async {
-        await engine.setSelectedInputChannel(state.selectedInputChannel)
+       // await engine.setSelectedInputChannel(state.selectedInputChannel)
     }
 }

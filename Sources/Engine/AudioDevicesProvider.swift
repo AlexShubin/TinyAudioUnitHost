@@ -20,20 +20,25 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
     }
 
     private func makeInputDevice(id: AudioDeviceID) -> AudioDevice? {
-        let count = inputChannelCount(deviceID: id)
-        guard count > 0 else { return nil }
+        let inputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeInput)
+        let outputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeOutput)
+        guard inputChannelCount > 0, outputChannelCount > 0 else { return nil }
         let name: String = id.getString(selector: kAudioObjectPropertyName) ?? "Unknown device"
-        let channels = (1...count).map {
+        let inputChannels = (1...inputChannelCount).map {
             AudioChannel(id: UInt32($0), name: "Channel \($0)")
         }
-        return AudioDevice(id: id, name: name, inputChannels: channels)
+        let outputChannels = (1...outputChannelCount).map {
+            AudioChannel(id: UInt32($0), name: "Channel \($0)")
+        }
+        return AudioDevice(id: id,
+                           name: name,
+                           inputChannels: inputChannels,
+                           outputChannels: outputChannels)
     }
 
-    private func inputChannelCount(deviceID: AudioDeviceID) -> Int {
-        let streamIDs: [AudioStreamID] = deviceID.getArray(
-            selector: kAudioDevicePropertyStreams,
-            scope: kAudioDevicePropertyScopeInput
-        )
+    private func channelCount(deviceID: AudioDeviceID, scope: AudioObjectPropertyScope) -> Int {
+        let streamIDs: [AudioStreamID] = deviceID.getArray(selector: kAudioDevicePropertyStreams,
+                                                           scope: scope)
         return streamIDs.reduce(0) { total, streamID in
             let format: AudioStreamBasicDescription? = streamID.getProperty(
                 selector: kAudioStreamPropertyPhysicalFormat,
