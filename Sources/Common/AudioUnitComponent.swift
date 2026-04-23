@@ -2,7 +2,8 @@
 //  AudioUnitComponent.swift
 //  TinyAudioUnitHost
 //
-//  Created by ashubin on 22.04.26.
+//  Created by Alex Shubin on 22.04.26.
+//  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AudioToolbox

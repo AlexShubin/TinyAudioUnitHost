@@ -2,7 +2,8 @@
 //  AudioUnitComponentsLibrary.swift
 //  TinyAudioUnitHost
 //
-//  Created by ashubin on 20.04.26.
+//  Created by Alex Shubin on 20.04.26.
+//  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AVFoundation
