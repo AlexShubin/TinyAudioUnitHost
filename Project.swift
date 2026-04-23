@@ -7,6 +7,7 @@ let project = Project(
             "SWIFT_VERSION": "6.0",
             "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
             "SWIFT_EMIT_LOC_STRINGS": "YES",
+            "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
             "CODE_SIGN_STYLE": "Manual",
             "CODE_SIGN_IDENTITY": "Apple Development",
             "DEVELOPMENT_TEAM": "",
@@ -27,8 +28,10 @@ let project = Project(
                 "NSMicrophoneUsageDescription": "Audio Unit hosting requires audio access.",
                 "CFBundleIconName": "AppIcon",
             ]),
-            sources: ["Sources/**"],
-            resources: ["Resources/**"],
+            buildableFolders: [
+                "Sources",
+                "Resources",
+            ],
             settings: .settings(
                 base: [
                     "ENABLE_APP_SANDBOX": "NO",
