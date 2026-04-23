@@ -25,22 +25,33 @@ final class SettingsViewModel: SettingsViewModelType {
     private(set) var state = SettingsViewState.initial
 
     @ObservationIgnored private let devicesProvider: AudioInputDevicesProviderType
+    @ObservationIgnored private let settingsStore: AudioSettingsStoreType
 
-    init(devicesProvider: AudioInputDevicesProviderType) {
+    init(
+        devicesProvider: AudioInputDevicesProviderType,
+        settingsStore: AudioSettingsStoreType
+    ) {
         self.devicesProvider = devicesProvider
+        self.settingsStore = settingsStore
     }
 
     func accept(action: SettingsViewModelAction) async {
         switch action {
         case .task:
             state.devices = devicesProvider.inputDevices()
-            if state.selectedDevice == nil {
+            guard state.selectedDevice == nil else { return }
+            let stored = await settingsStore.current()
+            if let storedDevice = stored.device, state.devices.contains(storedDevice) {
+                state.selectedDevice = storedDevice
+                state.selectedInputChannel = stored.selectedInputChannel
+            } else {
                 state.selectedDevice = state.devices.first
             }
         case .selectDevice(let device):
             guard state.selectedDevice != device else { return }
             state.selectedDevice = device
             state.selectedInputChannel = nil
+            await persist()
         case let .setChannel(channel, isOn):
             var selected = state.selectedInputChannel?.channels ?? []
 
@@ -52,6 +63,16 @@ final class SettingsViewModel: SettingsViewModelType {
             }
 
             state.selectedInputChannel = .init(from: selected)
+            await persist()
         }
+    }
+
+    private func persist() async {
+        await settingsStore.update(
+            AudioSettings(
+                device: state.selectedDevice,
+                selectedInputChannel: state.selectedInputChannel
+            )
+        )
     }
 }

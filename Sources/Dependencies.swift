@@ -9,7 +9,9 @@
 import SwiftUI
 
 struct Dependencies: Sendable {
-    static let live = Dependencies()
+    let audioSettingsStore: AudioSettingsStoreType
+
+    static let live = Dependencies(audioSettingsStore: AudioSettingsStore())
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         let library = AudioUnitComponentsLibrary()
@@ -23,7 +25,10 @@ struct Dependencies: Sendable {
     }
 
     @MainActor func makeSettingsViewModel() -> SettingsViewModelType {
-        SettingsViewModel(devicesProvider: AudioInputDevicesProvider())
+        SettingsViewModel(
+            devicesProvider: AudioInputDevicesProvider(),
+            settingsStore: audioSettingsStore
+        )
     }
 }
 
