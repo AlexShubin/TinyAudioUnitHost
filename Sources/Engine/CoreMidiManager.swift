@@ -30,27 +30,13 @@ final class CoreMidiManager: CoreMidiManagerType {
         }
         guard status == noErr else { return }
 
-        status = MIDIInputPortCreateWithBlock(midiClient, "Input" as CFString, &midiInputPort) { packetList, srcConnRefCon in
-            guard let noteBlock = audioUnit.scheduleMIDIEventBlock else {
-                return
-            }
-
-            let packets = packetList.pointee
-            var packet = packets.packet
-            for _ in 0..<packets.numPackets {
-                let length = Int(packet.length)
-                if length >= 1 {
-                    let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: length)
-                    withUnsafePointer(to: &packet.data) { tuplePtr in
-                        tuplePtr.withMemoryRebound(to: UInt8.self, capacity: length) { src in
-                            bytes.initialize(from: src, count: length)
-                        }
-                    }
-                    noteBlock(AUEventSampleTimeImmediate, 0, length, bytes)
-                    bytes.deallocate()
-                }
-                packet = MIDIPacketNext(&packet).pointee
-            }
+        status = MIDIInputPortCreateWithProtocol(
+            midiClient,
+            "Input" as CFString,
+            ._1_0,
+            &midiInputPort
+        ) { eventList, _ in
+            _ = audioUnit.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
         }
         guard status == noErr else { return }
 
