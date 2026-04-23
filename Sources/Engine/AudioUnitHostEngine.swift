@@ -11,11 +11,13 @@
 
 protocol AudioUnitHostEngineType: Observable, Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
+    func setSelectedInputChannel(_ selection: SelectedInputChannel?) async
 }
 
 final actor AudioUnitHostEngine: AudioUnitHostEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
+    private var selectedInputChannel: SelectedInputChannel?
 
     private let coreMidiManager: CoreMidiManagerType
 
@@ -36,21 +38,9 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
             )
 
             currentAVAudioUnit = avAudioUnit
-
             engine.attach(avAudioUnit)
 
-            setInputChannelMap([2, 3])
-
-            let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
-            let stereoFormat = AVAudioFormat(
-                standardFormatWithSampleRate: hardwareFormat.sampleRate,
-                channels: 2
-            )
-
-            engine.connect(engine.inputNode, to: avAudioUnit, format: stereoFormat)
-            engine.connect(avAudioUnit, to: engine.mainMixerNode, format: stereoFormat)
-            engine.connect(engine.mainMixerNode, to: engine.outputNode, format: hardwareFormat)
-
+            try connectGraph(for: avAudioUnit)
             try engine.start()
 
             coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
@@ -62,6 +52,50 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
             }
         } catch {
             return nil
+        }
+    }
+
+    func setSelectedInputChannel(_ selection: SelectedInputChannel?) async {
+        selectedInputChannel = selection
+        guard let avAudioUnit = currentAVAudioUnit else { return }
+        engine.stop()
+        engine.disconnectNodeInput(engine.mainMixerNode)
+        engine.disconnectNodeOutput(engine.inputNode)
+        do {
+            try connectGraph(for: avAudioUnit)
+            try engine.start()
+        } catch {
+            return
+        }
+    }
+
+    private func connectGraph(for avAudioUnit: AVAudioUnit) throws {
+        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let auFormat = AVAudioFormat(
+            standardFormatWithSampleRate: hardwareFormat.sampleRate,
+            channels: auChannelCount(for: selectedInputChannel)
+        )
+
+        if let selection = selectedInputChannel {
+            setInputChannelMap(channelMap(for: selection))
+            engine.connect(engine.inputNode, to: avAudioUnit, format: auFormat)
+        }
+        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: auFormat)
+        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: hardwareFormat)
+    }
+
+    private func auChannelCount(for selection: SelectedInputChannel?) -> UInt32 {
+        switch selection {
+        case .mono: return 1
+        case .stereo, nil: return 2
+        }
+    }
+
+    private func channelMap(for selection: SelectedInputChannel) -> [Int32] {
+        // SelectedInputChannel ids are 1-indexed; CoreAudio channel maps are 0-indexed.
+        switch selection {
+        case .mono(let id): return [Int32(id) - 1]
+        case .stereo(let l, let r): return [Int32(l) - 1, Int32(r) - 1]
         }
     }
 

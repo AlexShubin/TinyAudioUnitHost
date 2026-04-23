@@ -26,13 +26,16 @@ final class SettingsViewModel: SettingsViewModelType {
 
     @ObservationIgnored private let devicesProvider: AudioInputDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
+    @ObservationIgnored private let engine: AudioUnitHostEngineType
 
     init(
         devicesProvider: AudioInputDevicesProviderType,
-        settingsStore: AudioSettingsStoreType
+        settingsStore: AudioSettingsStoreType,
+        engine: AudioUnitHostEngineType
     ) {
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
+        self.engine = engine
     }
 
     func accept(action: SettingsViewModelAction) async {
@@ -47,11 +50,13 @@ final class SettingsViewModel: SettingsViewModelType {
             } else {
                 state.selectedDevice = state.devices.first
             }
+            await pushToEngine()
         case .selectDevice(let device):
             guard state.selectedDevice != device else { return }
             state.selectedDevice = device
             state.selectedInputChannel = nil
             await persist()
+            await pushToEngine()
         case let .setChannel(channel, isOn):
             var selected = state.selectedInputChannel?.channels ?? []
 
@@ -64,6 +69,7 @@ final class SettingsViewModel: SettingsViewModelType {
 
             state.selectedInputChannel = .init(from: selected)
             await persist()
+            await pushToEngine()
         }
     }
 
@@ -74,5 +80,9 @@ final class SettingsViewModel: SettingsViewModelType {
                 selectedInputChannel: state.selectedInputChannel
             )
         )
+    }
+
+    private func pushToEngine() async {
+        await engine.setSelectedInputChannel(state.selectedInputChannel)
     }
 }
