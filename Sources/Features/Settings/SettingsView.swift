@@ -14,25 +14,9 @@ struct SettingsView: View {
     var body: some View {
         Form {
             HStack {
-                DevicePickerView(viewState: viewModel.state.inputDevicePciker)
-                DevicePickerView(viewState: viewModel.state.outputDevicePciker)
+                DevicePickerView(viewModel: viewModel.inputDevicePicker)
+                DevicePickerView(viewModel: viewModel.outputDevicePicker)
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 480, height: 400)
-        .task {
-            await viewModel.accept(action: .task)
-        }
-    }
-}
-
-// MARK: - View State
-
-struct SettingsViewState {
-    var inputDevicePciker: DevicePickerViewState
-    var outputDevicePciker: DevicePickerViewState
-
-    static var initial: Self {
-        .init(inputDevicePciker: .initial, outputDevicePciker: .initial)
     }
 }

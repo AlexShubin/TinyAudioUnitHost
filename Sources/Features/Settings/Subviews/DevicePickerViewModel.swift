@@ -16,15 +16,20 @@ enum DevicePickerViewModelAction {
 
 @MainActor
 protocol DevicePickerViewModelType: Observable {
-    var state: DevicePickerViewState { get }
+    var kind: DevicePickerKind { get }
+    var devices: [AudioDevice] { get }
+    var selectedDevice: AudioDevice? { get }
+    var selectedChannel: SelectedChannel? { get }
     func accept(action: DevicePickerViewModelAction) async
 }
 
 @MainActor @Observable
 final class DevicePickerViewModel: DevicePickerViewModelType {
-    private(set) var state: DevicePickerViewState
+    let kind: DevicePickerKind
+    private(set) var devices: [AudioDevice] = []
+    private(set) var selectedDevice: AudioDevice?
+    private(set) var selectedChannel: SelectedChannel?
 
-    @ObservationIgnored private let kind: DevicePickerKind
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
     @ObservationIgnored private let engine: AudioUnitHostEngineType
@@ -39,38 +44,45 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
         self.engine = engine
-        self.state = .initial(kind: kind)
     }
 
     func accept(action: DevicePickerViewModelAction) async {
         switch action {
         case .task:
-            state.devices = devicesProvider.devices()
+            devices = devicesProvider.devices().filter { !channels(in: $0).isEmpty }
+            guard selectedDevice == nil else { return }
             let stored = await settingsStore.current()
-            if let storedDevice = storedDevice(in: stored), state.devices.contains(storedDevice) {
-                state.selectedDevice = storedDevice
-                state.selectedChannel = storedChannel(in: stored)
+            if let storedDevice = storedDevice(in: stored), devices.contains(storedDevice) {
+                selectedDevice = storedDevice
+                selectedChannel = storedChannel(in: stored)
             } else {
-                state.selectedDevice = state.devices.first
+                selectedDevice = devices.first
             }
             await pushToEngine()
         case .selectDevice(let device):
-            guard state.selectedDevice != device else { return }
-            state.selectedDevice = device
-            state.selectedChannel = nil
+            guard selectedDevice != device else { return }
+            selectedDevice = device
+            selectedChannel = nil
             await persist()
             await pushToEngine()
         case let .setChannel(channel, isOn):
-            var selected = state.selectedChannel?.channels ?? []
+            var selected = selectedChannel?.channels ?? []
             if isOn && selected.count < 2 {
                 selected.append(channel)
                 selected.sort { $0.id < $1.id }
             } else {
                 selected.removeAll { $0 == channel }
             }
-            state.selectedChannel = SelectedChannel(from: selected)
+            selectedChannel = SelectedChannel(from: selected)
             await persist()
             await pushToEngine()
+        }
+    }
+
+    private func channels(in device: AudioDevice) -> [AudioChannel] {
+        switch kind {
+        case .input: device.inputChannels
+        case .output: device.outputChannels
         }
     }
 
@@ -93,8 +105,8 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
         case .input:
             await settingsStore.update(
                 AudioSettings(
-                    inputDevice: state.selectedDevice,
-                    selectedInputChannel: state.selectedChannel
+                    inputDevice: selectedDevice,
+                    selectedInputChannel: selectedChannel
                 )
             )
         case .output:
@@ -105,7 +117,7 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     private func pushToEngine() async {
         switch kind {
         case .input:
-            await engine.setSelectedInputChannel(state.selectedChannel)
+            await engine.setSelectedInputChannel(selectedChannel)
         case .output:
             break
         }

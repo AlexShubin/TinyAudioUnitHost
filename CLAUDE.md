@@ -14,9 +14,9 @@
 
 ## Architecture
 
-- MVVM with `@Observable` ViewModels
+- MVVM with `@Observable` ViewModels that expose state as observed properties directly
 - DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey`
-- Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Views, `*ViewState`, and `*Action` should traffic in domain model types defined in `Common/` (e.g., `AudioInputDevice`, not `AudioDeviceID`). Framework imports belong in `Engine/` and model definitions.
+- Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in `Engine/` and model definitions.
 
 ## Code Style
 
@@ -36,7 +36,7 @@
 ## Naming Conventions
 
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
-- `*ViewState` for UI state structs, `*Action` for view model action enums
+- `*Action` for view model action enums
 - Features organized as `Features/FeatureName/` with View, ViewModel, and optional `Subviews/`
 
 ## Project Structure
