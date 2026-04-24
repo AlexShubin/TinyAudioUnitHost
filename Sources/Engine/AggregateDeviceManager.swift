@@ -37,9 +37,9 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
 
     nonisolated private func destroyOrphans() {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
-            .aggregateDeviceIDs()
+            .getArray(selector: kAudioHardwarePropertyDevices)
         for deviceID in ids {
-            guard let uid = Self.deviceUID(for: deviceID),
+            guard let uid = deviceID.getString(selector: kAudioDevicePropertyDeviceUID),
                   uid.hasPrefix(Self.uidPrefix)
             else { continue }
             AudioHardwareDestroyAggregateDevice(deviceID)
@@ -70,38 +70,4 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         return status == noErr ? aggregateID : nil
     }
 
-    private static func deviceUID(for deviceID: AudioDeviceID) -> String? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceUID,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var result: Unmanaged<CFString>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &result) == noErr,
-              let result
-        else { return nil }
-        let string = result.takeRetainedValue() as String
-        return string.isEmpty ? nil : string
-    }
-}
-
-fileprivate extension AudioObjectID {
-    func aggregateDeviceIDs() -> [AudioDeviceID] {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var dataSize: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(self, &address, 0, nil, &dataSize) == noErr
-        else { return [] }
-        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.stride
-        guard count > 0 else { return [] }
-        return [AudioDeviceID](unsafeUninitializedCapacity: count) { buffer, initialized in
-            var size = dataSize
-            let status = AudioObjectGetPropertyData(self, &address, 0, nil, &size, buffer.baseAddress!)
-            initialized = status == noErr ? count : 0
-        }
-    }
 }
