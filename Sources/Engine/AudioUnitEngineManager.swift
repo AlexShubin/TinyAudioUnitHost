@@ -6,12 +6,10 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreAudio
-
 enum DeviceBindingIntent: Equatable, Sendable {
     case none
-    case direct(AudioDeviceID)
-    case aggregate(input: AudioDeviceID, output: AudioDeviceID)
+    case direct(AudioDevice)
+    case aggregate(input: AudioDevice, output: AudioDevice)
 }
 
 protocol AudioUnitEngineManagerType: Sendable {
@@ -60,11 +58,11 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
         case (nil, nil):
             return .none
         case let (dev?, nil), let (nil, dev?):
-            return .direct(dev.id)
+            return .direct(dev)
         case let (inDev?, outDev?) where inDev.id == outDev.id:
-            return .direct(inDev.id)
+            return .direct(inDev)
         case let (inDev?, outDev?):
-            return .aggregate(input: inDev.id, output: outDev.id)
+            return .aggregate(input: inDev, output: outDev)
         }
     }
 

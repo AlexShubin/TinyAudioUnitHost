@@ -22,9 +22,14 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
     private func makeDevice(id: AudioDeviceID) -> AudioDevice? {
         let inputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeInput)
         let outputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeOutput)
-        guard inputChannelCount > 0 || outputChannelCount > 0 else { return nil }
-        let name: String = id.getString(selector: kAudioObjectPropertyName) ?? "Unknown device"
+        guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
+              let name: String = id.getString(selector: kAudioObjectPropertyName),
+                (inputChannelCount > 0 || outputChannelCount > 0) else {
+            return nil
+        }
+        
         return AudioDevice(id: id,
+                           uid: uid,
                            name: name,
                            inputChannels: channels(count: inputChannelCount),
                            outputChannels: channels(count: outputChannelCount))

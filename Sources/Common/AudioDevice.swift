@@ -8,6 +8,7 @@
 
 struct AudioDevice: Sendable, Identifiable, Hashable {
     let id: UInt32
+    let uid: String
     let name: String
     let inputChannels: [AudioChannel]
     let outputChannels: [AudioChannel]

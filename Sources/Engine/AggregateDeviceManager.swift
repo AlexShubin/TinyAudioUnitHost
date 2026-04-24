@@ -30,10 +30,10 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         switch intent {
         case .none:
             return nil
-        case .direct(let id):
-            return id
-        case .aggregate(let inputID, let outputID):
-            let id = create(inputDeviceID: inputID, outputDeviceID: outputID)
+        case .direct(let device):
+            return device.id
+        case .aggregate(let input, let output):
+            let id = create(inputUID: input.uid, outputUID: output.uid)
             currentAggregateID = id
             return id
         }
@@ -50,11 +50,7 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         }
     }
 
-    private func create(inputDeviceID: AudioDeviceID, outputDeviceID: AudioDeviceID) -> AudioDeviceID? {
-        guard let inputUID = Self.deviceUID(for: inputDeviceID),
-              let outputUID = Self.deviceUID(for: outputDeviceID)
-        else { return nil }
-
+    private func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
         let subDevices: [[String: Any]] = [
             [kAudioSubDeviceUIDKey as String: inputUID],
             [kAudioSubDeviceUIDKey as String: outputUID],
