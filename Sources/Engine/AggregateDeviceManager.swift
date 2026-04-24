@@ -9,7 +9,8 @@
 import CoreAudio
 
 protocol AggregateDeviceManagerType: Sendable {
-    func resolve(_ intent: DeviceBindingIntent) async -> AudioDeviceID?
+    func create(inputUID: String, outputUID: String) async -> AudioDeviceID?
+    func destroy() async
 }
 
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
@@ -21,22 +22,17 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         destroyOrphans()
     }
 
-    func resolve(_ intent: DeviceBindingIntent) -> AudioDeviceID? {
-        if let previous = currentAggregateID {
-            AudioHardwareDestroyAggregateDevice(previous)
-            currentAggregateID = nil
-        }
+    func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
+        destroy()
+        let id = makeAggregate(inputUID: inputUID, outputUID: outputUID)
+        currentAggregateID = id
+        return id
+    }
 
-        switch intent {
-        case .none:
-            return nil
-        case .direct(let device):
-            return device.id
-        case .aggregate(let input, let output):
-            let id = create(inputUID: input.uid, outputUID: output.uid)
-            currentAggregateID = id
-            return id
-        }
+    func destroy() {
+        guard let previous = currentAggregateID else { return }
+        AudioHardwareDestroyAggregateDevice(previous)
+        currentAggregateID = nil
     }
 
     nonisolated private func destroyOrphans() {
@@ -50,7 +46,7 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         }
     }
 
-    private func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
+    private func makeAggregate(inputUID: String, outputUID: String) -> AudioDeviceID? {
         let subDevices: [[String: Any]] = [
             [kAudioSubDeviceUIDKey as String: inputUID],
             [kAudioSubDeviceUIDKey as String: outputUID],
