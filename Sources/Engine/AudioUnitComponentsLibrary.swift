@@ -16,14 +16,13 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
     let components: [AudioUnitComponent]
 
     init() {
+        let predicate = NSPredicate(format: "typeName IN %@", [
+            AVAudioUnitTypeEffect,
+            AVAudioUnitTypeMusicEffect,
+            AVAudioUnitTypeMusicDevice
+        ])
         components = AVAudioUnitComponentManager.shared()
-            .components(matching: AudioComponentDescription(
-                componentType: 0,
-                componentSubType: 0,
-                componentManufacturer: 0,
-                componentFlags: 0,
-                componentFlagsMask: 0
-            ))
+            .components(matching: predicate)
             .map { component in
                 AudioUnitComponent(
                     name: component.name,

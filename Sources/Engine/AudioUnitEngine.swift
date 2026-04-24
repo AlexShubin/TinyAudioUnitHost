@@ -17,8 +17,8 @@ protocol AudioUnitEngineType: Actor, Observable {
     func disconnect()
     func connectMidi()
     func teardownMidi()
-    func loadAndAttach(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit?
-    func detachAudioUnit()
+    func load(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit?
+    func unloadAudioUnit()
 }
 
 final actor AudioUnitEngine: AudioUnitEngineType {
@@ -55,7 +55,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: 2
+            channels: channelCount(for: channels)
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
         setOutputChannelMap(for: channels)
@@ -75,7 +75,10 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         coreMidiManager.teardownMIDI()
     }
 
-    func loadAndAttach(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit? {
+    func load(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit? {
+        guard audioUnit.componentDescription.componentType != kAudioUnitType_Output else {
+            return nil
+        }
         do {
             let avAudioUnit = try await AVAudioUnit.instantiate(
                 with: audioUnit.componentDescription,
@@ -95,7 +98,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         }
     }
 
-    func detachAudioUnit() {
+    func unloadAudioUnit() {
         guard let node = currentAVAudioUnit else { return }
         engine.detach(node)
         currentAVAudioUnit = nil
@@ -151,7 +154,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             audioUnit,
             kAudioOutputUnitProperty_ChannelMap,
             kAudioUnitScope_Output,
-            element,
+            element, // 1 input bus, 0 output bus
             &mutableMap,
             size
         )

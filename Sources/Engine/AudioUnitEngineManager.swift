@@ -24,9 +24,9 @@ final class AudioUnitEngineManager: AudioUnitEngineManagerType {
         await engine.teardownMidi()
         await engine.stop()
         await engine.disconnect()
-        await engine.detachAudioUnit()
+        await engine.unloadAudioUnit()
 
-        guard let loaded = await engine.loadAndAttach(audioUnit: component) else { return nil }
+        guard let loaded = await engine.load(audioUnit: component) else { return nil }
 
         await applyConnections()
         await engine.connectMidi()

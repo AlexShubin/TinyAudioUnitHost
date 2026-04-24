@@ -36,6 +36,7 @@ let project = Project(
                 base: [
                     "ENABLE_APP_SANDBOX": "NO",
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
+                    "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
                 ]
             )
         ),
