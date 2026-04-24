@@ -110,11 +110,6 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     }
 
     private func pushToEngine() async {
-        switch kind {
-        case .input:
-            await engine.setSelectedInputChannel(selectedChannel)
-        case .output:
-            await engine.setSelectedOutputChannel(selectedChannel)
-        }
+        await engine.reconnect()
     }
 }

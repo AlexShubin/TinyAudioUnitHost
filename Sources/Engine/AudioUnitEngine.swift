@@ -14,6 +14,7 @@ protocol AudioUnitEngineType: Actor, Observable {
     func start()
     func connectInputs(channels: SelectedChannel)
     func connectOutputs(channels: SelectedChannel)
+    func disconnect()
     func connectMidi()
     func teardownMidi()
     func loadAndAttach(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit?
@@ -58,6 +59,11 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
         setOutputChannelMap(for: channels)
+    }
+
+    func disconnect() {
+        engine.disconnectNodeInput(engine.mainMixerNode)
+        engine.disconnectNodeOutput(engine.inputNode)
     }
 
     func connectMidi() {
