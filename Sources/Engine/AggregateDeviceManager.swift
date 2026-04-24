@@ -1,5 +1,5 @@
 //
-//  AggregateDeviceFactory.swift
+//  AggregateDeviceManager.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 24.04.26.
@@ -8,26 +8,57 @@
 
 import CoreAudio
 
-protocol AggregateDeviceFactoryType: Sendable {
-    func create(inputDeviceID: AudioDeviceID, outputDeviceID: AudioDeviceID) -> AudioDeviceID?
-    func destroy(_ deviceID: AudioDeviceID)
-    func destroyOrphans()
+protocol AggregateDeviceManagerType: Sendable {
+    func resolve(_ intent: DeviceBindingIntent) async -> AudioDeviceID?
 }
 
-struct AggregateDeviceFactory: AggregateDeviceFactoryType {
+final actor AggregateDeviceManager: AggregateDeviceManagerType {
     static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
 
-    func create(inputDeviceID: AudioDeviceID, outputDeviceID: AudioDeviceID) -> AudioDeviceID? {
+    private var currentAggregateID: AudioDeviceID?
+
+    init() {
+        destroyOrphans()
+    }
+
+    func resolve(_ intent: DeviceBindingIntent) -> AudioDeviceID? {
+        if let previous = currentAggregateID {
+            AudioHardwareDestroyAggregateDevice(previous)
+            currentAggregateID = nil
+        }
+
+        switch intent {
+        case .none:
+            return nil
+        case .direct(let id):
+            return id
+        case .aggregate(let inputID, let outputID):
+            let id = create(inputDeviceID: inputID, outputDeviceID: outputID)
+            currentAggregateID = id
+            return id
+        }
+    }
+
+    nonisolated private func destroyOrphans() {
+        let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
+            .aggregateDeviceIDs()
+        for deviceID in ids {
+            guard let uid = Self.deviceUID(for: deviceID),
+                  uid.hasPrefix(Self.uidPrefix)
+            else { continue }
+            AudioHardwareDestroyAggregateDevice(deviceID)
+        }
+    }
+
+    private func create(inputDeviceID: AudioDeviceID, outputDeviceID: AudioDeviceID) -> AudioDeviceID? {
         guard let inputUID = Self.deviceUID(for: inputDeviceID),
               let outputUID = Self.deviceUID(for: outputDeviceID)
         else { return nil }
 
-        // Defensive: manager collapses same-device to a direct bind, but guard
-        // here too so the sub-device list can't ever contain duplicates.
-        var subDevices: [[String: Any]] = [[kAudioSubDeviceUIDKey as String: outputUID]]
-        if inputUID != outputUID {
-            subDevices.insert([kAudioSubDeviceUIDKey as String: inputUID], at: 0)
-        }
+        let subDevices: [[String: Any]] = [
+            [kAudioSubDeviceUIDKey as String: inputUID],
+            [kAudioSubDeviceUIDKey as String: outputUID],
+        ]
 
         // Per-create unique UID: destroy is asynchronous, so reusing a fixed
         // UID across rapid reconnect cycles can race.
@@ -45,21 +76,6 @@ struct AggregateDeviceFactory: AggregateDeviceFactoryType {
         var aggregateID: AudioDeviceID = 0
         let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
         return status == noErr ? aggregateID : nil
-    }
-
-    func destroy(_ deviceID: AudioDeviceID) {
-        AudioHardwareDestroyAggregateDevice(deviceID)
-    }
-
-    func destroyOrphans() {
-        let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
-            .aggregateDeviceIDs()
-        for deviceID in ids {
-            guard let uid = Self.deviceUID(for: deviceID),
-                  uid.hasPrefix(Self.uidPrefix)
-            else { continue }
-            AudioHardwareDestroyAggregateDevice(deviceID)
-        }
     }
 
     private static func deviceUID(for deviceID: AudioDeviceID) -> String? {

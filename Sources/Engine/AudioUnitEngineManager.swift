@@ -22,18 +22,16 @@ protocol AudioUnitEngineManagerType: Sendable {
 final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
     private let engine: AudioUnitEngineType
     private let settingsStore: AudioSettingsStoreType
-    private let aggregateFactory: AggregateDeviceFactoryType
-
-    private var currentAggregateID: AudioDeviceID?
+    private let aggregateDeviceManager: AggregateDeviceManagerType
 
     init(
         engine: AudioUnitEngineType,
         settingsStore: AudioSettingsStoreType,
-        aggregateFactory: AggregateDeviceFactoryType
+        aggregateDeviceManager: AggregateDeviceManagerType
     ) {
         self.engine = engine
         self.settingsStore = settingsStore
-        self.aggregateFactory = aggregateFactory
+        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
@@ -72,30 +70,19 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
 
     private func applyConnections() async {
         let settings = await settingsStore.current()
-
-        if let previous = currentAggregateID {
-            aggregateFactory.destroy(previous)
-            currentAggregateID = nil
-        }
-
         let intent = Self.bindingIntent(input: settings.input.device, output: settings.output.device)
-        let targetID: AudioDeviceID?
+        let targetID = await aggregateDeviceManager.resolve(intent)
+
         // Sub-device list is [input, output]. Input scope keeps its channel
         // indices; output scope is shifted by the input sub-device's output
         // channel count.
         let inputOffset = 0
-        var outputOffset = 0
-        switch intent {
-        case .none:
-            targetID = nil
-        case .direct(let id):
-            targetID = id
-        case .aggregate(let inputID, let outputID):
-            let id = aggregateFactory.create(inputDeviceID: inputID, outputDeviceID: outputID)
-            currentAggregateID = id
-            targetID = id
-            outputOffset = settings.input.device?.outputChannels.count ?? 0
-        }
+        let outputOffset: Int = {
+            if case .aggregate = intent {
+                return settings.input.device?.outputChannels.count ?? 0
+            }
+            return 0
+        }()
 
         await engine.bindDevice(targetID)
 
