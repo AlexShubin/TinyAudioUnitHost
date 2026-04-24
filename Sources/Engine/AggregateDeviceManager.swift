@@ -16,9 +16,11 @@ protocol AggregateDeviceManagerType: Sendable {
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
     static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
 
+    private let devicesProvider: AudioDevicesProviderType
     private var currentAggregateID: AudioDeviceID?
 
-    init() {
+    init(devicesProvider: AudioDevicesProviderType) {
+        self.devicesProvider = devicesProvider
         destroyOrphans()
     }
 
@@ -36,14 +38,9 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
     }
 
     nonisolated private func destroyOrphans() {
-        let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
-            .getArray(selector: kAudioHardwarePropertyDevices)
-        for deviceID in ids {
-            guard let uid = deviceID.getString(selector: kAudioDevicePropertyDeviceUID),
-                  uid.hasPrefix(Self.uidPrefix)
-            else { continue }
-            AudioHardwareDestroyAggregateDevice(deviceID)
-        }
+        devicesProvider.devices(.all)
+            .filter { $0.uid.hasPrefix(Self.uidPrefix) }
+            .forEach { AudioHardwareDestroyAggregateDevice($0.id) }
     }
 
     private func makeAggregate(inputUID: String, outputUID: String) -> AudioDeviceID? {
@@ -69,5 +66,4 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
         return status == noErr ? aggregateID : nil
     }
-
 }

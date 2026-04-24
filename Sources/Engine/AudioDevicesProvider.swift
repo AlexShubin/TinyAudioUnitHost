@@ -9,25 +9,34 @@
 import CoreAudio
 
 protocol AudioDevicesProviderType: Sendable {
-    func devices() -> [AudioDevice]
+    func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
+}
+
+enum AudioDeviceFilter: Sendable {
+    case all
+    case input
+    case output
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
-    func devices() -> [AudioDevice] {
+    func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
-        return ids.compactMap(makeDevice(id:))
+        return ids.compactMap(makeDevice(id:)).filter { device in
+            switch filter {
+            case .all: true
+            case .input: !device.inputChannels.isEmpty
+            case .output: !device.outputChannels.isEmpty
+            }
+        }
     }
 
     private func makeDevice(id: AudioDeviceID) -> AudioDevice? {
+        guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
+              let name = id.getString(selector: kAudioObjectPropertyName)
+        else { return nil }
         let inputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeInput)
         let outputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeOutput)
-        guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
-              let name: String = id.getString(selector: kAudioObjectPropertyName),
-                (inputChannelCount > 0 || outputChannelCount > 0) else {
-            return nil
-        }
-        
         return AudioDevice(id: id,
                            uid: uid,
                            name: name,
@@ -52,4 +61,3 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         }
     }
 }
-
