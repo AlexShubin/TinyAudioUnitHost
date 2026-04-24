@@ -16,13 +16,17 @@ enum HostViewModelAction {
 
 @MainActor
 protocol HostViewModelType: Observable {
-    var state: HostViewState { get }
+    var groups: [ManufacturerGroup] { get }
+    var selectedComponent: AudioUnitComponent? { get }
+    var audioUnit: LoadedAudioUnit? { get }
     func accept(action: HostViewModelAction) async
 }
 
 @MainActor @Observable
 final class HostViewModel: HostViewModelType {
-    private(set) var state = HostViewState.initial
+    private(set) var groups: [ManufacturerGroup] = []
+    private(set) var selectedComponent: AudioUnitComponent?
+    private(set) var audioUnit: LoadedAudioUnit?
 
     @ObservationIgnored private let engine: AudioUnitHostEngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
@@ -35,14 +39,14 @@ final class HostViewModel: HostViewModelType {
     func accept(action: HostViewModelAction) async {
         switch action {
         case .task:
-            state.groups = grouped(library.components)
+            groups = grouped(library.components)
         case .selected(let component):
-            state.selectedComponent = component
-            state.audioUnit = nil
-            state.audioUnit = await engine.load(component: component)
+            selectedComponent = component
+            audioUnit = nil
+            audioUnit = await engine.load(component: component)
         case .groupExpansionChanged(let manufacturer, let isExpanded):
-            guard let index = state.groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
-            state.groups[index].isExpanded = isExpanded
+            guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
+            groups[index].isExpanded = isExpanded
         }
     }
 
@@ -51,4 +55,12 @@ final class HostViewModel: HostViewModelType {
             .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value, isExpanded: false) }
             .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
     }
+}
+
+struct ManufacturerGroup: Identifiable, Hashable {
+    let manufacturer: String
+    let components: [AudioUnitComponent]
+    var isExpanded: Bool
+
+    var id: String { manufacturer }
 }

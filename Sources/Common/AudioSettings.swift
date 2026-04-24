@@ -6,9 +6,16 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-struct AudioSettings: Sendable, Equatable {
-    var inputDevice: AudioDevice?
-    var selectedInputChannel: SelectedChannel?
+struct DeviceSettings: Sendable, Equatable {
+    var device: AudioDevice?
+    var selectedChannel: SelectedChannel?
 
-    static let empty = AudioSettings(inputDevice: nil, selectedInputChannel: nil)
+    static let empty = DeviceSettings(device: nil, selectedChannel: nil)
+}
+
+struct AudioSettings: Sendable, Equatable {
+    var input: DeviceSettings
+    var output: DeviceSettings
+
+    static let empty = AudioSettings(input: .empty, output: .empty)
 }

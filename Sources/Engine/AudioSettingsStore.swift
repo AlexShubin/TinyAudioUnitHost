@@ -8,12 +8,15 @@
 
 protocol AudioSettingsStoreType: Sendable {
     func current() async -> AudioSettings
-    func update(_ settings: AudioSettings) async
+    func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
 }
 
 final actor AudioSettingsStore: AudioSettingsStoreType {
     private var settings: AudioSettings = .empty
 
     func current() -> AudioSettings { settings }
-    func update(_ settings: AudioSettings) { self.settings = settings }
+
+    func update(_ transform: @Sendable (inout AudioSettings) -> Void) {
+        transform(&settings)
+    }
 }

@@ -13,59 +13,10 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Picker(
-                "Audio Input Device:",
-                selection: Binding<AudioDevice?>(
-                    get: { viewModel.state.selectedDevice },
-                    set: { device in
-                        guard let device else { return }
-                        Task { await viewModel.accept(action: .selectDevice(device)) }
-                    }
-                )
-            ) {
-                ForEach(viewModel.state.devices) { device in
-                    Text(device.name).tag(Optional(device))
-                }
-            }
-
-            if let device = viewModel.state.selectedDevice {
-                Section("Audio Input Channels") {
-                    ForEach(device.inputChannels) { channel in
-                        let selected = viewModel.state.selectedInputChannel?.channels ?? []
-                        Toggle(
-                            channel.name,
-                            isOn: Binding(
-                                get: { selected.contains(channel) },
-                                set: { isOn in
-                                    Task {
-                                        await viewModel.accept(
-                                            action: .setChannel(channel, isOn: isOn)
-                                        )
-                                    }
-                                }
-                            )
-                        )
-                        .disabled(selected.count == 2 && !selected.contains(channel))
-                    }
-                }
+            HStack {
+                DevicePickerView(viewModel: viewModel.inputDevicePicker)
+                DevicePickerView(viewModel: viewModel.outputDevicePicker)
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 480, height: 400)
-        .task {
-            await viewModel.accept(action: .task)
-        }
-    }
-}
-
-// MARK: - View State
-
-struct SettingsViewState {
-    var devices: [AudioDevice]
-    var selectedDevice: AudioDevice?
-    var selectedInputChannel: SelectedChannel?
-
-    static var initial: Self {
-        .init(devices: [], selectedDevice: nil, selectedInputChannel: nil)
     }
 }

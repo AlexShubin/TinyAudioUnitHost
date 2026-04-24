@@ -16,24 +16,28 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
     func devices() -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
-        return ids.compactMap(makeInputDevice(id:))
+        return ids.compactMap(makeDevice(id:))
     }
 
-    private func makeInputDevice(id: AudioDeviceID) -> AudioDevice? {
-        let count = inputChannelCount(deviceID: id)
-        guard count > 0 else { return nil }
+    private func makeDevice(id: AudioDeviceID) -> AudioDevice? {
+        let inputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeInput)
+        let outputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeOutput)
+        guard inputChannelCount > 0 || outputChannelCount > 0 else { return nil }
         let name: String = id.getString(selector: kAudioObjectPropertyName) ?? "Unknown device"
-        let channels = (1...count).map {
-            AudioChannel(id: UInt32($0), name: "Channel \($0)")
-        }
-        return AudioDevice(id: id, name: name, inputChannels: channels)
+        return AudioDevice(id: id,
+                           name: name,
+                           inputChannels: channels(count: inputChannelCount),
+                           outputChannels: channels(count: outputChannelCount))
     }
 
-    private func inputChannelCount(deviceID: AudioDeviceID) -> Int {
-        let streamIDs: [AudioStreamID] = deviceID.getArray(
-            selector: kAudioDevicePropertyStreams,
-            scope: kAudioDevicePropertyScopeInput
-        )
+    private func channels(count: Int) -> [AudioChannel] {
+        guard count > 0 else { return [] }
+        return (1...count).map { AudioChannel(id: UInt32($0), name: "Channel \($0)") }
+    }
+
+    private func channelCount(deviceID: AudioDeviceID, scope: AudioObjectPropertyScope) -> Int {
+        let streamIDs: [AudioStreamID] = deviceID.getArray(selector: kAudioDevicePropertyStreams,
+                                                           scope: scope)
         return streamIDs.reduce(0) { total, streamID in
             let format: AudioStreamBasicDescription? = streamID.getProperty(
                 selector: kAudioStreamPropertyPhysicalFormat,
