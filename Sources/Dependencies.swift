@@ -15,11 +15,14 @@ struct Dependencies: Sendable {
     static let live: Dependencies = {
         let settingsStore = AudioSettingsStore()
         let engine = AudioUnitEngine(coreMidiManager: CoreMidiManager())
+        let aggregateFactory = AggregateDeviceFactory()
+        aggregateFactory.destroyOrphans()
         return Dependencies(
             audioSettingsStore: settingsStore,
             audioUnitEngineManager: AudioUnitEngineManager(
                 engine: engine,
-                settingsStore: settingsStore
+                settingsStore: settingsStore,
+                aggregateFactory: aggregateFactory
             )
         )
     }()

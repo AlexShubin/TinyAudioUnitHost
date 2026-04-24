@@ -7,15 +7,15 @@
 //
 
 @preconcurrency import AVFoundation
+@preconcurrency import CoreAudio
 @preconcurrency import CoreAudioKit
 
 protocol AudioUnitEngineType: Actor, Observable {
     func stop()
     func start()
-    func setInputDevice(_ device: AudioDevice)
-    func setOutputDevice(_ device: AudioDevice)
-    func connectInputs(channels: SelectedChannel)
-    func connectOutputs(channels: SelectedChannel)
+    func bindDevice(_ deviceID: AudioDeviceID?)
+    func connectInputs(channels: SelectedChannel, hardwareOffset: Int)
+    func connectOutputs(channels: SelectedChannel, hardwareOffset: Int)
     func disconnect()
     func connectMidi()
     func teardownMidi()
@@ -41,17 +41,12 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         engine.stop()
     }
 
-    func setInputDevice(_ device: AudioDevice) {
-        guard let audioUnit = engine.inputNode.audioUnit else { return }
-        setCurrentDevice(device.id, on: audioUnit)
+    func bindDevice(_ deviceID: AudioDeviceID?) {
+        guard let deviceID, let audioUnit = engine.outputNode.audioUnit else { return }
+        setCurrentDevice(deviceID, on: audioUnit)
     }
 
-    func setOutputDevice(_ device: AudioDevice) {
-        guard let audioUnit = engine.outputNode.audioUnit else { return }
-        setCurrentDevice(device.id, on: audioUnit)
-    }
-
-    private func setCurrentDevice(_ deviceID: UInt32, on audioUnit: AudioUnit) {
+    private func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) {
         var id = deviceID
         let size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioUnitSetProperty(
@@ -65,7 +60,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         assert(status == noErr, "Failed to set current device: \(status)")
     }
 
-    func connectInputs(channels: SelectedChannel) {
+    func connectInputs(channels: SelectedChannel, hardwareOffset: Int) {
         guard let avAudioUnit = currentAVAudioUnit, acceptsAudioInput(avAudioUnit) else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let auInputChannels = avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
@@ -74,11 +69,11 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: requestedChannels
         )
-        setInputChannelMap(for: channels)
+        setInputChannelMap(for: channels, hardwareOffset: hardwareOffset)
         engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
     }
 
-    func connectOutputs(channels: SelectedChannel) {
+    func connectOutputs(channels: SelectedChannel, hardwareOffset: Int) {
         guard let avAudioUnit = currentAVAudioUnit else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let auOutputChannels = avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
@@ -88,7 +83,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             channels: requestedChannels
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
-        setOutputChannelMap(for: channels)
+        setOutputChannelMap(for: channels, hardwareOffset: hardwareOffset)
     }
 
     func disconnect() {
@@ -141,21 +136,21 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         }
     }
 
-    private func setInputChannelMap(for selection: SelectedChannel) {
+    private func setInputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
         guard let inputAudioUnit = engine.inputNode.audioUnit else { return }
         // Input HAL: length = virtual channels, map[virtual] = physical (0-indexed).
-        let map: [Int32] = selection.channels.map { Int32($0.id) - 1 }
+        let map: [Int32] = selection.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
         setChannelMap(map, on: inputAudioUnit, element: 1)
     }
 
-    private func setOutputChannelMap(for selection: SelectedChannel) {
+    private func setOutputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
         guard let outputAudioUnit = engine.outputNode.audioUnit,
               let physicalCount = physicalChannelCount(of: outputAudioUnit)
         else { return }
         // Output HAL: length = physical channels, map[physical] = virtual (0-indexed) or -1.
         var map = [Int32](repeating: -1, count: physicalCount)
         for (virtualIdx, channel) in selection.channels.enumerated() {
-            let physicalIdx = Int(channel.id) - 1
+            let physicalIdx = hardwareOffset + Int(channel.id) - 1
             guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
             map[physicalIdx] = Int32(virtualIdx)
         }
