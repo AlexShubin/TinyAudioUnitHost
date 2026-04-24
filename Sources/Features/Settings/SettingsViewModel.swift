@@ -22,7 +22,7 @@ final class SettingsViewModel: SettingsViewModelType {
     init(
         devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitHostEngineType
+        engine: AudioUnitEngineManagerType
     ) {
         self.inputDevicePicker = DevicePickerViewModel(
             kind: .input,

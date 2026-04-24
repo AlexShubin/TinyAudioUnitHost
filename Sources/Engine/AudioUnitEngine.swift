@@ -1,5 +1,5 @@
 //
-//  AudioUnitHostEngine.swift
+//  AudioUnitEngine.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 19.04.26.
@@ -9,45 +9,77 @@
 @preconcurrency import AVFoundation
 @preconcurrency import CoreAudioKit
 
-protocol AudioUnitHostEngineType: Observable, Sendable {
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
-    func setSelectedInputChannel(_ selection: SelectedChannel?) async
-    func setSelectedOutputChannel(_ selection: SelectedChannel?) async
+protocol AudioUnitEngineType: Actor, Observable {
+    func stop()
+    func start()
+    func connectInputs(channels: SelectedChannel)
+    func connectOutputs(channels: SelectedChannel)
+    func connectMidi()
+    func teardownMidi()
+    func loadAndAttach(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit?
+    func detachAudioUnit()
 }
 
-final actor AudioUnitHostEngine: AudioUnitHostEngineType {
+final actor AudioUnitEngine: AudioUnitEngineType {
     private let engine = AVAudioEngine()
     private var currentAVAudioUnit: AVAudioUnit?
-    private var selectedInputChannel: SelectedChannel?
-    private var selectedOutputChannel: SelectedChannel?
 
     private let coreMidiManager: CoreMidiManagerType
 
-    init(
-        coreMidiManager: CoreMidiManagerType
-    ) {
+    init(coreMidiManager: CoreMidiManagerType) {
         self.coreMidiManager = coreMidiManager
     }
 
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
-        coreMidiManager.teardownMIDI()
-        removeCurrentNode()
+    func start() {
+        try? engine.start()
+    }
 
+    func stop() {
+        engine.stop()
+    }
+
+    func connectInputs(channels: SelectedChannel) {
+        guard let avAudioUnit = currentAVAudioUnit, acceptsAudioInput(avAudioUnit) else { return }
+        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let inputFormat = AVAudioFormat(
+            standardFormatWithSampleRate: hardwareFormat.sampleRate,
+            channels: channelCount(for: channels)
+        )
+        setInputChannelMap(for: channels)
+        engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
+    }
+
+    func connectOutputs(channels: SelectedChannel) {
+        guard let avAudioUnit = currentAVAudioUnit else { return }
+        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let outputFormat = AVAudioFormat(
+            standardFormatWithSampleRate: hardwareFormat.sampleRate,
+            channels: 2
+        )
+        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
+        setOutputChannelMap(for: channels)
+    }
+
+    func connectMidi() {
+        guard let avAudioUnit = currentAVAudioUnit else { return }
+        coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
+    }
+
+    func teardownMidi() {
+        coreMidiManager.teardownMIDI()
+    }
+
+    func loadAndAttach(audioUnit: AudioUnitComponent) async -> LoadedAudioUnit? {
         do {
             let avAudioUnit = try await AVAudioUnit.instantiate(
-                with: component.componentDescription,
+                with: audioUnit.componentDescription,
                 options: .loadOutOfProcess
             )
 
             currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
 
-            try connectGraph(for: avAudioUnit)
-            try engine.start()
-
-            coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
-
-            return LoadedAudioUnit(component: component) {
+            return LoadedAudioUnit(component: audioUnit) {
                 await withCheckedContinuation { continuation in
                     avAudioUnit.auAudioUnit.requestViewController { continuation.resume(returning: $0) }
                 }
@@ -57,51 +89,10 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
         }
     }
 
-    func setSelectedInputChannel(_ selection: SelectedChannel?) async {
-        selectedInputChannel = selection
-        rebuildGraph()
-    }
-
-    func setSelectedOutputChannel(_ selection: SelectedChannel?) async {
-        selectedOutputChannel = selection
-        rebuildGraph()
-    }
-
-    private func rebuildGraph() {
-        guard let avAudioUnit = currentAVAudioUnit else { return }
-        engine.stop()
-        engine.disconnectNodeInput(engine.mainMixerNode)
-        engine.disconnectNodeOutput(engine.inputNode)
-        do {
-            try connectGraph(for: avAudioUnit)
-            try engine.start()
-        } catch {
-            return
-        }
-    }
-
-    private func connectGraph(for avAudioUnit: AVAudioUnit) throws {
-        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
-
-        if acceptsAudioInput(avAudioUnit), let selection = selectedInputChannel {
-            let inputFormat = AVAudioFormat(
-                standardFormatWithSampleRate: hardwareFormat.sampleRate,
-                channels: channelCount(for: selection)
-            )
-            setInputChannelMap(for: selection)
-            engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
-        }
-
-        let outputFormat = AVAudioFormat(
-            standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: 2
-        )
-
-        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
-
-        if let selection = selectedOutputChannel {
-            setOutputChannelMap(for: selection)
-        }
+    func detachAudioUnit() {
+        guard let node = currentAVAudioUnit else { return }
+        engine.detach(node)
+        currentAVAudioUnit = nil
     }
 
     private func channelCount(for selection: SelectedChannel) -> UInt32 {
@@ -159,16 +150,6 @@ final actor AudioUnitHostEngine: AudioUnitHostEngineType {
             size
         )
         assert(status == noErr, "Failed to set channel map: \(status)")
-    }
-
-    private func removeCurrentNode() {
-        if let node = currentAVAudioUnit {
-            engine.stop()
-            engine.disconnectNodeInput(engine.mainMixerNode)
-            engine.disconnectNodeOutput(engine.inputNode)
-            engine.detach(node)
-            currentAVAudioUnit = nil
-        }
     }
 
     private func acceptsAudioInput(_ avAudioUnit: AVAudioUnit) -> Bool {

@@ -10,16 +10,16 @@ import SwiftUI
 
 struct Dependencies: Sendable {
     let audioSettingsStore: AudioSettingsStoreType
-    let audioUnitHostEngine: AudioUnitHostEngineType
+    let audioUnitEngineManager: AudioUnitEngineManagerType
 
     static let live = Dependencies(
         audioSettingsStore: AudioSettingsStore(),
-        audioUnitHostEngine: AudioUnitHostEngine(coreMidiManager: CoreMidiManager())
+        audioUnitEngineManager: AudioUnitEngineManager(coreMidiManager: CoreMidiManager())
     )
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
-            engine: audioUnitHostEngine,
+            engine: audioUnitEngineManager,
             library: AudioUnitComponentsLibrary()
         )
     }
@@ -28,7 +28,7 @@ struct Dependencies: Sendable {
         SettingsViewModel(
             devicesProvider: AudioDevicesProvider(),
             settingsStore: audioSettingsStore,
-            engine: audioUnitHostEngine
+            engine: audioUnitEngineManager
         )
     }
 }

@@ -32,13 +32,13 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
 
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
-    @ObservationIgnored private let engine: AudioUnitHostEngineType
+    @ObservationIgnored private let engine: AudioUnitEngineManagerType
 
     init(
         kind: DevicePickerKind,
         devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitHostEngineType
+        engine: AudioUnitEngineManagerType
     ) {
         self.kind = kind
         self.devicesProvider = devicesProvider
