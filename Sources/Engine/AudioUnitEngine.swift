@@ -12,6 +12,8 @@
 protocol AudioUnitEngineType: Actor, Observable {
     func stop()
     func start()
+    func setInputDevice(_ device: AudioDevice)
+    func setOutputDevice(_ device: AudioDevice)
     func connectInputs(channels: SelectedChannel)
     func connectOutputs(channels: SelectedChannel)
     func disconnect()
@@ -39,12 +41,38 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         engine.stop()
     }
 
+    func setInputDevice(_ device: AudioDevice) {
+        guard let audioUnit = engine.inputNode.audioUnit else { return }
+        setCurrentDevice(device.id, on: audioUnit)
+    }
+
+    func setOutputDevice(_ device: AudioDevice) {
+        guard let audioUnit = engine.outputNode.audioUnit else { return }
+        setCurrentDevice(device.id, on: audioUnit)
+    }
+
+    private func setCurrentDevice(_ deviceID: UInt32, on audioUnit: AudioUnit) {
+        var id = deviceID
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioUnitSetProperty(
+            audioUnit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &id,
+            size
+        )
+        assert(status == noErr, "Failed to set current device: \(status)")
+    }
+
     func connectInputs(channels: SelectedChannel) {
         guard let avAudioUnit = currentAVAudioUnit, acceptsAudioInput(avAudioUnit) else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let auInputChannels = avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
+        let requestedChannels = min(channelCount(for: channels), auInputChannels)
         let inputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: channelCount(for: channels)
+            channels: requestedChannels
         )
         setInputChannelMap(for: channels)
         engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
@@ -53,9 +81,11 @@ final actor AudioUnitEngine: AudioUnitEngineType {
     func connectOutputs(channels: SelectedChannel) {
         guard let avAudioUnit = currentAVAudioUnit else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let auOutputChannels = avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
+        let requestedChannels = min(channelCount(for: channels), auOutputChannels)
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: channelCount(for: channels)
+            channels: requestedChannels
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
         setOutputChannelMap(for: channels)

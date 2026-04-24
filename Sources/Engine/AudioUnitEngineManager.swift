@@ -43,6 +43,12 @@ final class AudioUnitEngineManager: AudioUnitEngineManagerType {
 
     private func applyConnections() async {
         let settings = await settingsStore.current()
+        if let inputDevice = settings.input.device {
+            await engine.setInputDevice(inputDevice)
+        }
+        if let outputDevice = settings.output.device {
+            await engine.setOutputDevice(outputDevice)
+        }
         if let input = settings.input.selectedChannel {
             await engine.connectInputs(channels: input)
         }
