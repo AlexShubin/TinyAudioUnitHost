@@ -7,7 +7,7 @@
 
 ## Tech Stack
 
-- Swift 6.2 strict concurrency, macOS 26.0
+- Swift 6 strict concurrency, macOS 26.0
 - SwiftUI only (NSViewControllerRepresentable for AU views)
 - Zero external dependencies — only Apple frameworks
 - Swift Testing framework (`@Suite`, `@Test`, `#expect`) — not XCTest
