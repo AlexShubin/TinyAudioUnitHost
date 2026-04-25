@@ -10,7 +10,7 @@
 @preconcurrency import CoreAudio
 @preconcurrency import CoreAudioKit
 
-protocol AudioUnitEngineType: Actor, Observable {
+protocol AudioUnitEngineType: Actor {
     func stop()
     func start()
     func bindDevice(_ deviceID: AudioDeviceID?)
