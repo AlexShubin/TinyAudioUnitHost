@@ -58,3 +58,4 @@
 - The repo root has a single `Workspace.swift` listing every project; there is no root `Project.swift`. When adding a new project, create the sibling folder, drop in its `Project.swift`, and add it to `Workspace.swift`'s `projects` array.
 - Cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types (with explicit `public init`s — synthesized memberwise inits are internal). App-only projects keep types `internal`.
+- Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
