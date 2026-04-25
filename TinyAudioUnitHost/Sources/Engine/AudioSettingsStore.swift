@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
+
 protocol AudioSettingsStoreType: Sendable {
     func current() async -> AudioSettings
     func update(_ transform: @Sendable (inout AudioSettings) -> Void) async

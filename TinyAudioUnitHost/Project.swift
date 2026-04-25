@@ -32,6 +32,9 @@ let project = Project(
                 "Sources",
                 "Resources",
             ],
+            dependencies: [
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+            ],
             settings: .settings(
                 base: [
                     "ENABLE_APP_SANDBOX": "NO",

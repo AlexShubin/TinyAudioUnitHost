@@ -7,6 +7,7 @@
 //
 
 import CoreAudio
+import Common
 
 protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]

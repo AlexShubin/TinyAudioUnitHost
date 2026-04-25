@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
+
 enum DeviceBindingIntent: Equatable, Sendable {
     case none
     case direct(AudioDevice)

@@ -42,3 +42,19 @@
 ## Project Structure
 
 - Each Tuist project follows the naming convention: `Feature`, `FeatureTests`, `FeatureTestSupport` (when needed).
+- Each Tuist project lives in its own sibling folder at the repo root, named after the project, with its `Project.swift` and a `Sources/` (and `Resources/` when needed) inside:
+  ```
+  /
+  ├── <ProjectA>/
+  │   ├── Project.swift
+  │   └── Sources/
+  ├── <ProjectB>/
+  │   ├── Project.swift
+  │   ├── Sources/
+  │   └── Resources/
+  ├── Tuist.swift
+  └── Workspace.swift
+  ```
+- The repo root has a single `Workspace.swift` listing every project; there is no root `Project.swift`. When adding a new project, create the sibling folder, drop in its `Project.swift`, and add it to `Workspace.swift`'s `projects` array.
+- Cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
+- Library projects expose their API as `public` types (with explicit `public init`s — synthesized memberwise inits are internal). App-only projects keep types `internal`.
