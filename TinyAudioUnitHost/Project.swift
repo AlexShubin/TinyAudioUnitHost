@@ -4,7 +4,7 @@ let project = Project(
     name: "TinyAudioUnitHost",
     settings: .settings(
         base: [
-            "SWIFT_VERSION": "6.0",
+            "SWIFT_VERSION": "6.2",
             "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
             "SWIFT_EMIT_LOC_STRINGS": "YES",
             "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
