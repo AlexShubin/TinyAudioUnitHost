@@ -49,7 +49,7 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     func accept(action: DevicePickerViewModelAction) async {
         switch action {
         case .task:
-            devices = devicesProvider.devices().filter { !channels(in: $0).isEmpty }
+            devices = devicesProvider.devices(deviceFilter)
             guard selectedDevice == nil else { return }
             let stored = slice(in: await settingsStore.current())
             if let storedDevice = stored.device, devices.contains(storedDevice) {
@@ -111,5 +111,12 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
 
     private func pushToEngine() async {
         await engine.reconnect()
+    }
+
+    private var deviceFilter: AudioDeviceFilter {
+        switch kind {
+        case .input: .input
+        case .output: .output
+        }
     }
 }
