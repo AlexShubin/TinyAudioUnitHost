@@ -6,10 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
 import CoreAudio
 
 protocol AggregateDeviceManagerType: Sendable {
-    func create(inputUID: String, outputUID: String) async -> AudioDeviceID?
+    func create(inputUID: String, outputUID: String) async -> AudioDevice?
     func destroy() async
 }
 
@@ -24,11 +25,11 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         destroyOrphans()
     }
 
-    func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
+    func create(inputUID: String, outputUID: String) -> AudioDevice? {
         destroy()
-        let id = makeAggregate(inputUID: inputUID, outputUID: outputUID)
+        guard let id = makeAggregate(inputUID: inputUID, outputUID: outputUID) else { return nil }
         currentAggregateID = id
-        return id
+        return devicesProvider.device(id: id)
     }
 
     func destroy() {

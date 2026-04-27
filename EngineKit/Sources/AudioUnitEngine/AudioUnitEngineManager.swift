@@ -72,7 +72,7 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
     private func applyConnections() async {
         let settings = await settingsStore.current()
         let intent = Self.bindingIntent(input: settings.input.device, output: settings.output.device)
-        let targetID = await resolveTargetDevice(for: intent)
+        let target = await resolveTargetDevice(for: intent)
 
         // Sub-device list is [input, output]. Input scope keeps its channel
         // indices; output scope is shifted by the input sub-device's output
@@ -85,7 +85,7 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
             return 0
         }()
 
-        await engine.bindDevice(targetID)
+        await engine.bindDevice(target?.id)
 
         if let input = settings.input.selectedChannel {
             await engine.connectInputs(channels: input, hardwareOffset: inputOffset)
@@ -95,14 +95,14 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
         }
     }
 
-    private func resolveTargetDevice(for intent: DeviceBindingIntent) async -> UInt32? {
+    private func resolveTargetDevice(for intent: DeviceBindingIntent) async -> AudioDevice? {
         switch intent {
         case .none:
             await aggregateDeviceManager.destroy()
             return nil
         case .direct(let device):
             await aggregateDeviceManager.destroy()
-            return device.id
+            return device
         case .aggregate(let input, let output):
             return await aggregateDeviceManager.create(inputUID: input.uid, outputUID: output.uid)
         }

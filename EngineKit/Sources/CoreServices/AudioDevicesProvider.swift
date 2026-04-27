@@ -11,6 +11,7 @@ import Common
 
 public protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
+    func device(id: AudioDeviceID) -> AudioDevice?
 }
 
 public enum AudioDeviceFilter: Sendable {
@@ -25,7 +26,7 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
-        return ids.compactMap(makeDevice(id:)).filter { device in
+        return ids.compactMap(device(id:)).filter { device in
             switch filter {
             case .all: true
             case .input: !device.inputChannels.isEmpty
@@ -34,7 +35,7 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         }
     }
 
-    private func makeDevice(id: AudioDeviceID) -> AudioDevice? {
+    func device(id: AudioDeviceID) -> AudioDevice? {
         guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
               let name = id.getString(selector: kAudioObjectPropertyName)
         else { return nil }
