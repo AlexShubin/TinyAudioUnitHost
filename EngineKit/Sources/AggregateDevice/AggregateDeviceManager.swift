@@ -7,7 +7,6 @@
 //
 
 import Common
-import CoreAudio
 import StorageKit
 
 public protocol AggregateDeviceManagerType: Sendable {
@@ -15,16 +14,20 @@ public protocol AggregateDeviceManagerType: Sendable {
 }
 
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
-    static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
-
     private let devicesProvider: AudioDevicesProviderType
     private let settingsStore: AudioSettingsStoreType
+    private let factory: AggregateDeviceFactoryType
     private var cachedTarget: TargetAudioDevice?
 
-    init(devicesProvider: AudioDevicesProviderType, settingsStore: AudioSettingsStoreType) {
+    init(
+        devicesProvider: AudioDevicesProviderType,
+        settingsStore: AudioSettingsStoreType,
+        factory: AggregateDeviceFactoryType
+    ) {
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
-        destroyOrphans()
+        self.factory = factory
+        factory.destroyOrphans()
     }
 
     func resolveTarget() async -> TargetAudioDevice? {
@@ -43,12 +46,12 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
     }
 
     private func resolve(input: AudioDevice?, output: AudioDevice?) -> TargetAudioDevice? {
+        destroyCachedAggregate()
+
         switch (input, output) {
         case (nil, nil):
-            destroyCurrentAggregate()
             return nil
         case let (device?, nil):
-            destroyCurrentAggregate()
             return TargetAudioDevice(
                 device: device,
                 inputSource: device,
@@ -57,7 +60,6 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
                 outputOffset: 0
             )
         case let (nil, device?):
-            destroyCurrentAggregate()
             return TargetAudioDevice(
                 device: device,
                 inputSource: nil,
@@ -66,7 +68,6 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
                 outputOffset: 0
             )
         case let (input?, output?) where input.id == output.id:
-            destroyCurrentAggregate()
             return TargetAudioDevice(
                 device: input,
                 inputSource: input,
@@ -75,7 +76,8 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
                 outputOffset: 0
             )
         case let (input?, output?):
-            guard let aggregate = createAggregate(inputUID: input.uid, outputUID: output.uid)
+            guard let id = factory.create(inputUID: input.uid, outputUID: output.uid),
+                  let aggregate = devicesProvider.device(id: id)
             else { return nil }
             return TargetAudioDevice(
                 device: aggregate,
@@ -87,45 +89,13 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         }
     }
 
-    private func createAggregate(inputUID: String, outputUID: String) -> AudioDevice? {
-        destroyCurrentAggregate()
-        guard let id = makeAggregate(inputUID: inputUID, outputUID: outputUID) else { return nil }
-        return devicesProvider.device(id: id)
-    }
-
-    private func destroyCurrentAggregate() {
-        guard let device = cachedTarget?.device,
-              device.uid.hasPrefix(Self.uidPrefix) else { return }
-        AudioHardwareDestroyAggregateDevice(device.id)
-    }
-
-    nonisolated private func destroyOrphans() {
-        devicesProvider.devices(.all)
-            .filter { $0.uid.hasPrefix(Self.uidPrefix) }
-            .forEach { AudioHardwareDestroyAggregateDevice($0.id) }
-    }
-
-    private func makeAggregate(inputUID: String, outputUID: String) -> AudioDeviceID? {
-        let subDevices: [[String: Any]] = [
-            [kAudioSubDeviceUIDKey as String: inputUID],
-            [kAudioSubDeviceUIDKey as String: outputUID],
-        ]
-
-        // Per-create unique UID: destroy is asynchronous, so reusing a fixed
-        // UID across rapid reconnect cycles can race.
-        let uid = Self.uidPrefix + UUID().uuidString
-
-        let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey as String: "TinyAudioUnitHost Aggregate",
-            kAudioAggregateDeviceUIDKey as String: uid,
-            kAudioAggregateDeviceIsPrivateKey as String: 1,
-            kAudioAggregateDeviceIsStackedKey as String: 0,
-            kAudioAggregateDeviceMainSubDeviceKey as String: outputUID,
-            kAudioAggregateDeviceSubDeviceListKey as String: subDevices,
-        ]
-
-        var aggregateID: AudioDeviceID = 0
-        let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
-        return status == noErr ? aggregateID : nil
+    /// Destroys the cached aggregate if the current target is one we created
+    /// (both sources non-nil with different IDs ⇒ `device` is the aggregate).
+    private func destroyCachedAggregate() {
+        guard let cached = cachedTarget,
+              let inputSource = cached.inputSource,
+              let outputSource = cached.outputSource,
+              inputSource.id != outputSource.id else { return }
+        factory.destroy(id: cached.device.id)
     }
 }

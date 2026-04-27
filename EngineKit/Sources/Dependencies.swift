@@ -19,7 +19,8 @@ public struct Dependencies: Sendable {
         let settingsStore = StorageKit.Dependencies.live.audioSettingsStore
         let aggregateDeviceManager = AggregateDeviceManager(
             devicesProvider: devicesProvider,
-            settingsStore: settingsStore
+            settingsStore: settingsStore,
+            factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
         let engine = AudioUnitEngine(coreMidiManager: CoreMidiManager())
         return Dependencies(
