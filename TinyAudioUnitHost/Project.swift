@@ -7,8 +7,6 @@ let project = Project(
             "SWIFT_VERSION": "6.0",
             "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
             "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
-            "SWIFT_EMIT_LOC_STRINGS": "YES",
-            "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
             "CODE_SIGN_STYLE": "Manual",
             "CODE_SIGN_IDENTITY": "Apple Development",
             "DEVELOPMENT_TEAM": "",
