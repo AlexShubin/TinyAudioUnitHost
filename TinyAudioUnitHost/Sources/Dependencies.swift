@@ -21,7 +21,9 @@ struct Dependencies: Sendable {
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             engine: engine.audioUnitEngineManager,
-            library: engine.audioUnitComponentsLibrary
+            library: engine.audioUnitComponentsLibrary,
+            settingsStore: storage.audioSettingsStore,
+            aggregateDeviceManager: engine.aggregateDeviceManager
         )
     }
 
@@ -29,7 +31,8 @@ struct Dependencies: Sendable {
         SettingsViewModel(
             devicesProvider: engine.audioDevicesProvider,
             settingsStore: storage.audioSettingsStore,
-            engine: engine.audioUnitEngineManager
+            engine: engine.audioUnitEngineManager,
+            aggregateDeviceManager: engine.aggregateDeviceManager
         )
     }
 }

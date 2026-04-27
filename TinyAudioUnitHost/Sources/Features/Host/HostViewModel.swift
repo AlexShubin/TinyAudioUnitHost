@@ -9,6 +9,7 @@
 import Common
 import EngineKit
 import Observation
+import StorageKit
 
 enum HostViewModelAction {
     case task
@@ -32,10 +33,19 @@ final class HostViewModel: HostViewModelType {
 
     @ObservationIgnored private let engine: AudioUnitEngineManagerType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
+    @ObservationIgnored private let settingsStore: AudioSettingsStoreType
+    @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
-    init(engine: AudioUnitEngineManagerType, library: AudioUnitComponentsLibraryType) {
+    init(
+        engine: AudioUnitEngineManagerType,
+        library: AudioUnitComponentsLibraryType,
+        settingsStore: AudioSettingsStoreType,
+        aggregateDeviceManager: AggregateDeviceManagerType
+    ) {
         self.engine = engine
         self.library = library
+        self.settingsStore = settingsStore
+        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     func accept(action: HostViewModelAction) async {
@@ -45,7 +55,17 @@ final class HostViewModel: HostViewModelType {
         case .selected(let component):
             selectedComponent = component
             audioUnit = nil
-            audioUnit = await engine.load(component: component)
+            let settings = await settingsStore.current()
+            let target = await aggregateDeviceManager.resolve(
+                input: settings.input.device,
+                output: settings.output.device
+            )
+            audioUnit = await engine.load(
+                component: component,
+                target: target,
+                input: settings.input.selectedChannel,
+                output: settings.output.selectedChannel
+            )
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded

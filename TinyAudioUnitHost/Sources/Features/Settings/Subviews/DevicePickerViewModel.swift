@@ -36,17 +36,20 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
     @ObservationIgnored private let engine: AudioUnitEngineManagerType
+    @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
     init(
         kind: DevicePickerKind,
         devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitEngineManagerType
+        engine: AudioUnitEngineManagerType,
+        aggregateDeviceManager: AggregateDeviceManagerType
     ) {
         self.kind = kind
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
         self.engine = engine
+        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     func accept(action: DevicePickerViewModelAction) async {
@@ -113,7 +116,16 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     }
 
     private func pushToEngine() async {
-        await engine.reconnect()
+        let settings = await settingsStore.current()
+        let target = await aggregateDeviceManager.resolve(
+            input: settings.input.device,
+            output: settings.output.device
+        )
+        await engine.apply(
+            target: target,
+            input: settings.input.selectedChannel,
+            output: settings.output.selectedChannel
+        )
     }
 
     private var deviceFilter: AudioDeviceFilter {

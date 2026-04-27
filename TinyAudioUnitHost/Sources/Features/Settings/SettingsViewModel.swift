@@ -24,19 +24,22 @@ final class SettingsViewModel: SettingsViewModelType {
     init(
         devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitEngineManagerType
+        engine: AudioUnitEngineManagerType,
+        aggregateDeviceManager: AggregateDeviceManagerType
     ) {
         self.inputDevicePicker = DevicePickerViewModel(
             kind: .input,
             devicesProvider: devicesProvider,
             settingsStore: settingsStore,
-            engine: engine
+            engine: engine,
+            aggregateDeviceManager: aggregateDeviceManager
         )
         self.outputDevicePicker = DevicePickerViewModel(
             kind: .output,
             devicesProvider: devicesProvider,
             settingsStore: settingsStore,
-            engine: engine
+            engine: engine,
+            aggregateDeviceManager: aggregateDeviceManager
         )
     }
 }
