@@ -12,11 +12,15 @@ struct SettingsView: View {
     @State var viewModel: SettingsViewModelType
 
     var body: some View {
-        Form {
-            HStack {
+        HStack {
+            Form {
                 DevicePickerView(viewModel: viewModel.inputDevicePicker)
+            }
+            .formStyle(.grouped)
+            Form {
                 DevicePickerView(viewModel: viewModel.outputDevicePicker)
             }
+            .formStyle(.grouped)
         }
     }
 }
