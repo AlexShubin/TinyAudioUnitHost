@@ -20,6 +20,8 @@ public enum AudioDeviceFilter: Sendable {
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
+    private static let candidateBufferSizes: [UInt32] = [16, 32, 64, 128, 256, 512, 1024, 2048]
+
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
@@ -42,7 +44,8 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                            uid: uid,
                            name: name,
                            inputChannels: channels(count: inputChannelCount),
-                           outputChannels: channels(count: outputChannelCount))
+                           outputChannels: channels(count: outputChannelCount),
+                           availableBufferSizes: bufferSizes(deviceID: id))
     }
 
     private func channels(count: Int) -> [AudioChannel] {
@@ -59,6 +62,16 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                 defaultValue: AudioStreamBasicDescription()
             )
             return total + Int(format?.mChannelsPerFrame ?? 0)
+        }
+    }
+
+    private func bufferSizes(deviceID: AudioDeviceID) -> [UInt32] {
+        guard let range: AudioValueRange = deviceID.getProperty(
+            selector: kAudioDevicePropertyBufferFrameSizeRange,
+            defaultValue: AudioValueRange()
+        ) else { return [] }
+        return Self.candidateBufferSizes.filter {
+            Double($0) >= range.mMinimum && Double($0) <= range.mMaximum
         }
     }
 }
