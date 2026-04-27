@@ -12,6 +12,7 @@ import CoreAudio
 protocol AggregateDeviceManagerType: Sendable {
     func create(inputUID: String, outputUID: String) async -> AudioDevice?
     func destroy() async
+    func resolve(input: AudioDevice?, output: AudioDevice?) async -> TargetAudioDevice?
 }
 
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
@@ -36,6 +37,27 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         guard let previous = currentAggregateID else { return }
         AudioHardwareDestroyAggregateDevice(previous)
         currentAggregateID = nil
+    }
+
+    func resolve(input: AudioDevice?, output: AudioDevice?) -> TargetAudioDevice? {
+        switch (input, output) {
+        case (nil, nil):
+            destroy()
+            return nil
+        case let (device?, nil), let (nil, device?):
+            destroy()
+            return TargetAudioDevice(device: device, inputOffset: 0, outputOffset: 0)
+        case let (input?, output?) where input.id == output.id:
+            destroy()
+            return TargetAudioDevice(device: input, inputOffset: 0, outputOffset: 0)
+        case let (input?, output?):
+            guard let aggregate = create(inputUID: input.uid, outputUID: output.uid) else { return nil }
+            return TargetAudioDevice(
+                device: aggregate,
+                inputOffset: 0,
+                outputOffset: input.outputChannels.count
+            )
+        }
     }
 
     nonisolated private func destroyOrphans() {

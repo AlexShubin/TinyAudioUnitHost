@@ -3,7 +3,8 @@
 ## Tuist
 
 - To regenerate the Xcode project, run: `mise run generate`
-- Always run `mise run generate` after structural changes to the project (adding/removing targets, files, dependencies in Project.swift)
+- Targets use buildable folders, so adding/removing source files does **not** require regeneration — Xcode picks them up automatically.
+- Only run `mise run generate` after structural changes to `Project.swift` itself (adding/removing targets, dependencies, build settings).
 
 ## Tech Stack
 
