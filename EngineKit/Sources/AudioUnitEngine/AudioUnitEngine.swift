@@ -26,12 +26,14 @@ protocol AudioUnitEngineType: Actor {
 
 final actor AudioUnitEngine: AudioUnitEngineType {
     private let engine = AVAudioEngine()
+    private let inputMixer = AVAudioMixerNode()
     private var currentAVAudioUnit: AVAudioUnit?
 
     private let coreMidiManager: CoreMidiManagerType
 
     init(coreMidiManager: CoreMidiManagerType) {
         self.coreMidiManager = coreMidiManager
+        engine.attach(inputMixer)
     }
 
     func start() {
@@ -64,14 +66,17 @@ final actor AudioUnitEngine: AudioUnitEngineType {
     func connectInputs(channels: SelectedChannel, hardwareOffset: Int) {
         guard let avAudioUnit = currentAVAudioUnit, acceptsAudioInput(avAudioUnit) else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
-        let auInputChannels = avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
-        let requestedChannels = min(channelCount(for: channels), auInputChannels)
-        let inputFormat = AVAudioFormat(
+        let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: requestedChannels
+            channels: channelCount(for: channels)
+        )
+        let auInputFormat = AVAudioFormat(
+            standardFormatWithSampleRate: hardwareFormat.sampleRate,
+            channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
         setInputChannelMap(for: channels, hardwareOffset: hardwareOffset)
-        engine.connect(engine.inputNode, to: avAudioUnit, format: inputFormat)
+        engine.connect(engine.inputNode, to: inputMixer, format: userFormat)
+        engine.connect(inputMixer, to: avAudioUnit, format: auInputFormat)
     }
 
     func connectOutputs(channels: SelectedChannel, hardwareOffset: Int) {
@@ -89,6 +94,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
 
     func disconnect() {
         engine.disconnectNodeInput(engine.mainMixerNode)
+        engine.disconnectNodeOutput(inputMixer)
         engine.disconnectNodeOutput(engine.inputNode)
     }
 
