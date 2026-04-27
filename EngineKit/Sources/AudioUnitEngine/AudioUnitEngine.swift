@@ -82,11 +82,9 @@ final actor AudioUnitEngine: AudioUnitEngineType {
     func connectOutputs(channels: SelectedChannel, hardwareOffset: Int) {
         guard let avAudioUnit = currentAVAudioUnit else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
-        let auOutputChannels = avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
-        let requestedChannels = min(channelCount(for: channels), auOutputChannels)
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: requestedChannels
+            channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
         setOutputChannelMap(for: channels, hardwareOffset: hardwareOffset)
