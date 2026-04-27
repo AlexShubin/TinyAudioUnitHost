@@ -18,11 +18,12 @@ enum DevicePickerViewModelAction {
 }
 
 @MainActor
-protocol DevicePickerViewModelType: Observable {
+protocol DevicePickerViewModelType: Observable, AnyObject {
     var kind: DevicePickerKind { get }
     var devices: [AudioDevice] { get }
     var selectedDevice: AudioDevice? { get }
     var selectedChannel: SelectedChannel? { get }
+    var onChange: (@MainActor () async -> Void)? { get set }
     func accept(action: DevicePickerViewModelAction) async
 }
 
@@ -33,23 +34,18 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
     private(set) var selectedDevice: AudioDevice?
     private(set) var selectedChannel: SelectedChannel?
 
+    @ObservationIgnored var onChange: (@MainActor () async -> Void)?
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
-    @ObservationIgnored private let engine: AudioUnitEngineManagerType
-    @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
     init(
         kind: DevicePickerKind,
         devicesProvider: AudioDevicesProviderType,
-        settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitEngineManagerType,
-        aggregateDeviceManager: AggregateDeviceManagerType
+        settingsStore: AudioSettingsStoreType
     ) {
         self.kind = kind
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
-        self.engine = engine
-        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     func accept(action: DevicePickerViewModelAction) async {
@@ -64,13 +60,13 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
             } else {
                 selectedDevice = devices.first
             }
-            await pushToEngine()
+            await onChange?()
         case .selectDevice(let device):
             guard selectedDevice != device else { return }
             selectedDevice = device
             selectedChannel = nil
             await persist()
-            await pushToEngine()
+            await onChange?()
         case let .setChannel(channel, isOn):
             var selected = selectedChannel?.channels ?? []
             if isOn && selected.count < 2 {
@@ -81,7 +77,7 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
             }
             selectedChannel = SelectedChannel(from: selected)
             await persist()
-            await pushToEngine()
+            await onChange?()
         }
     }
 
@@ -113,19 +109,6 @@ final class DevicePickerViewModel: DevicePickerViewModelType {
                 settings.output.selectedChannel = channel
             }
         }
-    }
-
-    private func pushToEngine() async {
-        let settings = await settingsStore.current()
-        let target = await aggregateDeviceManager.resolve(
-            input: settings.input.device,
-            output: settings.output.device
-        )
-        await engine.apply(
-            target: target,
-            input: settings.input.selectedChannel,
-            output: settings.output.selectedChannel
-        )
     }
 
     private var deviceFilter: AudioDeviceFilter {
