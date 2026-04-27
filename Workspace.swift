@@ -6,5 +6,6 @@ let workspace = Workspace(
         "TinyAudioUnitHost",
         "Common",
         "StorageKit",
+        "EngineKit",
     ]
 )

@@ -1,6 +1,6 @@
 //
 //  AudioDevicesProvider.swift
-//  TinyAudioUnitHost
+//  EngineKit
 //
 //  Created by Alex Shubin on 22.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -9,11 +9,11 @@
 import CoreAudio
 import Common
 
-protocol AudioDevicesProviderType: Sendable {
+public protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
 }
 
-enum AudioDeviceFilter: Sendable {
+public enum AudioDeviceFilter: Sendable {
     case all
     case input
     case output

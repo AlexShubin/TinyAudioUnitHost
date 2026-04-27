@@ -15,8 +15,8 @@
 ## Architecture
 
 - MVVM with `@Observable` ViewModels that expose state as observed properties directly
-- DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey`
-- Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in `Engine/` and model definitions.
+- DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
+- Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
 
 ## Code Style
 
@@ -57,5 +57,13 @@
   ```
 - The repo root has a single `Workspace.swift` listing every project; there is no root `Project.swift`. When adding a new project, create the sibling folder, drop in its `Project.swift`, and add it to `Workspace.swift`'s `projects` array.
 - Cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
-- Library projects expose their API as `public` types (with explicit `public init`s — synthesized memberwise inits are internal). App-only projects keep types `internal`.
+- Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
+
+## Dependencies pattern
+
+Each library module owns a `Sources/Dependencies.swift` with a `public struct Dependencies: Sendable` that exposes only the module's protocol-typed services. Concrete implementations stay `internal`. Don't add a `public init` — let the synthesized memberwise init stay internal so external code can only construct a module's `Dependencies` through the `live` factory.
+
+The factory is **always** a parameterless `public static let live: Dependencies`, never a function. When a module needs services from an upstream module, reach into that module's own factory directly inside the closure (e.g. `StorageKit.Dependencies.live.audioSettingsStore`) — don't accept upstream services as parameters. This keeps every consumer's call site uniform: `<Module>.Dependencies.live` is always a property access.
+
+The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. View-model factories then reach through the nested struct (e.g. `engine.audioUnitEngineManager`). Adding a new service to a module becomes zero-touch in the app.

@@ -1,6 +1,6 @@
 //
 //  AudioUnitComponentsLibrary.swift
-//  TinyAudioUnitHost
+//  EngineKit
 //
 //  Created by Alex Shubin on 20.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -9,7 +9,7 @@
 import AVFoundation
 import Common
 
-protocol AudioUnitComponentsLibraryType: Sendable {
+public protocol AudioUnitComponentsLibraryType: Sendable {
     var components: [AudioUnitComponent] { get }
 }
 

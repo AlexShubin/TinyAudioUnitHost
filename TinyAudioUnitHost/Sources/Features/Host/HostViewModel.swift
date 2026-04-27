@@ -7,6 +7,7 @@
 //
 
 import Common
+import EngineKit
 import Observation
 
 enum HostViewModelAction {

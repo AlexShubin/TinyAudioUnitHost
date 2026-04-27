@@ -1,6 +1,6 @@
 //
 //  AggregateDeviceManager.swift
-//  TinyAudioUnitHost
+//  EngineKit
 //
 //  Created by Alex Shubin on 24.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
