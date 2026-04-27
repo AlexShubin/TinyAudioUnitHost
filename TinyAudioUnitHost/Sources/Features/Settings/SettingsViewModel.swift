@@ -23,7 +23,6 @@ final class SettingsViewModel: SettingsViewModelType {
     let outputDevicePicker: DevicePickerViewModelType
     private(set) var target: TargetAudioDevice?
 
-    @ObservationIgnored private let settingsStore: AudioSettingsStoreType
     @ObservationIgnored private let engine: AudioUnitEngineManagerType
     @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
@@ -33,7 +32,6 @@ final class SettingsViewModel: SettingsViewModelType {
         engine: AudioUnitEngineManagerType,
         aggregateDeviceManager: AggregateDeviceManagerType
     ) {
-        self.settingsStore = settingsStore
         self.engine = engine
         self.aggregateDeviceManager = aggregateDeviceManager
         self.inputDevicePicker = DevicePickerViewModel(
@@ -55,15 +53,7 @@ final class SettingsViewModel: SettingsViewModelType {
     }
 
     private func applyToEngine() async {
-        let settings = await settingsStore.current()
-        target = await aggregateDeviceManager.resolve(
-            input: settings.input.device,
-            output: settings.output.device
-        )
-        await engine.apply(
-            target: target,
-            input: settings.input.selectedChannel,
-            output: settings.output.selectedChannel
-        )
+        await engine.reload()
+        target = await aggregateDeviceManager.resolveTarget()
     }
 }

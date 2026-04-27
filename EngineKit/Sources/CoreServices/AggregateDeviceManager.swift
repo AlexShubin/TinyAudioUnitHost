@@ -8,38 +8,79 @@
 
 import Common
 import CoreAudio
+import StorageKit
 
 public protocol AggregateDeviceManagerType: Sendable {
-    func resolve(input: AudioDevice?, output: AudioDevice?) async -> TargetAudioDevice?
+    func resolveTarget() async -> TargetAudioDevice?
 }
 
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
     static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
 
     private let devicesProvider: AudioDevicesProviderType
-    private var currentAggregateID: AudioDeviceID?
+    private let settingsStore: AudioSettingsStoreType
+    private var cachedTarget: TargetAudioDevice?
 
-    init(devicesProvider: AudioDevicesProviderType) {
+    init(devicesProvider: AudioDevicesProviderType, settingsStore: AudioSettingsStoreType) {
         self.devicesProvider = devicesProvider
+        self.settingsStore = settingsStore
         destroyOrphans()
     }
 
-    func resolve(input: AudioDevice?, output: AudioDevice?) -> TargetAudioDevice? {
+    func resolveTarget() async -> TargetAudioDevice? {
+        let settings = await settingsStore.current()
+        let input = settings.input.device
+        let output = settings.output.device
+
+        if input?.id == cachedTarget?.inputSource?.id
+            && output?.id == cachedTarget?.outputSource?.id
+        {
+            return cachedTarget
+        }
+
+        cachedTarget = resolve(input: input, output: output)
+        return cachedTarget
+    }
+
+    private func resolve(input: AudioDevice?, output: AudioDevice?) -> TargetAudioDevice? {
         switch (input, output) {
         case (nil, nil):
-            destroy()
+            destroyCurrentAggregate()
             return nil
-        case let (device?, nil), let (nil, device?):
-            destroy()
-            return TargetAudioDevice(device: device, inputOffset: 0, outputOffset: 0)
+        case let (device?, nil):
+            destroyCurrentAggregate()
+            return TargetAudioDevice(
+                device: device,
+                inputSource: device,
+                outputSource: nil,
+                inputOffset: 0,
+                outputOffset: 0
+            )
+        case let (nil, device?):
+            destroyCurrentAggregate()
+            return TargetAudioDevice(
+                device: device,
+                inputSource: nil,
+                outputSource: device,
+                inputOffset: 0,
+                outputOffset: 0
+            )
         case let (input?, output?) where input.id == output.id:
-            destroy()
-            return TargetAudioDevice(device: input, inputOffset: 0, outputOffset: 0)
+            destroyCurrentAggregate()
+            return TargetAudioDevice(
+                device: input,
+                inputSource: input,
+                outputSource: output,
+                inputOffset: 0,
+                outputOffset: 0
+            )
         case let (input?, output?):
             guard let aggregate = createAggregate(inputUID: input.uid, outputUID: output.uid)
             else { return nil }
             return TargetAudioDevice(
                 device: aggregate,
+                inputSource: input,
+                outputSource: output,
                 inputOffset: 0,
                 outputOffset: input.outputChannels.count
             )
@@ -47,16 +88,15 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
     }
 
     private func createAggregate(inputUID: String, outputUID: String) -> AudioDevice? {
-        destroy()
+        destroyCurrentAggregate()
         guard let id = makeAggregate(inputUID: inputUID, outputUID: outputUID) else { return nil }
-        currentAggregateID = id
         return devicesProvider.device(id: id)
     }
 
-    private func destroy() {
-        guard let previous = currentAggregateID else { return }
-        AudioHardwareDestroyAggregateDevice(previous)
-        currentAggregateID = nil
+    private func destroyCurrentAggregate() {
+        guard let device = cachedTarget?.device,
+              device.uid.hasPrefix(Self.uidPrefix) else { return }
+        AudioHardwareDestroyAggregateDevice(device.id)
     }
 
     nonisolated private func destroyOrphans() {

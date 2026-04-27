@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import StorageKit
+
 public struct Dependencies: Sendable {
     public let audioDevicesProvider: AudioDevicesProviderType
     public let audioUnitEngineManager: AudioUnitEngineManagerType
@@ -14,12 +16,21 @@ public struct Dependencies: Sendable {
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
+        let settingsStore = StorageKit.Dependencies.live.audioSettingsStore
+        let aggregateDeviceManager = AggregateDeviceManager(
+            devicesProvider: devicesProvider,
+            settingsStore: settingsStore
+        )
         let engine = AudioUnitEngine(coreMidiManager: CoreMidiManager())
         return Dependencies(
             audioDevicesProvider: devicesProvider,
-            audioUnitEngineManager: AudioUnitEngineManager(engine: engine),
+            audioUnitEngineManager: AudioUnitEngineManager(
+                engine: engine,
+                settingsStore: settingsStore,
+                aggregateDeviceManager: aggregateDeviceManager
+            ),
             audioUnitComponentsLibrary: AudioUnitComponentsLibrary(),
-            aggregateDeviceManager: AggregateDeviceManager(devicesProvider: devicesProvider)
+            aggregateDeviceManager: aggregateDeviceManager
         )
     }()
 }

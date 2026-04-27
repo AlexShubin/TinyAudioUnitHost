@@ -7,34 +7,29 @@
 //
 
 import Common
+import StorageKit
 
 public protocol AudioUnitEngineManagerType: Sendable {
-    func load(
-        component: AudioUnitComponent,
-        target: TargetAudioDevice?,
-        input: SelectedChannel?,
-        output: SelectedChannel?
-    ) async -> LoadedAudioUnit?
-    func apply(
-        target: TargetAudioDevice?,
-        input: SelectedChannel?,
-        output: SelectedChannel?
-    ) async
+    func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
+    func reload() async
 }
 
 final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
     private let engine: AudioUnitEngineType
+    private let settingsStore: AudioSettingsStoreType
+    private let aggregateDeviceManager: AggregateDeviceManagerType
 
-    init(engine: AudioUnitEngineType) {
+    init(
+        engine: AudioUnitEngineType,
+        settingsStore: AudioSettingsStoreType,
+        aggregateDeviceManager: AggregateDeviceManagerType
+    ) {
         self.engine = engine
+        self.settingsStore = settingsStore
+        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
-    func load(
-        component: AudioUnitComponent,
-        target: TargetAudioDevice?,
-        input: SelectedChannel?,
-        output: SelectedChannel?
-    ) async -> LoadedAudioUnit? {
+    func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
         await engine.teardownMidi()
         await engine.stop()
         await engine.disconnect()
@@ -42,34 +37,29 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
 
         guard let loaded = await engine.load(audioUnit: component) else { return nil }
 
-        await applyConnections(target: target, input: input, output: output)
+        await applyConnections()
         await engine.connectMidi()
         await engine.start()
         return loaded
     }
 
-    func apply(
-        target: TargetAudioDevice?,
-        input: SelectedChannel?,
-        output: SelectedChannel?
-    ) async {
+    func reload() async {
         await engine.stop()
         await engine.disconnect()
-        await applyConnections(target: target, input: input, output: output)
+        await applyConnections()
         await engine.start()
     }
 
-    private func applyConnections(
-        target: TargetAudioDevice?,
-        input: SelectedChannel?,
-        output: SelectedChannel?
-    ) async {
+    private func applyConnections() async {
+        let settings = await settingsStore.current()
+        let target = await aggregateDeviceManager.resolveTarget()
+
         await engine.bindDevice(target?.device.id)
 
-        if let input {
+        if let input = settings.input.selectedChannel {
             await engine.connectInputs(channels: input, hardwareOffset: target?.inputOffset ?? 0)
         }
-        if let output {
+        if let output = settings.output.selectedChannel {
             await engine.connectOutputs(channels: output, hardwareOffset: target?.outputOffset ?? 0)
         }
     }

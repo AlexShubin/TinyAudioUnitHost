@@ -6,10 +6,13 @@ Working branch: `feature/buffer-size-setting`.
 
 1. **`AudioDevice.availableBufferSizes`** — every `AudioDevice` carries a pre-filtered list of supported buffer sizes. Provider intersects `[16, 32, 64, 128, 256, 512, 1024, 2048]` with each device's `kAudioDevicePropertyBufferFrameSizeRange`.
 2. **`TargetAudioDevice`** (`EngineKit/Sources/Models/`) — value type bundling the resolved `AudioDevice` (single device or aggregate) with its `inputOffset` / `outputOffset`. The aggregate's `availableBufferSizes` reflects what the aggregate itself supports (queried after creation via `AudioDevicesProvider.device(id:)`).
-3. **`AggregateDeviceManager.resolve(input:output:)`** — public; returns `TargetAudioDevice?`. Owns aggregate creation + lifecycle. `create`/`destroy` are now private impl details.
-4. **Engine decoupled.** `AudioUnitEngineManager` no longer reads `settingsStore` or `aggregateDeviceManager`. New API: `apply(target:input:output:)` and `load(component:target:input:output:)`. `DeviceBindingIntent`, `bindingIntent`, `resolveTargetDevice`, `reconnect()` all deleted.
-5. **Orchestration in `SettingsViewModel`.** SettingsVM owns the engine + aggregate + store deps. Pickers become dumb notifiers (`onChange` callback). SettingsVM exposes observable `target: TargetAudioDevice?` — this is the entry point for the buffer-size picker.
-6. **`HostViewModel`** does its own one-shot resolve+load (separate flow from settings changes).
+3. **Pull-based orchestration.** Services read state from the settings store; VMs only persist + nudge.
+   - `AggregateDeviceManagerType.resolveTarget() async -> TargetAudioDevice?` — parameterless. Reads `AudioSettingsStoreType` internally and caches by input/output device IDs so calling it multiple times for unchanged settings does not recreate the aggregate.
+   - `AudioUnitEngineManagerType.reload()` and `load(component:)` — both read `AudioSettingsStoreType` for channels and call `aggregateDeviceManager.resolveTarget()` for the device. No engine-side params for target/input/output.
+4. **VMs are thin.**
+   - `DevicePickerViewModel` writes to `AudioSettingsStore`, then fires `onChange`.
+   - `SettingsViewModel.applyToEngine()` is now: `await engine.reload(); target = await aggregateDeviceManager.resolveTarget()`. It still exposes observable `target: TargetAudioDevice?` for the buffer-size picker.
+   - `HostViewModel` no longer holds `settingsStore` or `aggregateDeviceManager`. `.selected` just calls `engine.load(component:)`.
 
 ## Left to do
 
@@ -23,11 +26,8 @@ Working branch: `feature/buffer-size-setting`.
 
 ### B. Wire to engine
 
-- `SettingsViewModel.applyToEngine()` should also pass the buffer size. Two options:
-  - Pass it through the engine's `apply` API (extend signature: `apply(target:input:output:bufferSize:)`).
-  - Or stash it on `TargetAudioDevice` (less clean — buffer size is a user setting, not a device property).
+- `AudioUnitEngineManager.applyConnections()` already reads settings — extend it to also read `settings.bufferSize` and pass it to the engine layer. No public-API signature change needed (still just `reload()` / `load(component:)`).
 - In `AudioUnitEngine`, after `bindDevice`, set `kAudioDevicePropertyBufferFrameSize` on the resolved target's HAL device. Order matters: bind → set buffer size → connect formats.
-- `HostViewModel`'s `load` path needs the same buffer-size argument (read from store).
 
 ## Open questions to resolve in step A
 
@@ -42,7 +42,6 @@ Working branch: `feature/buffer-size-setting`.
 - `TinyAudioUnitHost/Sources/Features/Settings/SettingsViewModel.swift` — own the buffer picker VM, pass bufferSize into `applyToEngine`.
 - `TinyAudioUnitHost/Sources/Features/Settings/Subviews/BufferSizePickerView.swift` (new).
 - `TinyAudioUnitHost/Sources/Features/Settings/Subviews/BufferSizePickerViewModel.swift` (new).
-- `EngineKit/Sources/AudioUnitEngine/AudioUnitEngineManager.swift` — extend `apply` / `load` signatures.
+- `EngineKit/Sources/AudioUnitEngine/AudioUnitEngineManager.swift` — read `bufferSize` from store inside `applyConnections()` and forward to engine.
 - `EngineKit/Sources/AudioUnitEngine/AudioUnitEngine.swift` — set the HAL property.
-- `TinyAudioUnitHost/Sources/Features/Host/HostViewModel.swift` — pass bufferSize to engine.load.
 - `TinyAudioUnitHost/Sources/Dependencies.swift` — wire any new deps.
