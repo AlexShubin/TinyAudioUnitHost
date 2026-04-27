@@ -7,6 +7,7 @@
 //
 
 import Observation
+import StorageKit
 
 @MainActor
 protocol SettingsViewModelType: Observable {

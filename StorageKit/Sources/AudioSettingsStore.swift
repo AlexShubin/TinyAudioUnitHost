@@ -1,6 +1,6 @@
 //
 //  AudioSettingsStore.swift
-//  TinyAudioUnitHost
+//  StorageKit
 //
 //  Created by Alex Shubin on 22.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -8,7 +8,7 @@
 
 import Common
 
-protocol AudioSettingsStoreType: Sendable {
+public protocol AudioSettingsStoreType: Sendable {
     func current() async -> AudioSettings
     func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
 }

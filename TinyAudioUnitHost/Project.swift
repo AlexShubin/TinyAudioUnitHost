@@ -35,6 +35,7 @@ let project = Project(
             ],
             dependencies: [
                 .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
             ],
             settings: .settings(
                 base: [

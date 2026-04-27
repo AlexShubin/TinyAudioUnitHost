@@ -7,6 +7,7 @@
 //
 
 import Common
+import StorageKit
 
 enum DeviceBindingIntent: Equatable, Sendable {
     case none

@@ -8,6 +8,7 @@
 
 import Common
 import Observation
+import StorageKit
 
 enum DevicePickerViewModelAction {
     case task
