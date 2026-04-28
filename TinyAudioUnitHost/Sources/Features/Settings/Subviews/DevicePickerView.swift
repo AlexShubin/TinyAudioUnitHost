@@ -9,77 +9,88 @@
 import Common
 import SwiftUI
 
+enum DevicePickerKind: Sendable, Hashable {
+    case input
+    case output
+}
+
+enum DevicePickerViewAction {
+    case selectDevice(AudioDevice)
+    case setChannel(AudioChannel, isOn: Bool)
+}
+
+struct DevicePickerState: Sendable, Equatable {
+    var devices: [AudioDevice]
+    var selectedDevice: AudioDevice?
+    var selectedChannel: SelectedChannel?
+
+    static let empty = DevicePickerState(devices: [], selectedDevice: nil, selectedChannel: nil)
+}
+
 struct DevicePickerView: View {
-    @State var viewModel: DevicePickerViewModelType
+    let kind: DevicePickerKind
+    let state: DevicePickerState
+    let onAction: (DevicePickerViewAction) -> Void
 
     var body: some View {
-        Form {
-            Picker(
-                deviceLabel,
-                selection: Binding<AudioDevice?>(
-                    get: { viewModel.selectedDevice },
-                    set: { device in
-                        guard let device else { return }
-                        Task { await viewModel.accept(action: .selectDevice(device)) }
-                    }
-                )
-            ) {
-                ForEach(viewModel.devices) { device in
-                    Text(device.name).tag(Optional(device))
+        Picker(
+            deviceLabel,
+            selection: Binding<AudioDevice?>(
+                get: { state.selectedDevice },
+                set: { device in
+                    guard let device else { return }
+                    onAction(.selectDevice(device))
                 }
-            }
-            .task { await viewModel.accept(action: .task) }
-
-            if let device = viewModel.selectedDevice {
-                Section(channelsLabel) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(channels(for: device)) { channel in
-                                let selected = viewModel.selectedChannel?.channels ?? []
-                                Toggle(
-                                    channel.name,
-                                    isOn: Binding(
-                                        get: { selected.contains(channel) },
-                                        set: { isOn in
-                                            Task { await viewModel.accept(action: .setChannel(channel, isOn: isOn)) }
-                                        }
-                                    )
-                                )
-                                .disabled(selected.count == 2 && !selected.contains(channel))
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(height: 200)
-                }
+            )
+        ) {
+            ForEach(state.devices) { device in
+                Text(device.name).tag(Optional(device))
             }
         }
-        .formStyle(.grouped)
+
+        if let device = state.selectedDevice {
+            Section(channelsLabel) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(channels(for: device)) { channel in
+                            let selected = state.selectedChannel?.channels ?? []
+                            Toggle(
+                                channel.name,
+                                isOn: Binding(
+                                    get: { selected.contains(channel) },
+                                    set: { isOn in
+                                        onAction(.setChannel(channel, isOn: isOn))
+                                    }
+                                )
+                            )
+                            .disabled(selected.count == 2 && !selected.contains(channel))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: 200)
+            }
+        }
     }
 
     private var deviceLabel: String {
-        switch viewModel.kind {
+        switch kind {
         case .input: "Audio Input Device:"
         case .output: "Audio Output Device:"
         }
     }
 
     private var channelsLabel: String {
-        switch viewModel.kind {
+        switch kind {
         case .input: "Audio Input Channels"
         case .output: "Audio Output Channels"
         }
     }
 
     private func channels(for device: AudioDevice) -> [AudioChannel] {
-        switch viewModel.kind {
+        switch kind {
         case .input: device.inputChannels
         case .output: device.outputChannels
         }
     }
-}
-
-enum DevicePickerKind: Sendable, Hashable {
-    case input
-    case output
 }

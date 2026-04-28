@@ -3,7 +3,8 @@
 ## Tuist
 
 - To regenerate the Xcode project, run: `mise run generate`
-- Always run `mise run generate` after structural changes to the project (adding/removing targets, files, dependencies in Project.swift)
+- Targets use buildable folders, so adding/removing source files does **not** require regeneration — Xcode picks them up automatically.
+- Only run `mise run generate` after structural changes to `Project.swift` itself (adding/removing targets, dependencies, build settings).
 
 ## Tech Stack
 
@@ -38,6 +39,39 @@
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
 - `*Action` for view model action enums
 - Features organized as `Features/FeatureName/` with View, ViewModel, and optional `Subviews/`
+
+## Subview communication
+
+Subviews don't own a view model. They take a single state struct + an `onAction` closure and bubble user intent up to the parent feature's VM:
+
+```swift
+struct DevicePickerState: Sendable, Equatable {
+    var devices: [AudioDevice]
+    var selectedDevice: AudioDevice?
+    var selectedChannel: SelectedChannel?
+}
+
+enum DevicePickerViewAction { case selectDevice(AudioDevice), setChannel(...) }
+
+struct DevicePickerView: View {
+    let kind: DevicePickerKind
+    let state: DevicePickerState
+    let onAction: (DevicePickerViewAction) -> Void
+}
+```
+
+The parent VM owns one state struct per subview instance (e.g. `inputState`, `outputState`) and wraps each subview action in its own case (`.inputDevicePickerAction(...)`, `.outputDevicePickerAction(...)`). When the parent dispatches multiple instances of the same subview, route writes through a kind-keyed inout helper instead of duplicating per-slice setters:
+
+```swift
+private func mutatePickerState(kind: DevicePickerKind, _ mutate: (inout DevicePickerState) -> Void) {
+    switch kind {
+    case .input: mutate(&inputState)
+    case .output: mutate(&outputState)
+    }
+}
+```
+
+Call sites then touch only the field they care about (`state.selectedDevice = device`) instead of rebuilding the whole struct.
 
 ## Project Structure
 

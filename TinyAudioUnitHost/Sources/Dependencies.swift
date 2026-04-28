@@ -29,7 +29,8 @@ struct Dependencies: Sendable {
         SettingsViewModel(
             devicesProvider: engine.audioDevicesProvider,
             settingsStore: storage.audioSettingsStore,
-            engine: engine.audioUnitEngineManager
+            engine: engine.audioUnitEngineManager,
+            aggregateDeviceManager: engine.aggregateDeviceManager
         )
     }
 }

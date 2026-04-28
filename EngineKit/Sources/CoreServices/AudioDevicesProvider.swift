@@ -11,6 +11,7 @@ import Common
 
 public protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
+    func device(id: AudioDeviceID) -> AudioDevice?
 }
 
 public enum AudioDeviceFilter: Sendable {
@@ -20,10 +21,15 @@ public enum AudioDeviceFilter: Sendable {
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
+    private static let candidateBufferSizes: [UInt32] = [
+        16, 32, 64,
+        96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512,
+    ]
+
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
-        return ids.compactMap(makeDevice(id:)).filter { device in
+        return ids.compactMap(device(id:)).filter { device in
             switch filter {
             case .all: true
             case .input: !device.inputChannels.isEmpty
@@ -32,7 +38,7 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         }
     }
 
-    private func makeDevice(id: AudioDeviceID) -> AudioDevice? {
+    func device(id: AudioDeviceID) -> AudioDevice? {
         guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
               let name = id.getString(selector: kAudioObjectPropertyName)
         else { return nil }
@@ -42,7 +48,8 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                            uid: uid,
                            name: name,
                            inputChannels: channels(count: inputChannelCount),
-                           outputChannels: channels(count: outputChannelCount))
+                           outputChannels: channels(count: outputChannelCount),
+                           availableBufferSizes: bufferSizes(deviceID: id))
     }
 
     private func channels(count: Int) -> [AudioChannel] {
@@ -59,6 +66,16 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                 defaultValue: AudioStreamBasicDescription()
             )
             return total + Int(format?.mChannelsPerFrame ?? 0)
+        }
+    }
+
+    private func bufferSizes(deviceID: AudioDeviceID) -> [UInt32] {
+        guard let range: AudioValueRange = deviceID.getProperty(
+            selector: kAudioDevicePropertyBufferFrameSizeRange,
+            defaultValue: AudioValueRange()
+        ) else { return [] }
+        return Self.candidateBufferSizes.filter {
+            Double($0) >= range.mMinimum && Double($0) <= range.mMaximum
         }
     }
 }

@@ -33,7 +33,10 @@ final class HostViewModel: HostViewModelType {
     @ObservationIgnored private let engine: AudioUnitEngineManagerType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
 
-    init(engine: AudioUnitEngineManagerType, library: AudioUnitComponentsLibraryType) {
+    init(
+        engine: AudioUnitEngineManagerType,
+        library: AudioUnitComponentsLibraryType
+    ) {
         self.engine = engine
         self.library = library
     }

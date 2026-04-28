@@ -15,6 +15,7 @@ protocol AudioUnitEngineType: Actor {
     func stop()
     func start()
     func bindDevice(_ deviceID: AudioDeviceID?)
+    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID)
     func connectInputs(channels: SelectedChannel, hardwareOffset: Int)
     func connectOutputs(channels: SelectedChannel, hardwareOffset: Int)
     func disconnect()
@@ -61,6 +62,24 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             size
         )
         assert(status == noErr, "Failed to set current device: \(status)")
+    }
+
+    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) {
+        var size = frames
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSize,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectSetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            UInt32(MemoryLayout<UInt32>.size),
+            &size
+        )
+        assert(status == noErr, "Failed to set buffer size: \(status)")
     }
 
     func connectInputs(channels: SelectedChannel, hardwareOffset: Int) {

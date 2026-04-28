@@ -12,19 +12,26 @@ public struct Dependencies: Sendable {
     public let audioDevicesProvider: AudioDevicesProviderType
     public let audioUnitEngineManager: AudioUnitEngineManagerType
     public let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
+    public let aggregateDeviceManager: AggregateDeviceManagerType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
+        let settingsStore = StorageKit.Dependencies.live.audioSettingsStore
+        let aggregateDeviceManager = AggregateDeviceManager(
+            devicesProvider: devicesProvider,
+            settingsStore: settingsStore,
+            factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
+        )
         let engine = AudioUnitEngine(coreMidiManager: CoreMidiManager())
-        let aggregateDeviceManager = AggregateDeviceManager(devicesProvider: devicesProvider)
         return Dependencies(
             audioDevicesProvider: devicesProvider,
             audioUnitEngineManager: AudioUnitEngineManager(
                 engine: engine,
-                settingsStore: StorageKit.Dependencies.live.audioSettingsStore,
+                settingsStore: settingsStore,
                 aggregateDeviceManager: aggregateDeviceManager
             ),
-            audioUnitComponentsLibrary: AudioUnitComponentsLibrary()
+            audioUnitComponentsLibrary: AudioUnitComponentsLibrary(),
+            aggregateDeviceManager: aggregateDeviceManager
         )
     }()
 }

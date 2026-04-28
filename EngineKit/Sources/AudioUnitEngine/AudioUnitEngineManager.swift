@@ -9,15 +9,9 @@
 import Common
 import StorageKit
 
-enum DeviceBindingIntent: Equatable, Sendable {
-    case none
-    case direct(AudioDevice)
-    case aggregate(input: AudioDevice, output: AudioDevice)
-}
-
 public protocol AudioUnitEngineManagerType: Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
-    func reconnect() async
+    func reload() async
 }
 
 final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
@@ -49,62 +43,27 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
         return loaded
     }
 
-    func reconnect() async {
+    func reload() async {
         await engine.stop()
         await engine.disconnect()
         await applyConnections()
         await engine.start()
     }
 
-    static func bindingIntent(input: AudioDevice?, output: AudioDevice?) -> DeviceBindingIntent {
-        switch (input, output) {
-        case (nil, nil):
-            return .none
-        case let (dev?, nil), let (nil, dev?):
-            return .direct(dev)
-        case let (inDev?, outDev?) where inDev.id == outDev.id:
-            return .direct(inDev)
-        case let (inDev?, outDev?):
-            return .aggregate(input: inDev, output: outDev)
-        }
-    }
-
     private func applyConnections() async {
         let settings = await settingsStore.current()
-        let intent = Self.bindingIntent(input: settings.input.device, output: settings.output.device)
-        let targetID = await resolveTargetDevice(for: intent)
+        let target = await aggregateDeviceManager.resolveTarget()
 
-        // Sub-device list is [input, output]. Input scope keeps its channel
-        // indices; output scope is shifted by the input sub-device's output
-        // channel count.
-        let inputOffset = 0
-        let outputOffset: Int = {
-            if case .aggregate = intent {
-                return settings.input.device?.outputChannels.count ?? 0
-            }
-            return 0
-        }()
-
-        await engine.bindDevice(targetID)
+        await engine.bindDevice(target?.device.id)
+        if let frames = settings.bufferSize, let deviceID = target?.device.id {
+            await engine.setBufferSize(frames, deviceID: deviceID)
+        }
 
         if let input = settings.input.selectedChannel {
-            await engine.connectInputs(channels: input, hardwareOffset: inputOffset)
+            await engine.connectInputs(channels: input, hardwareOffset: target?.inputOffset ?? 0)
         }
         if let output = settings.output.selectedChannel {
-            await engine.connectOutputs(channels: output, hardwareOffset: outputOffset)
-        }
-    }
-
-    private func resolveTargetDevice(for intent: DeviceBindingIntent) async -> UInt32? {
-        switch intent {
-        case .none:
-            await aggregateDeviceManager.destroy()
-            return nil
-        case .direct(let device):
-            await aggregateDeviceManager.destroy()
-            return device.id
-        case .aggregate(let input, let output):
-            return await aggregateDeviceManager.create(inputUID: input.uid, outputUID: output.uid)
+            await engine.connectOutputs(channels: output, hardwareOffset: target?.outputOffset ?? 0)
         }
     }
 }
