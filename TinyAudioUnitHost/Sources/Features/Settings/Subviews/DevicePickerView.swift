@@ -9,38 +9,51 @@
 import Common
 import SwiftUI
 
+enum DevicePickerKind: Sendable, Hashable {
+    case input
+    case output
+}
+
+enum DevicePickerViewAction {
+    case selectDevice(AudioDevice)
+    case setChannel(AudioChannel, isOn: Bool)
+}
+
 struct DevicePickerView: View {
-    @State var viewModel: DevicePickerViewModelType
+    let kind: DevicePickerKind
+    let devices: [AudioDevice]
+    let selectedDevice: AudioDevice?
+    let selectedChannel: SelectedChannel?
+    let onAction: (DevicePickerViewAction) -> Void
 
     var body: some View {
         Picker(
             deviceLabel,
             selection: Binding<AudioDevice?>(
-                get: { viewModel.selectedDevice },
+                get: { selectedDevice },
                 set: { device in
                     guard let device else { return }
-                    Task { await viewModel.accept(action: .selectDevice(device)) }
+                    onAction(.selectDevice(device))
                 }
             )
         ) {
-            ForEach(viewModel.devices) { device in
+            ForEach(devices) { device in
                 Text(device.name).tag(Optional(device))
             }
         }
-        .task { await viewModel.accept(action: .task) }
 
-        if let device = viewModel.selectedDevice {
+        if let device = selectedDevice {
             Section(channelsLabel) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(channels(for: device)) { channel in
-                            let selected = viewModel.selectedChannel?.channels ?? []
+                            let selected = selectedChannel?.channels ?? []
                             Toggle(
                                 channel.name,
                                 isOn: Binding(
                                     get: { selected.contains(channel) },
                                     set: { isOn in
-                                        Task { await viewModel.accept(action: .setChannel(channel, isOn: isOn)) }
+                                        onAction(.setChannel(channel, isOn: isOn))
                                     }
                                 )
                             )
@@ -55,28 +68,23 @@ struct DevicePickerView: View {
     }
 
     private var deviceLabel: String {
-        switch viewModel.kind {
+        switch kind {
         case .input: "Audio Input Device:"
         case .output: "Audio Output Device:"
         }
     }
-    
+
     private var channelsLabel: String {
-        switch viewModel.kind {
+        switch kind {
         case .input: "Audio Input Channels"
         case .output: "Audio Output Channels"
         }
     }
 
     private func channels(for device: AudioDevice) -> [AudioChannel] {
-        switch viewModel.kind {
+        switch kind {
         case .input: device.inputChannels
         case .output: device.outputChannels
         }
     }
-}
-
-enum DevicePickerKind: Sendable, Hashable {
-    case input
-    case output
 }
