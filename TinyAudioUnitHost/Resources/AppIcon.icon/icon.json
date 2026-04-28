@@ -22,10 +22,10 @@
           "image-name" : "AU.png",
           "name" : "AU",
           "position" : {
-            "scale" : 1,
+            "scale" : 1.08,
             "translation-in-points" : [
-              150.3950120462996,
-              -233.14559592661647
+              116.4340745462996,
+              -257.1055355882226
             ]
           }
         },
@@ -46,10 +46,10 @@
           "image-name" : "simple-cute-bison-outline-cartoon-style-clear-background-generative-ai_804788-10435.jpg copy.png",
           "name" : "simple-cute-bison-outline-cartoon-style-clear-background-generative-ai_804788-10435.jpg copy",
           "position" : {
-            "scale" : 1,
+            "scale" : 1.2,
             "translation-in-points" : [
-              -204.97260789931693,
-              156.17290191177744
+              -190.77729539931693,
+              160.79008941177744
             ]
           }
         }
