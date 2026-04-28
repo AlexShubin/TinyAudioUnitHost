@@ -21,10 +21,12 @@ public struct DeviceSettings: Sendable, Equatable {
 public struct AudioSettings: Sendable, Equatable {
     public var input: DeviceSettings
     public var output: DeviceSettings
+    public var bufferSize: UInt32?
 
-    public init(input: DeviceSettings, output: DeviceSettings) {
+    public init(input: DeviceSettings, output: DeviceSettings, bufferSize: UInt32? = nil) {
         self.input = input
         self.output = output
+        self.bufferSize = bufferSize
     }
 
     public static let empty = AudioSettings(input: .empty, output: .empty)
