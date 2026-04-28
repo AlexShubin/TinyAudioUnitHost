@@ -21,7 +21,10 @@ public enum AudioDeviceFilter: Sendable {
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
-    private static let candidateBufferSizes: [UInt32] = [16, 32, 64, 128, 256, 512, 1024, 2048]
+    private static let candidateBufferSizes: [UInt32] = [
+        16, 32, 64,
+        96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512,
+    ]
 
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
