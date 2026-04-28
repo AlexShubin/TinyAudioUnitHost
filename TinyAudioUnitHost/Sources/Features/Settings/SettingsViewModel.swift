@@ -15,7 +15,8 @@ import StorageKit
 protocol SettingsViewModelType: Observable {
     var inputState: DevicePickerState { get }
     var outputState: DevicePickerState { get }
-    var target: TargetAudioDevice? { get }
+    var bufferSize: UInt32? { get }
+    var availableBufferSizes: [UInt32] { get }
     func accept(action: SettingsViewAction) async
 }
 
@@ -23,7 +24,8 @@ protocol SettingsViewModelType: Observable {
 final class SettingsViewModel: SettingsViewModelType {
     private(set) var inputState: DevicePickerState = .empty
     private(set) var outputState: DevicePickerState = .empty
-    private(set) var target: TargetAudioDevice?
+    private(set) var bufferSize: UInt32?
+    private(set) var availableBufferSizes: [UInt32] = []
 
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
@@ -47,6 +49,7 @@ final class SettingsViewModel: SettingsViewModelType {
         case .task:
             let inputLoaded = await loadInitial(kind: .input)
             let outputLoaded = await loadInitial(kind: .output)
+            bufferSize = await settingsStore.current().bufferSize
             if inputLoaded || outputLoaded {
                 await applyToEngine()
             }
@@ -54,6 +57,11 @@ final class SettingsViewModel: SettingsViewModelType {
             await handle(pickerAction, kind: .input)
         case .outputDevicePickerAction(let pickerAction):
             await handle(pickerAction, kind: .output)
+        case .selectBufferSize(let size):
+            guard bufferSize != size else { return }
+            bufferSize = size
+            await persist()
+            await applyToEngine()
         }
     }
 
@@ -130,16 +138,38 @@ final class SettingsViewModel: SettingsViewModelType {
     private func persist() async {
         let input = inputState
         let output = outputState
+        let buffer = bufferSize
         await settingsStore.update { settings in
             settings.input.device = input.selectedDevice
             settings.input.selectedChannel = input.selectedChannel
             settings.output.device = output.selectedDevice
             settings.output.selectedChannel = output.selectedChannel
+            settings.bufferSize = buffer
         }
     }
 
     private func applyToEngine() async {
         await engine.reload()
-        target = await aggregateDeviceManager.resolveTarget()
+        let target = await aggregateDeviceManager.resolveTarget()
+        await refreshBufferSize(target: target)
+    }
+
+    private func refreshBufferSize(target: TargetAudioDevice?) async {
+        availableBufferSizes = target?.device.availableBufferSizes ?? []
+        let resolved = resolveBufferSize(current: bufferSize, available: availableBufferSizes)
+        guard resolved != bufferSize else { return }
+        bufferSize = resolved
+        await persist()
+    }
+
+    private func resolveBufferSize(current: UInt32?, available: [UInt32]) -> UInt32? {
+        guard !available.isEmpty else { return nil }
+        if let current, available.contains(current) { return current }
+        if let current {
+            return available.min { left, right in
+                abs(Int64(left) - Int64(current)) < abs(Int64(right) - Int64(current))
+            }
+        }
+        return available.contains(256) ? 256 : available.first
     }
 }
