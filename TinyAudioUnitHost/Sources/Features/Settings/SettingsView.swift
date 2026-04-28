@@ -22,9 +22,7 @@ struct SettingsView: View {
             Form {
                 DevicePickerView(
                     kind: .input,
-                    devices: viewModel.inputDevices,
-                    selectedDevice: viewModel.inputSelectedDevice,
-                    selectedChannel: viewModel.inputSelectedChannel,
+                    state: viewModel.inputState,
                     onAction: { action in
                         Task { await viewModel.accept(action: .inputDevicePickerAction(action)) }
                     }
@@ -34,9 +32,7 @@ struct SettingsView: View {
             Form {
                 DevicePickerView(
                     kind: .output,
-                    devices: viewModel.outputDevices,
-                    selectedDevice: viewModel.outputSelectedDevice,
-                    selectedChannel: viewModel.outputSelectedChannel,
+                    state: viewModel.outputState,
                     onAction: { action in
                         Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
                     }

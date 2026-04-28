@@ -19,35 +19,41 @@ enum DevicePickerViewAction {
     case setChannel(AudioChannel, isOn: Bool)
 }
 
+struct DevicePickerState: Sendable, Equatable {
+    var devices: [AudioDevice]
+    var selectedDevice: AudioDevice?
+    var selectedChannel: SelectedChannel?
+
+    static let empty = DevicePickerState(devices: [], selectedDevice: nil, selectedChannel: nil)
+}
+
 struct DevicePickerView: View {
     let kind: DevicePickerKind
-    let devices: [AudioDevice]
-    let selectedDevice: AudioDevice?
-    let selectedChannel: SelectedChannel?
+    let state: DevicePickerState
     let onAction: (DevicePickerViewAction) -> Void
 
     var body: some View {
         Picker(
             deviceLabel,
             selection: Binding<AudioDevice?>(
-                get: { selectedDevice },
+                get: { state.selectedDevice },
                 set: { device in
                     guard let device else { return }
                     onAction(.selectDevice(device))
                 }
             )
         ) {
-            ForEach(devices) { device in
+            ForEach(state.devices) { device in
                 Text(device.name).tag(Optional(device))
             }
         }
 
-        if let device = selectedDevice {
+        if let device = state.selectedDevice {
             Section(channelsLabel) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(channels(for: device)) { channel in
-                            let selected = selectedChannel?.channels ?? []
+                            let selected = state.selectedChannel?.channels ?? []
                             Toggle(
                                 channel.name,
                                 isOn: Binding(
