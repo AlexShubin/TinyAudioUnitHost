@@ -28,4 +28,5 @@ Then open `TinyAudioUnitHost.xcworkspace` in Xcode and run.
 
 1. Add tests.
 2. **Audio settings** — pick input/output channels, sample rate, and buffer size.
-3. **Presets** — save and restore AU state between launches.
+3. Storage - store routing settings on disk.
+4. **Presets** — save and restore AU state between launches.
