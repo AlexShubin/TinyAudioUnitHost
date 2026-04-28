@@ -42,36 +42,22 @@
 
 ## Subview communication
 
-Subviews don't own a view model. They take a single state struct + an `onAction` closure and bubble user intent up to the parent feature's VM:
+Subviews don't own a view model and don't mutate shared state. Every user-driven event bubbles up through a single `onAction: (Action) -> Void` closure to the parent feature's VM, which is the only thing that decides what to do:
 
 ```swift
-struct DevicePickerState: Sendable, Equatable {
-    var devices: [AudioDevice]
-    var selectedDevice: AudioDevice?
-    var selectedChannel: SelectedChannel?
-}
+enum FooViewAction { /* every user-driven event the subview can emit */ }
 
-enum DevicePickerViewAction { case selectDevice(AudioDevice), setChannel(...) }
-
-struct DevicePickerView: View {
-    let kind: DevicePickerKind
-    let state: DevicePickerState
-    let onAction: (DevicePickerViewAction) -> Void
+struct FooView: View {
+    // inputs the view renders — pass however suits the subview
+    // (a state struct, individual lets, bindings, etc.)
+    let onAction: (FooViewAction) -> Void
 }
 ```
 
-The parent VM owns one state struct per subview instance (e.g. `inputState`, `outputState`) and wraps each subview action in its own case (`.inputDevicePickerAction(...)`, `.outputDevicePickerAction(...)`). When the parent dispatches multiple instances of the same subview, route writes through a kind-keyed inout helper instead of duplicating per-slice setters:
-
-```swift
-private func mutatePickerState(kind: DevicePickerKind, _ mutate: (inout DevicePickerState) -> Void) {
-    switch kind {
-    case .input: mutate(&inputState)
-    case .output: mutate(&outputState)
-    }
-}
-```
-
-Call sites then touch only the field they care about (`state.selectedDevice = device`) instead of rebuilding the whole struct.
+- Define a dedicated `*ViewAction` enum per subview. Don't reuse the parent VM's action type — the subview shouldn't know it exists.
+- When the same subview type is used multiple times (e.g. an input and an output picker), the parent wraps each instance's actions in its own VM-action case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
+- If multiple instances share write logic on the VM, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
+- Shape of the *input* (single state struct vs. several `let`s vs. bindings) is a per-subview judgment call — what matters is that intent only flows out via `onAction`.
 
 ## Project Structure
 
