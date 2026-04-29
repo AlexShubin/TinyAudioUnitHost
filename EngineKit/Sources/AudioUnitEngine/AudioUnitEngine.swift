@@ -14,7 +14,7 @@ import Common
 protocol AudioUnitEngineType: Actor {
     func stop()
     func start()
-    func bindDevice(_ deviceID: AudioDeviceID?)
+    func bindDevice(_ target: TargetAudioDevice?)
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID)
     func connectInputs(channels: SelectedChannel, hardwareOffset: Int)
     func connectOutputs(channels: SelectedChannel, hardwareOffset: Int)
@@ -45,9 +45,24 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         engine.stop()
     }
 
-    func bindDevice(_ deviceID: AudioDeviceID?) {
-        guard let deviceID, let audioUnit = engine.outputNode.audioUnit else { return }
-        setCurrentDevice(deviceID, on: audioUnit)
+    func bindDevice(_ target: TargetAudioDevice?) {
+        guard let target, let audioUnit = engine.outputNode.audioUnit else { return }
+        setEnableIOFlag(target.inputSource != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
+        setEnableIOFlag(target.outputSource != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
+        setCurrentDevice(target.device.id, on: audioUnit)
+    }
+
+    private func setEnableIOFlag(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) {
+        var flag: UInt32 = enabled ? 1 : 0
+        let status = AudioUnitSetProperty(
+            audioUnit,
+            kAudioOutputUnitProperty_EnableIO,
+            scope,
+            element,
+            &flag,
+            UInt32(MemoryLayout<UInt32>.size)
+        )
+        assert(status == noErr, "Failed to set EnableIO: \(status)")
     }
 
     private func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) {

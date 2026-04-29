@@ -74,8 +74,6 @@ final class SettingsViewModel: SettingsViewModelType {
             if let storedDevice = stored.device, devices.contains(storedDevice) {
                 state.selectedDevice = storedDevice
                 state.selectedChannel = stored.selectedChannel
-            } else {
-                state.selectedDevice = devices.first
             }
         }
         return true

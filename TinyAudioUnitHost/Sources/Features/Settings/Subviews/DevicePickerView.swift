@@ -15,7 +15,7 @@ enum DevicePickerKind: Sendable, Hashable {
 }
 
 enum DevicePickerViewAction {
-    case selectDevice(AudioDevice)
+    case selectDevice(AudioDevice?)
     case setChannel(AudioChannel, isOn: Bool)
 }
 
@@ -37,12 +37,10 @@ struct DevicePickerView: View {
             deviceLabel,
             selection: Binding<AudioDevice?>(
                 get: { state.selectedDevice },
-                set: { device in
-                    guard let device else { return }
-                    onAction(.selectDevice(device))
-                }
+                set: { onAction(.selectDevice($0)) }
             )
         ) {
+            Text("<<none>>").tag(AudioDevice?.none)
             ForEach(state.devices) { device in
                 Text(device.name).tag(Optional(device))
             }

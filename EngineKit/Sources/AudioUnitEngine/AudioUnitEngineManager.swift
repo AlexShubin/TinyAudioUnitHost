@@ -54,7 +54,7 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
         let settings = await settingsStore.current()
         let target = await aggregateDeviceManager.resolveTarget()
 
-        await engine.bindDevice(target?.device.id)
+        await engine.bindDevice(target)
         if let frames = settings.bufferSize, let deviceID = target?.device.id {
             await engine.setBufferSize(frames, deviceID: deviceID)
         }
