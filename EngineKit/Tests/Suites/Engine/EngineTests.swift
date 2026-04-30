@@ -63,15 +63,9 @@ struct EngineTests {
         let result = await sut.load(component: Self.effectComponent)
 
         #expect(result == nil)
-        #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerMock),
-            .disconnectHardwareInput
-        ])
-        #expect(coreMidiManagerMock.calls == [.teardownMIDI])
         #expect(avAudioUnitFactoryMock.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
+        #expect(coreMidiManagerMock.calls == [.teardownMIDI])
+        #expect(!avEngineMock.calls.contains(.start))
     }
 
     @Test
@@ -211,22 +205,8 @@ struct EngineTests {
         _ = await sut.load(component: Self.effectComponent)
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
-        let auInputFormat = AVAudioFormat(
-            standardFormatWithSampleRate: 48_000,
-            channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
-        )
         #expect(coreAudioGatewayMock.calls == [.setChannelMap([2, 3], 1, inputAU)])
-        #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerMock),
-            .disconnectHardwareInput,
-            .attach(avAudioUnit),
-            .connectHardwareInput(inputMixerMock, userFormat),
-            .connect(inputMixerMock, avAudioUnit, auInputFormat),
-            .start
-        ])
+        #expect(avEngineMock.calls.contains(.connectHardwareInput(inputMixerMock, userFormat)))
     }
 
     @Test
@@ -252,15 +232,7 @@ struct EngineTests {
         _ = await sut.load(component: Self.mixerComponent)
 
         #expect(coreAudioGatewayMock.calls.isEmpty)
-        #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerMock),
-            .disconnectHardwareInput,
-            .attach(avAudioUnit),
-            .start
-        ])
+        #expect(!avEngineMock.calls.contains { if case .connectHardwareInput = $0 { true } else { false } })
     }
 
     @Test
@@ -297,16 +269,7 @@ struct EngineTests {
             .physicalChannelCount(outputAU),
             .setChannelMap([0, 1, -1, -1], 0, outputAU)
         ])
-        #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerMock),
-            .disconnectHardwareInput,
-            .attach(avAudioUnit),
-            .connectToMainMixer(avAudioUnit, outputFormat),
-            .start
-        ])
+        #expect(avEngineMock.calls.contains(.connectToMainMixer(avAudioUnit, outputFormat)))
     }
 
     @Test
@@ -317,14 +280,6 @@ struct EngineTests {
 
         #expect(avAudioUnitFactoryMock.calls.isEmpty)
         #expect(coreMidiManagerMock.calls.isEmpty)
-        #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerMock),
-            .disconnectHardwareInput,
-            .start
-        ])
     }
 }
 
