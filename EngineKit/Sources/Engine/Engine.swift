@@ -93,7 +93,7 @@ final actor Engine: EngineType {
         let hardwareFormat = engine.hardwareOutputFormat
         let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: channels.channelCount
+            channels: UInt32(channels.channels.count)
         )
         let auInputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
@@ -166,14 +166,5 @@ fileprivate extension AVAudioUnit {
     var acceptsAudioInput: Bool {
         let type = audioComponentDescription.componentType
         return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
-    }
-}
-
-fileprivate extension SelectedChannel {
-    var channelCount: UInt32 {
-        switch self {
-        case .mono: return 1
-        case .stereo: return 2
-        }
     }
 }
