@@ -17,213 +17,310 @@ import Testing
 
 @Suite
 struct EngineTests {
+    var avEngineMock: AVAudioEngineMock!
+    nonisolated(unsafe) var inputMixerMock: AVAudioMixerNode!
+    var avAudioUnitFactoryMock: AVAudioUnitFactoryMock!
+    var coreAudioGatewayMock: CoreAudioGatewayMock!
+    var coreMidiManagerMock: CoreMidiManagerMock!
+    var audioSettingsStoreMock: AudioSettingsStoreMock!
+    var aggregateDeviceManagerMock: AggregateDeviceManagerMock!
+    var sut: EngineType!
+
+    init() {
+        avEngineMock = AVAudioEngineMock()
+        inputMixerMock = AVAudioMixerNode()
+        avAudioUnitFactoryMock = AVAudioUnitFactoryMock()
+        coreAudioGatewayMock = CoreAudioGatewayMock()
+        coreMidiManagerMock = CoreMidiManagerMock()
+        audioSettingsStoreMock = AudioSettingsStoreMock()
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock()
+        createSut()
+    }
+
+    mutating func createSut() {
+        sut = Engine(
+            engine: avEngineMock,
+            inputMixer: inputMixerMock,
+            avAudioUnitFactory: avAudioUnitFactoryMock,
+            coreAudioGateway: coreAudioGatewayMock,
+            coreMidiManager: coreMidiManagerMock,
+            settingsStore: audioSettingsStoreMock,
+            aggregateDeviceManager: aggregateDeviceManagerMock
+        )
+    }
+
     @Test
     func init_attachesInputMixer() async {
-        let sut = makeSut()
-
-        #expect(sut.avEngine.calls.count == 1)
-        if case .attach(let node) = sut.avEngine.calls.first {
-            #expect(node is AVAudioMixerNode)
-        } else {
-            Issue.record("expected attach call")
-        }
+        #expect(avEngineMock.calls == [.attach(inputMixerMock)])
     }
 
     @Test
     func load_factoryFailure_returnsNilAndShortCircuits() async {
-        let sut = makeSut(factoryResult: .failure(TestError.factoryFailed))
+        avAudioUnitFactoryMock.instantiateResult = .failure(TestError.factoryFailed)
 
-        let result = await sut.engine.load(component: Self.effectComponent)
+        let result = await sut.load(component: Self.effectComponent)
 
         #expect(result == nil)
-        #expect(sut.midi.calls == [.teardownMIDI])
-        #expect(sut.factory.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
-        #expect(!sut.avEngine.calls.contains(.start))
-        #expect(sut.avEngine.calls.allSatisfy {
-            if case .attach(let node) = $0 { return node is AVAudioMixerNode }
-            return true
-        })
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput
+        ])
+        #expect(coreMidiManagerMock.calls == [.teardownMIDI])
+        #expect(avAudioUnitFactoryMock.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
     }
 
     @Test
     func load_happyPath_attachesAU_setsUpMIDI_andStarts() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
-        let sut = makeSut(factoryResult: .success(avAudioUnit))
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
 
-        let result = await sut.engine.load(component: Self.effectComponent)
+        let result = await sut.load(component: Self.effectComponent)
 
         #expect(result?.component == Self.effectComponent)
-
-        let attachIndex = try #require(sut.avEngine.calls.firstIndex { $0 == .attach(avAudioUnit) })
-        let startIndex = try #require(sut.avEngine.calls.firstIndex { $0 == .start })
-        #expect(attachIndex < startIndex)
-
-        #expect(sut.midi.calls == [.teardownMIDI, .setupMIDI(avAudioUnit.auAudioUnit)])
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .attach(avAudioUnit),
+            .start
+        ])
+        #expect(coreMidiManagerMock.calls == [.teardownMIDI, .setupMIDI(avAudioUnit.auAudioUnit)])
     }
 
     @Test
     func load_replacesPreviousAU_detachesOldAndTearsDownMIDI() async throws {
         let firstAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         let secondAU = try await Self.makeAVAudioUnit(Self.effectDescription)
-        let sut = makeSut(factoryResult: .success(firstAU))
+        avAudioUnitFactoryMock.instantiateResult = .success(firstAU)
 
-        _ = await sut.engine.load(component: Self.effectComponent)
-        sut.factory.instantiateResult = .success(secondAU)
+        _ = await sut.load(component: Self.effectComponent)
+        avAudioUnitFactoryMock.instantiateResult = .success(secondAU)
 
-        _ = await sut.engine.load(component: Self.effectComponent)
+        _ = await sut.load(component: Self.effectComponent)
 
-        #expect(sut.avEngine.calls.contains(.detach(firstAU)))
-        #expect(sut.midi.calls.filter { $0 == .teardownMIDI }.count == 2)
-        #expect(sut.midi.calls.contains(.setupMIDI(secondAU.auAudioUnit)))
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .attach(firstAU),
+            .start,
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .detach(firstAU),
+            .attach(secondAU),
+            .start
+        ])
+        #expect(coreMidiManagerMock.calls == [
+            .teardownMIDI, .setupMIDI(firstAU.auAudioUnit),
+            .teardownMIDI, .setupMIDI(secondAU.auAudioUnit)
+        ])
+        #expect(avAudioUnitFactoryMock.calls == [
+            .instantiate(Self.effectDescription, .loadOutOfProcess),
+            .instantiate(Self.effectDescription, .loadOutOfProcess)
+        ])
     }
 
     @Test
-    func load_withTarget_bindsDeviceAndSetsBuffer() async throws {
+    mutating func load_withTarget_bindsDeviceAndSetsBuffer() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: AudioSettings(input: .empty, output: .empty, bufferSize: 256),
-            target: Self.makeTarget(),
-            outputAudioUnit: outputAU
-        )
 
-        _ = await sut.engine.load(component: Self.effectComponent)
+        avEngineMock.outputAudioUnit = outputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
+        await audioSettingsStoreMock.update { $0 = AudioSettings(input: .empty, output: .empty, bufferSize: 256) }
+        createSut()
 
-        #expect(sut.gateway.calls.contains(.setEnableIO(true, kAudioUnitScope_Input, 1, outputAU)))
-        #expect(sut.gateway.calls.contains(.setEnableIO(true, kAudioUnitScope_Output, 0, outputAU)))
-        #expect(sut.gateway.calls.contains(.setCurrentDevice(Self.deviceID, outputAU)))
-        #expect(sut.gateway.calls.contains(.setBufferSize(256, Self.deviceID)))
+        _ = await sut.load(component: Self.effectComponent)
+
+        #expect(coreAudioGatewayMock.calls == [
+            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
+            .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
+            .setCurrentDevice(Self.deviceID, outputAU),
+            .setBufferSize(256, Self.deviceID)
+        ])
     }
 
     @Test
-    func load_withTargetButNoBufferSize_skipsBuffer() async throws {
+    mutating func load_withTargetButNoBufferSize_skipsBuffer() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: .empty,
-            target: Self.makeTarget(),
-            outputAudioUnit: outputAU
-        )
 
-        _ = await sut.engine.load(component: Self.effectComponent)
+        avEngineMock.outputAudioUnit = outputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
+        createSut()
 
-        #expect(!sut.gateway.calls.contains { if case .setBufferSize = $0 { true } else { false } })
+        _ = await sut.load(component: Self.effectComponent)
+
+        #expect(coreAudioGatewayMock.calls == [
+            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
+            .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
+            .setCurrentDevice(Self.deviceID, outputAU)
+        ])
     }
 
     @Test
     func load_withoutTarget_skipsDeviceBindingAndBuffer() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: AudioSettings(input: .empty, output: .empty, bufferSize: 256),
-            target: nil,
-            outputAudioUnit: outputAU
-        )
 
-        _ = await sut.engine.load(component: Self.effectComponent)
+        avEngineMock.outputAudioUnit = outputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        await audioSettingsStoreMock.update { $0 = AudioSettings(input: .empty, output: .empty, bufferSize: 256) }
 
-        #expect(!sut.gateway.calls.contains { if case .setEnableIO = $0 { true } else { false } })
-        #expect(!sut.gateway.calls.contains { if case .setCurrentDevice = $0 { true } else { false } })
-        #expect(!sut.gateway.calls.contains { if case .setBufferSize = $0 { true } else { false } })
+        _ = await sut.load(component: Self.effectComponent)
+
+        #expect(coreAudioGatewayMock.calls.isEmpty)
     }
 
     @Test
-    func load_withStereoInputOnEffectAU_setsInputChannelMap() async throws {
+    mutating func load_withStereoInputOnEffectAU_setsInputChannelMap() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let inputAU = AudioUnit(bitPattern: 0xBADC0DE)!
         let stereo = SelectedChannel.stereo(
             l: AudioChannel(id: 1, name: "L"),
             r: AudioChannel(id: 2, name: "R")
         )
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: AudioSettings(
+
+        avEngineMock.inputAudioUnit = inputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget(inputOffset: 2))
+        await audioSettingsStoreMock.update {
+            $0 = AudioSettings(
                 input: DeviceSettings(device: nil, selectedChannel: stereo),
                 output: .empty
-            ),
-            target: Self.makeTarget(inputOffset: 2),
-            inputAudioUnit: inputAU
+            )
+        }
+        createSut()
+
+        _ = await sut.load(component: Self.effectComponent)
+
+        let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
+        let auInputFormat = AVAudioFormat(
+            standardFormatWithSampleRate: 48_000,
+            channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
-
-        _ = await sut.engine.load(component: Self.effectComponent)
-
-        #expect(sut.gateway.calls.contains(.setChannelMap([2, 3], 1, inputAU)))
-        #expect(sut.avEngine.calls.contains { call in
-            if case .connectHardwareInput(let node, _) = call { node is AVAudioMixerNode } else { false }
-        })
+        #expect(coreAudioGatewayMock.calls == [.setChannelMap([2, 3], 1, inputAU)])
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .attach(avAudioUnit),
+            .connectHardwareInput(inputMixerMock, userFormat),
+            .connect(inputMixerMock, avAudioUnit, auInputFormat),
+            .start
+        ])
     }
 
     @Test
-    func load_withNonEffectAU_skipsInputConnectionEvenIfChannelSelected() async throws {
+    mutating func load_withNonEffectAU_skipsInputConnectionEvenIfChannelSelected() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.mixerDescription)
         let inputAU = AudioUnit(bitPattern: 0xBADC0DE)!
         let stereo = SelectedChannel.stereo(
             l: AudioChannel(id: 1, name: "L"),
             r: AudioChannel(id: 2, name: "R")
         )
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: AudioSettings(
+
+        avEngineMock.inputAudioUnit = inputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
+        await audioSettingsStoreMock.update {
+            $0 = AudioSettings(
                 input: DeviceSettings(device: nil, selectedChannel: stereo),
                 output: .empty
-            ),
-            target: Self.makeTarget(),
-            inputAudioUnit: inputAU
-        )
+            )
+        }
+        createSut()
 
-        _ = await sut.engine.load(component: Self.mixerComponent)
+        _ = await sut.load(component: Self.mixerComponent)
 
-        #expect(!sut.avEngine.calls.contains { call in
-            if case .connectHardwareInput = call { true } else { false }
-        })
-        #expect(!sut.gateway.calls.contains { call in
-            if case .setChannelMap(_, let element, _) = call { element == 1 } else { false }
-        })
+        #expect(coreAudioGatewayMock.calls.isEmpty)
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .attach(avAudioUnit),
+            .start
+        ])
     }
 
     @Test
-    func load_withStereoOutput_setsOutputChannelMap() async throws {
+    mutating func load_withStereoOutput_setsOutputChannelMap() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
         let stereo = SelectedChannel.stereo(
             l: AudioChannel(id: 1, name: "L"),
             r: AudioChannel(id: 2, name: "R")
         )
-        let sut = makeSut(
-            factoryResult: .success(avAudioUnit),
-            settings: AudioSettings(
+
+        avEngineMock.outputAudioUnit = outputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        coreAudioGatewayMock.physicalChannelCountResult = 4
+        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
+        await audioSettingsStoreMock.update {
+            $0 = AudioSettings(
                 input: .empty,
                 output: DeviceSettings(device: nil, selectedChannel: stereo)
-            ),
-            target: Self.makeTarget(),
-            outputAudioUnit: outputAU,
-            physicalChannelCount: 4
+            )
+        }
+        createSut()
+
+        _ = await sut.load(component: Self.effectComponent)
+
+        let outputFormat = AVAudioFormat(
+            standardFormatWithSampleRate: 48_000,
+            channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
-
-        _ = await sut.engine.load(component: Self.effectComponent)
-
-        #expect(sut.gateway.calls.contains(.setChannelMap([0, 1, -1, -1], 0, outputAU)))
-        #expect(sut.avEngine.calls.contains { call in
-            if case .connectToMainMixer(let node, _) = call { node === avAudioUnit } else { false }
-        })
+        #expect(coreAudioGatewayMock.calls == [
+            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
+            .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
+            .setCurrentDevice(Self.deviceID, outputAU),
+            .physicalChannelCount(outputAU),
+            .setChannelMap([0, 1, -1, -1], 0, outputAU)
+        ])
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .attach(avAudioUnit),
+            .connectToMainMixer(avAudioUnit, outputFormat),
+            .start
+        ])
     }
 
     @Test
     func reload_doesNotCallFactoryOrTouchMIDI() async {
-        let sut = makeSut()
-        let midiCallsBefore = sut.midi.calls
+        await sut.reload()
 
-        await sut.engine.reload()
-
-        #expect(sut.factory.calls.isEmpty)
-        #expect(sut.midi.calls == midiCallsBefore)
-        #expect(sut.avEngine.calls.contains(.stop))
-        #expect(sut.avEngine.calls.contains(.start))
-        #expect(sut.avEngine.calls.contains(.disconnectMainMixerInput))
-        #expect(sut.avEngine.calls.contains(.disconnectHardwareInput))
+        #expect(avAudioUnitFactoryMock.calls.isEmpty)
+        #expect(coreMidiManagerMock.calls.isEmpty)
+        #expect(avEngineMock.calls == [
+            .attach(inputMixerMock),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerMock),
+            .disconnectHardwareInput,
+            .start
+        ])
     }
 }
 
@@ -277,55 +374,6 @@ private extension EngineTests {
             outputSource: device,
             inputOffset: inputOffset,
             outputOffset: outputOffset
-        )
-    }
-
-    struct Sut {
-        let engine: Engine
-        let avEngine: AVAudioEngineMock
-        let factory: AVAudioUnitFactoryMock
-        let gateway: CoreAudioGatewayMock
-        let midi: CoreMidiManagerMock
-        let settings: AudioSettingsStoreMock
-        let aggregate: AggregateDeviceManagerMock
-    }
-
-    func makeSut(
-        factoryResult: Result<AVAudioUnit, Error>? = nil,
-        settings: AudioSettings = .empty,
-        target: TargetAudioDevice? = nil,
-        inputAudioUnit: AudioUnit? = nil,
-        outputAudioUnit: AudioUnit? = nil,
-        physicalChannelCount: Int? = nil
-    ) -> Sut {
-        let avEngine = AVAudioEngineMock(
-            inputAudioUnit: inputAudioUnit,
-            outputAudioUnit: outputAudioUnit
-        )
-        let factory = AVAudioUnitFactoryMock(instantiateResult: factoryResult)
-        let gateway = CoreAudioGatewayMock(physicalChannelCountResult: physicalChannelCount)
-        let midi = CoreMidiManagerMock()
-        let settingsStore = AudioSettingsStoreMock(settings: settings)
-        let aggregate = AggregateDeviceManagerMock(resolveTargetResult: target)
-
-        let engine = Engine(
-            engine: avEngine,
-            inputMixer: AVAudioMixerNode(),
-            avAudioUnitFactory: factory,
-            coreAudioGateway: gateway,
-            coreMidiManager: midi,
-            settingsStore: settingsStore,
-            aggregateDeviceManager: aggregate
-        )
-
-        return Sut(
-            engine: engine,
-            avEngine: avEngine,
-            factory: factory,
-            gateway: gateway,
-            midi: midi,
-            settings: settingsStore,
-            aggregate: aggregate
         )
     }
 }

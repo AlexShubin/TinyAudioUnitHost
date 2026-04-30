@@ -127,3 +127,31 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 - Configure stub state and return-value overrides via init params with defaults — actors block cross-actor property writes, and adding setter methods tempts tests to bypass the protocol.
 - No `clearCalls()`, no backdoor mutators. Only the protocol surface plus configurable starting state.
 - For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
+
+## Test fixture pattern
+
+Each `@Suite` is a struct that holds its mocks and the sut as IUO `var` properties. `init()` builds every mock from its no-arg default and finishes by calling `createSut()`. `createSut()` is the **only** place that constructs the sut from the current mock state — call it again whenever a test needs to swap an actor mock that has no protocol-level setter.
+
+```swift
+@Suite
+struct FooTests {
+    var someMock: SomeMock!
+    var sut: FooType!  // protocol type, not the concrete
+
+    init() {
+        someMock = SomeMock()
+        // ...
+        createSut()
+    }
+
+    mutating func createSut() {
+        sut = Foo(some: someMock, ...)
+    }
+}
+```
+
+- Type the sut as the protocol (`FooType`), never the concrete (`Foo`). Tests should exercise only the protocol surface.
+- No parameterized `makeSut(...)` factory. Tests configure mocks in the test body, then either rely on the sut from `init()` or call `createSut()` to rebuild it.
+- Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
+- For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, re-init the mock var and call `createSut()` — the test must then be `mutating`.
+- Assert recorded call sequences with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. Reach for `.contains` only when the irrelevant calls are genuinely unbounded.
