@@ -1,6 +1,6 @@
 //
 //  LoadedAudioUnit.swift
-//  Common
+//  EngineKit
 //
 //  Created by Alex Shubin on 21.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
