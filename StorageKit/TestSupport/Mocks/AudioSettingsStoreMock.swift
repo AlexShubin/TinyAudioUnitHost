@@ -10,7 +10,7 @@ import Common
 import StorageKit
 
 public actor AudioSettingsStoreMock: AudioSettingsStoreType {
-    public enum Calls {
+    public enum Calls: Equatable {
         case update
         case current
     }

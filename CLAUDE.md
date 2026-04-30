@@ -89,11 +89,15 @@ The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root
 
 ## Mock pattern
 
-Mocks for `*Type` protocols go in `<Feature>/TestSupport/<Type>Mock.swift` (target `<Feature>TestSupport`):
+Mocks for `*Type` protocols live in one of two places depending on scope:
+- `<Feature>/TestSupport/Mocks/<Type>Mock.swift` (target `<Feature>TestSupport`, `public`) — when the protocol is `public` and *other* modules' tests need it.
+- `<Feature>/Tests/Mocks/<Type>Mock.swift` (target `<Feature>Tests`, internal) — when the protocol is module-internal. The test target uses `@testable import <Feature>` to reach internal types, so the mock stays internal too.
+
+Default shape:
 
 ```swift
 public actor AudioSettingsStoreMock: AudioSettingsStoreType {
-    public enum Calls {
+    public enum Calls: Equatable {
         case update
         case current
     }
@@ -117,7 +121,8 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 }
 ```
 
-- One `Calls` case per protocol method; add associated values when arguments matter.
+- One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
 - Configure stub state and return-value overrides via init params with defaults — actors block cross-actor property writes, and adding setter methods tempts tests to bypass the protocol.
 - No `clearCalls()`, no backdoor mutators. Only the protocol surface plus configurable starting state.
+- For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
