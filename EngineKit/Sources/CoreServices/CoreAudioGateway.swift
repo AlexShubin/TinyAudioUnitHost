@@ -6,8 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@preconcurrency import AVFoundation
-@preconcurrency import CoreAudio
+import AVFoundation
+import CoreAudio
 
 protocol CoreAudioGatewayType {
     func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit)
@@ -17,7 +17,7 @@ protocol CoreAudioGatewayType {
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID)
 }
 
-final class CoreAudioGateway: CoreAudioGatewayType {
+struct CoreAudioGateway: CoreAudioGatewayType {
     func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) {
         var flag: UInt32 = enabled ? 1 : 0
         let status = AudioUnitSetProperty(

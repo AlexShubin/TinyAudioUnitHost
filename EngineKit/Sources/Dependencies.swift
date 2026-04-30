@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@preconcurrency import AVFoundation
+import AVFoundation
 import StorageKit
 
 public struct Dependencies: Sendable {
@@ -23,17 +23,14 @@ public struct Dependencies: Sendable {
             settingsStore: settingsStore,
             factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
-        let engine = AudioUnitEngine(
-            engine: AVAudioEngine(),
-            inputMixer: AVAudioMixerNode(),
-            avAudioUnitFactory: AVAudioUnitFactory(),
-            coreAudioGateway: CoreAudioGateway(),
-            coreMidiManager: CoreMidiManager()
-        )
         return Dependencies(
             audioDevicesProvider: devicesProvider,
             audioUnitEngineManager: AudioUnitEngineManager(
-                engine: engine,
+                engine: AVAudioEngine(),
+                inputMixer: AVAudioMixerNode(),
+                avAudioUnitFactory: AVAudioUnitFactory(),
+                coreAudioGateway: CoreAudioGateway(),
+                coreMidiManager: CoreMidiManager(),
                 settingsStore: settingsStore,
                 aggregateDeviceManager: aggregateDeviceManager
             ),

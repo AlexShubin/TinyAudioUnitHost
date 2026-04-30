@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@preconcurrency import AVFoundation
+import AVFoundation
 
 protocol AVAudioUnitFactoryType {
     func instantiate(
