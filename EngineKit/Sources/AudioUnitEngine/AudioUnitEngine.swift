@@ -25,14 +25,55 @@ protocol AudioUnitEngineType: Actor {
     func unloadAudioUnit()
 }
 
+protocol AVAudioEngineType: AnyObject {
+    var inputNode: AVAudioInputNode { get }
+    var outputNode: AVAudioOutputNode { get }
+    var mainMixerNode: AVAudioMixerNode { get }
+
+    func attach(_ node: AVAudioNode)
+    func detach(_ node: AVAudioNode)
+    func start() throws
+    func stop()
+    func connect(_ node1: AVAudioNode, to node2: AVAudioNode, format: AVAudioFormat?)
+    func disconnectNodeInput(_ node: AVAudioNode)
+    func disconnectNodeOutput(_ node: AVAudioNode)
+}
+
+extension AVAudioEngine: AVAudioEngineType {}
+
+protocol AVAudioUnitFactoryType {
+    func instantiate(
+        with description: AudioComponentDescription,
+        options: AudioComponentInstantiationOptions
+    ) async throws -> AVAudioUnit
+}
+
+final class AVAudioUnitFactory: AVAudioUnitFactoryType {
+    func instantiate(
+        with description: AudioComponentDescription,
+        options: AudioComponentInstantiationOptions
+    ) async throws -> AVAudioUnit {
+        try await AVAudioUnit.instantiate(with: description, options: options)
+    }
+}
+
 final actor AudioUnitEngine: AudioUnitEngineType {
-    private let engine = AVAudioEngine()
-    private let inputMixer = AVAudioMixerNode()
+    private let engine: AVAudioEngineType
+    private let inputMixer: AVAudioMixerNode
+    private let avAudioUnitFactory: AVAudioUnitFactoryType
     private var currentAVAudioUnit: AVAudioUnit?
 
     private let coreMidiManager: CoreMidiManagerType
 
-    init(coreMidiManager: CoreMidiManagerType) {
+    init(
+        engine: AVAudioEngineType,
+        inputMixer: AVAudioMixerNode,
+        avAudioUnitFactory: AVAudioUnitFactoryType,
+        coreMidiManager: CoreMidiManagerType
+    ) {
+        self.engine = engine
+        self.inputMixer = inputMixer
+        self.avAudioUnitFactory = avAudioUnitFactory
         self.coreMidiManager = coreMidiManager
         engine.attach(inputMixer)
     }
@@ -117,7 +158,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             return nil
         }
         do {
-            let avAudioUnit = try await AVAudioUnit.instantiate(
+            let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: audioUnit.componentDescription,
                 options: .loadOutOfProcess
             )
