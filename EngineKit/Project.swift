@@ -43,6 +43,7 @@ let project = Project(
             dependencies: [
                 .target(name: "EngineKit"),
                 .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
             ]
         ),
         .target(
@@ -58,6 +59,7 @@ let project = Project(
                 .target(name: "EngineKit"),
                 .target(name: "EngineKitTestSupport"),
                 .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
             ]

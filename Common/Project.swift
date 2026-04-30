@@ -27,5 +27,18 @@ let project = Project(
                 "Sources",
             ]
         ),
+        .target(
+            name: "CommonTestSupport",
+            destinations: .macOS,
+            product: .staticFramework,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.CommonTestSupport",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "TestSupport",
+            ],
+            dependencies: [
+                .target(name: "Common"),
+            ]
+        ),
     ]
 )

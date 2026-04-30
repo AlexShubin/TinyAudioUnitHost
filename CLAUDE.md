@@ -129,6 +129,32 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 - No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept.
 - For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
 
+## Fake pattern
+
+Fakes are zero-arg-friendly factory methods on value types, kept in `<Feature>/TestSupport/Fakes/<Type>+Fake.swift` (target `<Feature>TestSupport`, `public`). The file is an extension on the type; the method is `static func fake(...) -> Self`.
+
+```swift
+public extension AudioDevice {
+    static func fake(
+        id: UInt32 = 1,
+        uid: String = "uid",
+        name: String = "Test Device",
+        inputChannels: [AudioChannel] = [],
+        outputChannels: [AudioChannel] = [],
+        availableBufferSizes: [UInt32] = []
+    ) -> AudioDevice {
+        AudioDevice(id: id, uid: uid, name: name, inputChannels: inputChannels, outputChannels: outputChannels, availableBufferSizes: availableBufferSizes)
+    }
+}
+```
+
+- Every parameter is defaulted. `Type.fake()` must work with no arguments — that's the whole point. Overrides happen at the call site.
+- Compose fakes by defaulting one to another (`device: AudioDevice = .fake()`). Tests can override at any layer (e.g. `TargetAudioDevice.fake(inputOffset: 2)`).
+- A type's fake lives in the same module's `TestSupport` as the type (`AudioDevice` → `CommonTestSupport`, `TargetAudioDevice` → `EngineKitTestSupport`). Cross-module composition flows through `import CommonTestSupport` etc.
+- Fakes are for value types (data shapes); mocks are for protocols. Different folders (`Fakes/` vs `Mocks/`), different naming. Don't conflate.
+- Don't put `make<Type>(...)` helpers in test files. If a test needs a fixture, the type's `fake(...)` is the only home — discoverable via autocomplete on the type itself.
+- Keep fakes dumb: just construction with defaults, no logic, no pattern-matching factories. If you need shaped data, override at the call site.
+
 ## Test fixture pattern
 
 Each `@Suite` is a struct that holds its mocks and the sut as IUO `var` properties. `init()` builds every mock from its no-arg default and does nothing else — it never constructs the sut. Each `@Test` is `mutating`, configures the mocks it needs, then calls `createSut()` once. `createSut()` is the only place that constructs the sut.
