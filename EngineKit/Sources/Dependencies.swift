@@ -11,7 +11,7 @@ import StorageKit
 
 public struct Dependencies: Sendable {
     public let audioDevicesProvider: AudioDevicesProviderType
-    public let audioUnitEngineManager: AudioUnitEngineManagerType
+    public let engine: EngineType
     public let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
     public let aggregateDeviceManager: AggregateDeviceManagerType
 
@@ -25,7 +25,7 @@ public struct Dependencies: Sendable {
         )
         return Dependencies(
             audioDevicesProvider: devicesProvider,
-            audioUnitEngineManager: AudioUnitEngineManager(
+            engine: Engine(
                 engine: AVAudioEngine(),
                 inputMixer: AVAudioMixerNode(),
                 avAudioUnitFactory: AVAudioUnitFactory(),

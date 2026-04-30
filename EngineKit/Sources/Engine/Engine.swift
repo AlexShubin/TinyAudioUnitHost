@@ -1,5 +1,5 @@
 //
-//  AudioUnitEngineManager.swift
+//  Engine.swift
 //  EngineKit
 //
 //  Created by Alex Shubin on 19.04.26.
@@ -10,12 +10,12 @@ import AVFoundation
 import Common
 import StorageKit
 
-public protocol AudioUnitEngineManagerType: Sendable {
+public protocol EngineType: Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
     func reload() async
 }
 
-final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
+final actor Engine: EngineType {
     private let engine: AVAudioEngineType
     private let inputMixer: AVAudioMixerNode
     private let avAudioUnitFactory: AVAudioUnitFactoryType
