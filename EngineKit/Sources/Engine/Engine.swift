@@ -72,11 +72,13 @@ final actor Engine: EngineType {
             coreAudioGateway.setBufferSize(frames, deviceID: deviceID)
         }
 
-        if let input = settings.input.selectedChannel {
-            connectInputs(channels: input, hardwareOffset: target?.inputOffset ?? 0)
+        guard let avAudioUnit = currentAVAudioUnit else { return }
+
+        if let input = settings.input.selectedChannel, avAudioUnit.acceptsAudioInput {
+            connectInputs(avAudioUnit: avAudioUnit, channels: input, hardwareOffset: target?.inputOffset ?? 0)
         }
         if let output = settings.output.selectedChannel {
-            connectOutputs(channels: output, hardwareOffset: target?.outputOffset ?? 0)
+            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target?.outputOffset ?? 0)
         }
     }
 
@@ -87,8 +89,7 @@ final actor Engine: EngineType {
         coreAudioGateway.setCurrentDevice(target.device.id, on: audioUnit)
     }
 
-    private func connectInputs(channels: SelectedChannel, hardwareOffset: Int) {
-        guard let avAudioUnit = currentAVAudioUnit, avAudioUnit.acceptsAudioInput else { return }
+    private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
@@ -98,42 +99,34 @@ final actor Engine: EngineType {
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
+
         if let inputAudioUnit = engine.inputNode.audioUnit {
-            setInputChannelMap(on: inputAudioUnit, selection: channels, hardwareOffset: hardwareOffset)
+            let map: [Int32] = channels.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
+            coreAudioGateway.setChannelMap(map, element: 1, on: inputAudioUnit)
         }
+
         engine.connect(engine.inputNode, to: inputMixer, format: userFormat)
         engine.connect(inputMixer, to: avAudioUnit, format: auInputFormat)
     }
 
-    private func connectOutputs(channels: SelectedChannel, hardwareOffset: Int) {
-        guard let avAudioUnit = currentAVAudioUnit else { return }
+    private func connectOutputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
+
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
-        if let outputAudioUnit = engine.outputNode.audioUnit {
-            setOutputChannelMap(on: outputAudioUnit, selection: channels, hardwareOffset: hardwareOffset)
-        }
-    }
 
-    private func setInputChannelMap(on audioUnit: AudioUnit, selection: SelectedChannel, hardwareOffset: Int) {
-        // Input HAL: length = virtual channels, map[virtual] = physical (0-indexed).
-        let map: [Int32] = selection.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
-        coreAudioGateway.setChannelMap(map, element: 1, on: audioUnit)
-    }
-
-    private func setOutputChannelMap(on audioUnit: AudioUnit, selection: SelectedChannel, hardwareOffset: Int) {
-        guard let physicalCount = coreAudioGateway.physicalChannelCount(of: audioUnit) else { return }
-        // Output HAL: length = physical channels, map[physical] = virtual (0-indexed) or -1.
-        var map = [Int32](repeating: -1, count: physicalCount)
-        for (virtualIdx, channel) in selection.channels.enumerated() {
-            let physicalIdx = hardwareOffset + Int(channel.id) - 1
-            guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
-            map[physicalIdx] = Int32(virtualIdx)
+        if let outputAudioUnit = engine.outputNode.audioUnit, let physicalCount = coreAudioGateway.physicalChannelCount(of: outputAudioUnit) {
+            var map = [Int32](repeating: -1, count: physicalCount)
+            for (virtualIdx, channel) in channels.channels.enumerated() {
+                let physicalIdx = hardwareOffset + Int(channel.id) - 1
+                guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
+                map[physicalIdx] = Int32(virtualIdx)
+            }
+            coreAudioGateway.setChannelMap(map, element: 0, on: outputAudioUnit)
         }
-        coreAudioGateway.setChannelMap(map, element: 0, on: audioUnit)
     }
 
     private func disconnect() {
