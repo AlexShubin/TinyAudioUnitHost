@@ -46,28 +46,26 @@ struct DevicePickerView: View {
             }
         }
 
-        if let device = state.selectedDevice {
-            Section(channelsLabel) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(channels(for: device)) { channel in
-                            let selected = state.selectedChannel?.channels ?? []
-                            Toggle(
-                                channel.name,
-                                isOn: Binding(
-                                    get: { selected.contains(channel) },
-                                    set: { isOn in
-                                        onAction(.setChannel(channel, isOn: isOn))
-                                    }
-                                )
+        Section(channelsLabel) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(channels(for: state.selectedDevice)) { channel in
+                        let selected = state.selectedChannel?.channels ?? []
+                        Toggle(
+                            channel.name,
+                            isOn: Binding(
+                                get: { selected.contains(channel) },
+                                set: { isOn in
+                                    onAction(.setChannel(channel, isOn: isOn))
+                                }
                             )
-                            .disabled(selected.count == 2 && !selected.contains(channel))
-                        }
+                        )
+                        .disabled(selected.count == 2 && !selected.contains(channel))
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(height: 200)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(height: 200)
         }
     }
 
@@ -85,10 +83,10 @@ struct DevicePickerView: View {
         }
     }
 
-    private func channels(for device: AudioDevice) -> [AudioChannel] {
+    private func channels(for device: AudioDevice?) -> [AudioChannel] {
         switch kind {
-        case .input: device.inputChannels
-        case .output: device.outputChannels
+        case .input: device?.inputChannels ?? []
+        case .output: device?.outputChannels ?? []
         }
     }
 }

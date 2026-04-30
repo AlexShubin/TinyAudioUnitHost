@@ -30,11 +30,11 @@ final class HostViewModel: HostViewModelType {
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var audioUnit: LoadedAudioUnit?
 
-    @ObservationIgnored private let engine: AudioUnitEngineManagerType
+    @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
 
     init(
-        engine: AudioUnitEngineManagerType,
+        engine: EngineType,
         library: AudioUnitComponentsLibraryType
     ) {
         self.engine = engine

@@ -29,13 +29,13 @@ final class SettingsViewModel: SettingsViewModelType {
 
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
-    @ObservationIgnored private let engine: AudioUnitEngineManagerType
+    @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
     init(
         devicesProvider: AudioDevicesProviderType,
         settingsStore: AudioSettingsStoreType,
-        engine: AudioUnitEngineManagerType,
+        engine: EngineType,
         aggregateDeviceManager: AggregateDeviceManagerType
     ) {
         self.devicesProvider = devicesProvider

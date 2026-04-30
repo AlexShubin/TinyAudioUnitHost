@@ -31,5 +31,38 @@ let project = Project(
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
             ]
         ),
+        .target(
+            name: "EngineKitTestSupport",
+            destinations: .macOS,
+            product: .staticFramework,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTestSupport",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "TestSupport",
+            ],
+            dependencies: [
+                .target(name: "EngineKit"),
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
+            ]
+        ),
+        .target(
+            name: "EngineKitTests",
+            destinations: .macOS,
+            product: .unitTests,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTests",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "Tests",
+            ],
+            dependencies: [
+                .target(name: "EngineKit"),
+                .target(name: "EngineKitTestSupport"),
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
+                .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
+                .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
+            ]
+        ),
     ]
 )

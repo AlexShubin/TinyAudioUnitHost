@@ -6,11 +6,12 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AVFoundation
 import StorageKit
 
 public struct Dependencies: Sendable {
     public let audioDevicesProvider: AudioDevicesProviderType
-    public let audioUnitEngineManager: AudioUnitEngineManagerType
+    public let engine: EngineType
     public let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
     public let aggregateDeviceManager: AggregateDeviceManagerType
 
@@ -22,11 +23,14 @@ public struct Dependencies: Sendable {
             settingsStore: settingsStore,
             factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
-        let engine = AudioUnitEngine(coreMidiManager: CoreMidiManager())
         return Dependencies(
             audioDevicesProvider: devicesProvider,
-            audioUnitEngineManager: AudioUnitEngineManager(
-                engine: engine,
+            engine: Engine(
+                engine: AVAudioEngine(),
+                inputMixer: AVAudioMixerNode(),
+                avAudioUnitFactory: AVAudioUnitFactory(),
+                coreAudioGateway: CoreAudioGateway(),
+                coreMidiManager: CoreMidiManager(),
                 settingsStore: settingsStore,
                 aggregateDeviceManager: aggregateDeviceManager
             ),
