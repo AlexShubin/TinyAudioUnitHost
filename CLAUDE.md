@@ -130,7 +130,7 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 
 ## Test fixture pattern
 
-Each `@Suite` is a struct that holds its mocks and the sut as IUO `var` properties. `init()` builds every mock from its no-arg default and finishes by calling `createSut()`. `createSut()` is the **only** place that constructs the sut from the current mock state — call it again whenever a test needs to swap an actor mock that has no protocol-level setter.
+Each `@Suite` is a struct that holds its mocks and the sut as IUO `var` properties. `init()` builds every mock from its no-arg default and does nothing else — it never constructs the sut. Each `@Test` is `mutating`, configures the mocks it needs, then calls `createSut()` once. `createSut()` is the only place that constructs the sut.
 
 ```swift
 @Suite
@@ -140,18 +140,25 @@ struct FooTests {
 
     init() {
         someMock = SomeMock()
-        // ...
-        createSut()
+        // ... only mock construction goes here
     }
 
     mutating func createSut() {
         sut = Foo(some: someMock, ...)
     }
+
+    @Test
+    mutating func someTest() async {
+        someMock.result = .success(...)
+        createSut()
+        // exercise sut...
+    }
 }
 ```
 
 - Type the sut as the protocol (`FooType`), never the concrete (`Foo`). Tests should exercise only the protocol surface.
-- No parameterized `makeSut(...)` factory. Tests configure mocks in the test body, then either rely on the sut from `init()` or call `createSut()` to rebuild it.
+- No parameterized `makeSut(...)` factory. Each test configures mocks in its body and then calls `createSut()`.
+- Don't build the sut in `init()`. Calling `createSut()` again later would double up any side effects the constructor records (e.g. an `attach` call), and forcing every test to do its setup before sut construction keeps the recorded call sequence clean.
 - Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
-- For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, re-init the mock var and call `createSut()` — the test must then be `mutating`.
+- For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
 - Assert recorded call sequences with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. Reach for `.contains` only when the irrelevant calls are genuinely unbounded.

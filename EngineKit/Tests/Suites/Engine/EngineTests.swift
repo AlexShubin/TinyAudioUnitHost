@@ -34,7 +34,6 @@ struct EngineTests {
         coreMidiManagerMock = CoreMidiManagerMock()
         audioSettingsStoreMock = AudioSettingsStoreMock()
         aggregateDeviceManagerMock = AggregateDeviceManagerMock()
-        createSut()
     }
 
     mutating func createSut() {
@@ -50,13 +49,16 @@ struct EngineTests {
     }
 
     @Test
-    func init_attachesInputMixer() async {
+    mutating func init_attachesInputMixer() async {
+        createSut()
+
         #expect(avEngineMock.calls == [.attach(inputMixerMock)])
     }
 
     @Test
-    func load_factoryFailure_returnsNilAndShortCircuits() async {
+    mutating func load_factoryFailure_returnsNilAndShortCircuits() async {
         avAudioUnitFactoryMock.instantiateResult = .failure(TestError.factoryFailed)
+        createSut()
 
         let result = await sut.load(component: Self.effectComponent)
 
@@ -73,9 +75,10 @@ struct EngineTests {
     }
 
     @Test
-    func load_happyPath_attachesAU_setsUpMIDI_andStarts() async throws {
+    mutating func load_happyPath_attachesAU_setsUpMIDI_andStarts() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        createSut()
 
         let result = await sut.load(component: Self.effectComponent)
 
@@ -93,10 +96,11 @@ struct EngineTests {
     }
 
     @Test
-    func load_replacesPreviousAU_detachesOldAndTearsDownMIDI() async throws {
+    mutating func load_replacesPreviousAU_detachesOldAndTearsDownMIDI() async throws {
         let firstAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         let secondAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactoryMock.instantiateResult = .success(firstAU)
+        createSut()
 
         _ = await sut.load(component: Self.effectComponent)
         avAudioUnitFactoryMock.instantiateResult = .success(secondAU)
@@ -170,13 +174,14 @@ struct EngineTests {
     }
 
     @Test
-    func load_withoutTarget_skipsDeviceBindingAndBuffer() async throws {
+    mutating func load_withoutTarget_skipsDeviceBindingAndBuffer() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         await audioSettingsStoreMock.update { $0 = AudioSettings(input: .empty, output: .empty, bufferSize: 256) }
+        createSut()
 
         _ = await sut.load(component: Self.effectComponent)
 
@@ -213,7 +218,6 @@ struct EngineTests {
         #expect(coreAudioGatewayMock.calls == [.setChannelMap([2, 3], 1, inputAU)])
         #expect(avEngineMock.calls == [
             .attach(inputMixerMock),
-            .attach(inputMixerMock),
             .stop,
             .disconnectMainMixerInput,
             .disconnectNodeOutput(inputMixerMock),
@@ -249,7 +253,6 @@ struct EngineTests {
 
         #expect(coreAudioGatewayMock.calls.isEmpty)
         #expect(avEngineMock.calls == [
-            .attach(inputMixerMock),
             .attach(inputMixerMock),
             .stop,
             .disconnectMainMixerInput,
@@ -296,7 +299,6 @@ struct EngineTests {
         ])
         #expect(avEngineMock.calls == [
             .attach(inputMixerMock),
-            .attach(inputMixerMock),
             .stop,
             .disconnectMainMixerInput,
             .disconnectNodeOutput(inputMixerMock),
@@ -308,7 +310,9 @@ struct EngineTests {
     }
 
     @Test
-    func reload_doesNotCallFactoryOrTouchMIDI() async {
+    mutating func reload_doesNotCallFactoryOrTouchMIDI() async {
+        createSut()
+
         await sut.reload()
 
         #expect(avAudioUnitFactoryMock.calls.isEmpty)
