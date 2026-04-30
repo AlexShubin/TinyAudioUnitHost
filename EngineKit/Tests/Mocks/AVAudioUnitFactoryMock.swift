@@ -9,7 +9,7 @@
 import AVFoundation
 @testable import EngineKit
 
-final class AVAudioUnitFactoryMock: AVAudioUnitFactoryType {
+final class AVAudioUnitFactoryMock: AVAudioUnitFactoryType, @unchecked Sendable {
     enum Calls: Equatable {
         case instantiate(AudioComponentDescription, AudioComponentInstantiationOptions)
     }

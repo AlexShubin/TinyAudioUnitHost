@@ -78,6 +78,7 @@ struct FooView: View {
 - Cross-target dependencies *within the same project* use `.target(name: "OtherTargetInSameProject")`; cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
+- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Mocks/` for mocks. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Engine/Engine.swift` → `Tests/Suites/Engine/EngineTests.swift`). `Tests/Mocks/` stays flat.
 
 ## Dependencies pattern
 

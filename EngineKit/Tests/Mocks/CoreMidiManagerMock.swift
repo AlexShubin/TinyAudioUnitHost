@@ -9,7 +9,7 @@
 import AVFoundation
 @testable import EngineKit
 
-final class CoreMidiManagerMock: CoreMidiManagerType {
+final class CoreMidiManagerMock: CoreMidiManagerType, @unchecked Sendable {
     enum Calls: Equatable {
         case setupMIDI(AUAudioUnit)
         case teardownMIDI

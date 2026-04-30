@@ -10,7 +10,7 @@ import AVFoundation
 import CoreAudio
 @testable import EngineKit
 
-final class CoreAudioGatewayMock: CoreAudioGatewayType {
+final class CoreAudioGatewayMock: CoreAudioGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case setEnableIO(Bool, AudioUnitScope, AudioUnitElement, AudioUnit)
         case setCurrentDevice(AudioDeviceID, AudioUnit)

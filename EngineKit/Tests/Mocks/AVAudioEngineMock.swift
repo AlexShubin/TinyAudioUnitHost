@@ -9,7 +9,7 @@
 import AVFoundation
 @testable import EngineKit
 
-final class AVAudioEngineMock: AVAudioEngineType {
+final class AVAudioEngineMock: AVAudioEngineType, @unchecked Sendable {
     enum Calls: Equatable {
         case attach(AVAudioNode)
         case detach(AVAudioNode)

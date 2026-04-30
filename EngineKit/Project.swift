@@ -59,6 +59,7 @@ let project = Project(
                 .target(name: "EngineKitTestSupport"),
                 .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
+                .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
             ]
         ),
     ]
