@@ -83,14 +83,14 @@ final actor Engine: EngineType {
     }
 
     private func bindDevice(_ target: TargetAudioDevice?) {
-        guard let target, let audioUnit = engine.outputNode.audioUnit else { return }
+        guard let target, let audioUnit = engine.outputAudioUnit else { return }
         coreAudioGateway.setEnableIO(target.inputSource != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
         coreAudioGateway.setEnableIO(target.outputSource != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
         coreAudioGateway.setCurrentDevice(target.device.id, on: audioUnit)
     }
 
     private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
-        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let hardwareFormat = engine.hardwareOutputFormat
         let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: channels.channelCount
@@ -100,25 +100,25 @@ final actor Engine: EngineType {
             channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
 
-        if let inputAudioUnit = engine.inputNode.audioUnit {
+        if let inputAudioUnit = engine.inputAudioUnit {
             let map: [Int32] = channels.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
             coreAudioGateway.setChannelMap(map, element: 1, on: inputAudioUnit)
         }
 
-        engine.connect(engine.inputNode, to: inputMixer, format: userFormat)
+        engine.connectHardwareInput(to: inputMixer, format: userFormat)
         engine.connect(inputMixer, to: avAudioUnit, format: auInputFormat)
     }
 
     private func connectOutputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
-        let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
+        let hardwareFormat = engine.hardwareOutputFormat
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
 
-        engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
+        engine.connectToMainMixer(avAudioUnit, format: outputFormat)
 
-        if let outputAudioUnit = engine.outputNode.audioUnit, let physicalCount = coreAudioGateway.physicalChannelCount(of: outputAudioUnit) {
+        if let outputAudioUnit = engine.outputAudioUnit, let physicalCount = coreAudioGateway.physicalChannelCount(of: outputAudioUnit) {
             var map = [Int32](repeating: -1, count: physicalCount)
             for (virtualIdx, channel) in channels.channels.enumerated() {
                 let physicalIdx = hardwareOffset + Int(channel.id) - 1
@@ -130,9 +130,9 @@ final actor Engine: EngineType {
     }
 
     private func disconnect() {
-        engine.disconnectNodeInput(engine.mainMixerNode)
+        engine.disconnectMainMixerInput()
         engine.disconnectNodeOutput(inputMixer)
-        engine.disconnectNodeOutput(engine.inputNode)
+        engine.disconnectHardwareInput()
     }
 
     private func loadAudioUnit(_ component: AudioUnitComponent) async -> LoadedAudioUnit? {
