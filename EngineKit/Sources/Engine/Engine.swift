@@ -45,18 +45,14 @@ final actor Engine: EngineType {
     }
 
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
-        coreMidiManager.teardownMIDI()
         engine.stop()
         disconnect()
-        unloadAudioUnit()
 
         guard let loaded = await loadAudioUnit(component) else { return nil }
 
         await applyConnections()
-        if let avAudioUnit = currentAVAudioUnit {
-            coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
-        }
         try? engine.start()
+
         return loaded
     }
 
@@ -147,6 +143,8 @@ final actor Engine: EngineType {
     }
 
     private func loadAudioUnit(_ component: AudioUnitComponent) async -> LoadedAudioUnit? {
+        coreMidiManager.teardownMIDI()
+        unloadAudioUnit()
         do {
             let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: component.componentDescription,
@@ -156,7 +154,9 @@ final actor Engine: EngineType {
             currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
 
-            return LoadedAudioUnit(component: component, auAudioUnit: avAudioUnit.auAudioUnit) 
+            coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
+
+            return LoadedAudioUnit(component: component, auAudioUnit: avAudioUnit.auAudioUnit)
         } catch {
             return nil
         }
