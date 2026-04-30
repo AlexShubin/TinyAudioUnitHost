@@ -134,8 +134,8 @@ struct EngineTests {
 
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
-        await audioSettingsStoreMock.update { $0 = AudioSettings(input: .empty, output: .empty, bufferSize: 256) }
+        await aggregateDeviceManagerMock.setResolveTargetResult(Self.makeTarget())
+        await audioSettingsStoreMock.setSettings(AudioSettings(input: .empty, output: .empty, bufferSize: 256))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -155,7 +155,7 @@ struct EngineTests {
 
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
+        await aggregateDeviceManagerMock.setResolveTargetResult(Self.makeTarget())
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -174,7 +174,7 @@ struct EngineTests {
 
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await audioSettingsStoreMock.update { $0 = AudioSettings(input: .empty, output: .empty, bufferSize: 256) }
+        await audioSettingsStoreMock.setSettings(AudioSettings(input: .empty, output: .empty, bufferSize: 256))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -193,13 +193,11 @@ struct EngineTests {
 
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget(inputOffset: 2))
-        await audioSettingsStoreMock.update {
-            $0 = AudioSettings(
-                input: DeviceSettings(device: nil, selectedChannel: stereo),
-                output: .empty
-            )
-        }
+        await aggregateDeviceManagerMock.setResolveTargetResult(Self.makeTarget(inputOffset: 2))
+        await audioSettingsStoreMock.setSettings(AudioSettings(
+            input: DeviceSettings(device: nil, selectedChannel: stereo),
+            output: .empty
+        ))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -220,13 +218,11 @@ struct EngineTests {
 
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
-        await audioSettingsStoreMock.update {
-            $0 = AudioSettings(
-                input: DeviceSettings(device: nil, selectedChannel: stereo),
-                output: .empty
-            )
-        }
+        await aggregateDeviceManagerMock.setResolveTargetResult(Self.makeTarget())
+        await audioSettingsStoreMock.setSettings(AudioSettings(
+            input: DeviceSettings(device: nil, selectedChannel: stereo),
+            output: .empty
+        ))
         createSut()
 
         _ = await sut.load(component: Self.mixerComponent)
@@ -247,13 +243,11 @@ struct EngineTests {
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         coreAudioGatewayMock.physicalChannelCountResult = 4
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock(resolveTargetResult: Self.makeTarget())
-        await audioSettingsStoreMock.update {
-            $0 = AudioSettings(
-                input: .empty,
-                output: DeviceSettings(device: nil, selectedChannel: stereo)
-            )
-        }
+        await aggregateDeviceManagerMock.setResolveTargetResult(Self.makeTarget())
+        await audioSettingsStoreMock.setSettings(AudioSettings(
+            input: .empty,
+            output: DeviceSettings(device: nil, selectedChannel: stereo)
+        ))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)

@@ -25,4 +25,8 @@ public actor AggregateDeviceManagerMock: AggregateDeviceManagerType {
         calls.append(.resolveTarget)
         return resolveTargetResult
     }
+
+    public func setResolveTargetResult(_ value: TargetAudioDevice?) {
+        resolveTargetResult = value
+    }
 }

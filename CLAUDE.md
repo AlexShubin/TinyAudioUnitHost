@@ -124,8 +124,9 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 
 - One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
-- Configure stub state and return-value overrides via init params with defaults — actors block cross-actor property writes, and adding setter methods tempts tests to bypass the protocol.
-- No `clearCalls()`, no backdoor mutators. Only the protocol surface plus configurable starting state.
+- Configure stub state and return-value overrides via init params with defaults.
+- Actor mocks may add one `set<Field>(_:)` method per init parameter, alongside the protocol surface. These setters mirror what `init` already accepts, do **not** append to `calls`, and are reserved for test setup — they let a test adjust starting state mid-fixture without recording a sut-driven call. Use them to (a) reach an actor whose protocol has no in-place setter, or (b) keep the `calls` log clean when the protocol *does* have a setter (`update`, etc.) but the test is using it for setup rather than to exercise the sut. Protocol methods always record; setters never do.
+- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept.
 - For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
 
 ## Test fixture pattern

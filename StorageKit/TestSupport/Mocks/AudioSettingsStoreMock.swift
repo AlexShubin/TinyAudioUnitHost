@@ -31,4 +31,8 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
         transform(&settings)
         calls.append(.update)
     }
+
+    public func setSettings(_ value: AudioSettings) {
+        settings = value
+    }
 }
