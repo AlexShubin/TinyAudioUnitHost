@@ -7,20 +7,24 @@
 //
 
 import AppKit
+import CoreAudioKit
 
 public struct LoadedAudioUnit: Sendable, Equatable {
     public let component: AudioUnitComponent
-    public let requestViewController: @Sendable @MainActor () async -> NSViewController?
+    nonisolated(unsafe) private let auAudioUnit: AUAudioUnit
 
     public init(
         component: AudioUnitComponent,
-        requestViewController: @escaping @Sendable @MainActor () async -> NSViewController?
+        auAudioUnit: AUAudioUnit
     ) {
         self.component = component
-        self.requestViewController = requestViewController
+        self.auAudioUnit = auAudioUnit
     }
 
-    public static func == (lhs: LoadedAudioUnit, rhs: LoadedAudioUnit) -> Bool {
-        lhs.component == rhs.component
+    @MainActor
+    public func requestViewController() async -> NSViewController? {
+        await withCheckedContinuation { continuation in
+            auAudioUnit.requestViewController { continuation.resume(returning: $0) }
+        }
     }
 }

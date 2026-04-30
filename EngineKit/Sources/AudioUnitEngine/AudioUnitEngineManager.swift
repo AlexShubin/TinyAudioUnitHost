@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@preconcurrency import CoreAudioKit
+import AVFoundation
 import Common
 import StorageKit
 
@@ -147,9 +147,6 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
     }
 
     private func loadAudioUnit(_ component: AudioUnitComponent) async -> LoadedAudioUnit? {
-        guard component.componentDescription.componentType != kAudioUnitType_Output else {
-            return nil
-        }
         do {
             let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: component.componentDescription,
@@ -159,11 +156,7 @@ final actor AudioUnitEngineManager: AudioUnitEngineManagerType {
             currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
 
-            return LoadedAudioUnit(component: component) {
-                await withCheckedContinuation { continuation in
-                    avAudioUnit.auAudioUnit.requestViewController { continuation.resume(returning: $0) }
-                }
-            }
+            return LoadedAudioUnit(component: component, auAudioUnit: avAudioUnit.auAudioUnit) 
         } catch {
             return nil
         }
