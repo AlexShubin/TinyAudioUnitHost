@@ -62,22 +62,20 @@ struct FooView: View {
 
 ## Project Structure
 
-- Each Tuist project follows the naming convention: `Feature`, `FeatureTests`, `FeatureTestSupport` (when needed).
-- Each Tuist project lives in its own sibling folder at the repo root, named after the project, with its `Project.swift` and a `Sources/` (and `Resources/` when needed) inside:
+- Each Tuist project's `Project.swift` declares one main target named after the feature, plus optional sibling targets `<Feature>Tests` and `<Feature>TestSupport` **within the same `Project.swift`** (not as separate Tuist projects). Each target gets its own buildable folder inside the project directory:
   ```
   /
-  ├── <ProjectA>/
+  ├── <Feature>/
   │   ├── Project.swift
-  │   └── Sources/
-  ├── <ProjectB>/
-  │   ├── Project.swift
-  │   ├── Sources/
-  │   └── Resources/
+  │   ├── Sources/         # <Feature> target
+  │   ├── TestSupport/     # <Feature>TestSupport target (when present)
+  │   ├── Tests/           # <Feature>Tests target (when present)
+  │   └── Resources/       # (when needed, attached to whichever target uses it)
   ├── Tuist.swift
   └── Workspace.swift
   ```
-- The repo root has a single `Workspace.swift` listing every project; there is no root `Project.swift`. When adding a new project, create the sibling folder, drop in its `Project.swift`, and add it to `Workspace.swift`'s `projects` array.
-- Cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
+- The repo root has a single `Workspace.swift` listing every project (one entry per project, regardless of how many targets it contains); there is no root `Project.swift`. When adding a brand-new project (not just a target), create the sibling folder, drop in its `Project.swift`, and add it to `Workspace.swift`'s `projects` array. When adding a `Tests`/`TestSupport` target to an existing project, just add it to that project's `Project.swift` and create the corresponding source folder — no `Workspace.swift` change needed.
+- Cross-target dependencies *within the same project* use `.target(name: "OtherTargetInSameProject")`; cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
 
@@ -87,4 +85,39 @@ Each library module owns a `Sources/Dependencies.swift` with a `public struct De
 
 The factory is **always** a parameterless `public static let live: Dependencies`, never a function. When a module needs services from an upstream module, reach into that module's own factory directly inside the closure (e.g. `StorageKit.Dependencies.live.audioSettingsStore`) — don't accept upstream services as parameters. This keeps every consumer's call site uniform: `<Module>.Dependencies.live` is always a property access.
 
-The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. View-model factories then reach through the nested struct (e.g. `engine.audioUnitEngineManager`). Adding a new service to a module becomes zero-touch in the app.
+The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. View-model factories then reach through the nested struct (e.g. `engine.engine`). Adding a new service to a module becomes zero-touch in the app.
+
+## Mock pattern
+
+Mocks for `*Type` protocols go in `<Feature>/TestSupport/<Type>Mock.swift` (target `<Feature>TestSupport`):
+
+```swift
+public actor AudioSettingsStoreMock: AudioSettingsStoreType {
+    public enum Calls {
+        case update
+        case current
+    }
+
+    public private(set) var calls: [Calls] = []
+    public var settings: AudioSettings
+
+    public init(settings: AudioSettings = .empty) {
+        self.settings = settings
+    }
+
+    public func current() -> AudioSettings {
+        calls.append(.current)
+        return settings
+    }
+
+    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) {
+        transform(&settings)
+        calls.append(.update)
+    }
+}
+```
+
+- One `Calls` case per protocol method; add associated values when arguments matter.
+- Append to `calls` *after* the real effect runs.
+- Configure stub state and return-value overrides via init params with defaults — actors block cross-actor property writes, and adding setter methods tempts tests to bypass the protocol.
+- No `clearCalls()`, no backdoor mutators. Only the protocol surface plus configurable starting state.

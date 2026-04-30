@@ -30,5 +30,19 @@ let project = Project(
                 .project(target: "Common", path: .relativeToManifest("../Common")),
             ]
         ),
+        .target(
+            name: "StorageKitTestSupport",
+            destinations: .macOS,
+            product: .staticFramework,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.StorageKitTestSupport",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "TestSupport",
+            ],
+            dependencies: [
+                .target(name: "StorageKit"),
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+            ]
+        ),
     ]
 )
