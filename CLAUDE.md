@@ -33,6 +33,7 @@
   ```
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
+- Prefer a computed `var` over a `func` with no parameters. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`.
 
 ## Naming Conventions
 

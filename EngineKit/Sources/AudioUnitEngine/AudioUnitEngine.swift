@@ -47,36 +47,9 @@ final actor AudioUnitEngine: AudioUnitEngineType {
 
     func bindDevice(_ target: TargetAudioDevice?) {
         guard let target, let audioUnit = engine.outputNode.audioUnit else { return }
-        setEnableIOFlag(target.inputSource != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
-        setEnableIOFlag(target.outputSource != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
-        setCurrentDevice(target.device.id, on: audioUnit)
-    }
-
-    private func setEnableIOFlag(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) {
-        var flag: UInt32 = enabled ? 1 : 0
-        let status = AudioUnitSetProperty(
-            audioUnit,
-            kAudioOutputUnitProperty_EnableIO,
-            scope,
-            element,
-            &flag,
-            UInt32(MemoryLayout<UInt32>.size)
-        )
-        assert(status == noErr, "Failed to set EnableIO: \(status)")
-    }
-
-    private func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) {
-        var id = deviceID
-        let size = UInt32(MemoryLayout<UInt32>.size)
-        let status = AudioUnitSetProperty(
-            audioUnit,
-            kAudioOutputUnitProperty_CurrentDevice,
-            kAudioUnitScope_Global,
-            0,
-            &id,
-            size
-        )
-        assert(status == noErr, "Failed to set current device: \(status)")
+        audioUnit.setEnableIOFlag(target.inputSource != nil, scope: kAudioUnitScope_Input, element: 1)
+        audioUnit.setEnableIOFlag(target.outputSource != nil, scope: kAudioUnitScope_Output, element: 0)
+        audioUnit.setCurrentDevice(target.device.id)
     }
 
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) {
@@ -98,17 +71,17 @@ final actor AudioUnitEngine: AudioUnitEngineType {
     }
 
     func connectInputs(channels: SelectedChannel, hardwareOffset: Int) {
-        guard let avAudioUnit = currentAVAudioUnit, acceptsAudioInput(avAudioUnit) else { return }
+        guard let avAudioUnit = currentAVAudioUnit, avAudioUnit.acceptsAudioInput else { return }
         let hardwareFormat = engine.outputNode.outputFormat(forBus: 0)
         let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: channelCount(for: channels)
+            channels: channels.channelCount
         )
         let auInputFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
             channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
-        setInputChannelMap(for: channels, hardwareOffset: hardwareOffset)
+        engine.inputNode.audioUnit?.setInputChannelMap(for: channels, hardwareOffset: hardwareOffset)
         engine.connect(engine.inputNode, to: inputMixer, format: userFormat)
         engine.connect(inputMixer, to: avAudioUnit, format: auInputFormat)
     }
@@ -121,7 +94,7 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
         engine.connect(avAudioUnit, to: engine.mainMixerNode, format: outputFormat)
-        setOutputChannelMap(for: channels, hardwareOffset: hardwareOffset)
+        engine.outputNode.audioUnit?.setOutputChannelMap(for: channels, hardwareOffset: hardwareOffset)
     }
 
     func disconnect() {
@@ -167,25 +140,60 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         engine.detach(node)
         currentAVAudioUnit = nil
     }
+}
 
-    private func channelCount(for selection: SelectedChannel) -> UInt32 {
-        switch selection {
+fileprivate extension AVAudioUnit {
+    var acceptsAudioInput: Bool {
+        let type = audioComponentDescription.componentType
+        return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
+    }
+}
+
+fileprivate extension SelectedChannel {
+    var channelCount: UInt32 {
+        switch self {
         case .mono: return 1
         case .stereo: return 2
         }
     }
+}
 
-    private func setInputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
-        guard let inputAudioUnit = engine.inputNode.audioUnit else { return }
-        // Input HAL: length = virtual channels, map[virtual] = physical (0-indexed).
-        let map: [Int32] = selection.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
-        setChannelMap(map, on: inputAudioUnit, element: 1)
+fileprivate extension AudioUnit {
+    func setEnableIOFlag(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement) {
+        var flag: UInt32 = enabled ? 1 : 0
+        let status = AudioUnitSetProperty(
+            self,
+            kAudioOutputUnitProperty_EnableIO,
+            scope,
+            element,
+            &flag,
+            UInt32(MemoryLayout<UInt32>.size)
+        )
+        assert(status == noErr, "Failed to set EnableIO: \(status)")
     }
 
-    private func setOutputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
-        guard let outputAudioUnit = engine.outputNode.audioUnit,
-              let physicalCount = physicalChannelCount(of: outputAudioUnit)
-        else { return }
+    func setCurrentDevice(_ deviceID: AudioDeviceID) {
+        var id = deviceID
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioUnitSetProperty(
+            self,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &id,
+            size
+        )
+        assert(status == noErr, "Failed to set current device: \(status)")
+    }
+
+    func setInputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
+        // Input HAL: length = virtual channels, map[virtual] = physical (0-indexed).
+        let map: [Int32] = selection.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
+        setChannelMap(map, element: 1)
+    }
+
+    func setOutputChannelMap(for selection: SelectedChannel, hardwareOffset: Int) {
+        guard let physicalCount = physicalChannelCount else { return }
         // Output HAL: length = physical channels, map[physical] = virtual (0-indexed) or -1.
         var map = [Int32](repeating: -1, count: physicalCount)
         for (virtualIdx, channel) in selection.channels.enumerated() {
@@ -193,14 +201,14 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
             map[physicalIdx] = Int32(virtualIdx)
         }
-        setChannelMap(map, on: outputAudioUnit, element: 0)
+        setChannelMap(map, element: 0)
     }
 
-    private func physicalChannelCount(of audioUnit: AudioUnit) -> Int? {
+    var physicalChannelCount: Int? {
         var streamFormat = AudioStreamBasicDescription()
         var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
         let status = AudioUnitGetProperty(
-            audioUnit,
+            self,
             kAudioUnitProperty_StreamFormat,
             kAudioUnitScope_Output,
             0,
@@ -211,11 +219,11 @@ final actor AudioUnitEngine: AudioUnitEngineType {
         return Int(streamFormat.mChannelsPerFrame)
     }
 
-    private func setChannelMap(_ map: [Int32], on audioUnit: AudioUnit, element: AudioUnitElement) {
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement) {
         var mutableMap = map
         let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
         let status = AudioUnitSetProperty(
-            audioUnit,
+            self,
             kAudioOutputUnitProperty_ChannelMap,
             kAudioUnitScope_Output,
             element, // 1 input bus, 0 output bus
@@ -223,10 +231,5 @@ final actor AudioUnitEngine: AudioUnitEngineType {
             size
         )
         assert(status == noErr, "Failed to set channel map: \(status)")
-    }
-
-    private func acceptsAudioInput(_ avAudioUnit: AVAudioUnit) -> Bool {
-        let type = avAudioUnit.audioComponentDescription.componentType
-        return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
     }
 }
