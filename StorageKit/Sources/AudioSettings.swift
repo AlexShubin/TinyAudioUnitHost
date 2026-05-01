@@ -8,7 +8,7 @@
 
 import Common
 
-public struct DeviceSettings: Sendable, Equatable {
+public struct DeviceSettings: Sendable, Equatable, Codable {
     public var deviceUID: String?
     public var selectedChannel: SelectedChannel?
 
@@ -20,7 +20,7 @@ public struct DeviceSettings: Sendable, Equatable {
     public static let empty = DeviceSettings(deviceUID: nil, selectedChannel: nil)
 }
 
-public struct AudioSettings: Sendable, Equatable {
+public struct AudioSettings: Sendable, Equatable, Codable {
     public var input: DeviceSettings
     public var output: DeviceSettings
     public var bufferSize: UInt32?

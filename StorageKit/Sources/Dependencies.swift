@@ -10,6 +10,6 @@ public struct Dependencies: Sendable {
     public let audioSettingsStore: AudioSettingsStoreType
 
     public static let live = Dependencies(
-        audioSettingsStore: AudioSettingsStore()
+        audioSettingsStore: AudioSettingsStore(fileStorage: FileStorage())
     )
 }

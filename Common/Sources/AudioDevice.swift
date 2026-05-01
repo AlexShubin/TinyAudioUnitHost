@@ -34,7 +34,7 @@ public struct AudioDevice: Sendable, Identifiable, Hashable {
     }
 }
 
-public struct AudioChannel: Sendable, Identifiable, Hashable {
+public struct AudioChannel: Sendable, Identifiable, Hashable, Codable {
     public let id: UInt32
     public let name: String
 
