@@ -129,7 +129,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func load_withTarget_bindsDeviceAndSetsBuffer() async throws {
+    mutating func load_withTarget_appliesSampleRateAndBuffer() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
@@ -137,7 +137,12 @@ struct EngineTests {
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         await aggregateDeviceManagerMock.setResolveTargetResult(target)
-        await audioSettingsStoreMock.setSettings(AudioSettings(input: .empty, output: .empty, bufferSize: 256))
+        await audioSettingsStoreMock.setSettings(AudioSettings(
+            input: .empty,
+            output: .empty,
+            bufferSize: 256,
+            sampleRate: 48_000
+        ))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -146,7 +151,30 @@ struct EngineTests {
             .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
             .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
             .setCurrentDevice(target.device.id, outputAU),
+            .setSampleRate(48_000, target.device.id),
             .setBufferSize(256, target.device.id)
+        ])
+    }
+
+    @Test
+    mutating func load_withTargetAndSampleRateOnly_setsSampleRateNotBuffer() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
+
+        let target = TargetAudioDevice.fake()
+        avEngineMock.outputAudioUnit = outputAU
+        avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
+        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await audioSettingsStoreMock.setSettings(AudioSettings(input: .empty, output: .empty, sampleRate: 48_000))
+        createSut()
+
+        _ = await sut.load(component: Self.effectComponent)
+
+        #expect(coreAudioGatewayMock.calls == [
+            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
+            .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
+            .setCurrentDevice(target.device.id, outputAU),
+            .setSampleRate(48_000, target.device.id)
         ])
     }
 

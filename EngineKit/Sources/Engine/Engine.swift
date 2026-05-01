@@ -68,8 +68,13 @@ final actor Engine: EngineType {
         let target = await aggregateDeviceManager.resolveTarget()
 
         bindDevice(target)
-        if let frames = settings.bufferSize, let deviceID = target?.device.id {
-            coreAudioGateway.setBufferSize(frames, deviceID: deviceID)
+        if let deviceID = target?.device.id {
+            if let rate = settings.sampleRate {
+                coreAudioGateway.setSampleRate(rate, deviceID: deviceID)
+            }
+            if let frames = settings.bufferSize {
+                coreAudioGateway.setBufferSize(frames, deviceID: deviceID)
+            }
         }
 
         guard let avAudioUnit = currentAVAudioUnit else { return }
