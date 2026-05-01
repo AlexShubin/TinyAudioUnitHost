@@ -29,21 +29,7 @@ let project = Project(
             dependencies: [
                 .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
-            ]
-        ),
-        .target(
-            name: "EngineKitTestSupport",
-            destinations: .macOS,
-            product: .staticFramework,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTestSupport",
-            deploymentTargets: .macOS("26.0"),
-            buildableFolders: [
-                "TestSupport",
-            ],
-            dependencies: [
-                .target(name: "EngineKit"),
-                .project(target: "Common", path: .relativeToManifest("../Common")),
-                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
+                .project(target: "AudioSettings", path: .relativeToManifest("../AudioSettings")),
             ]
         ),
         .target(
@@ -57,11 +43,12 @@ let project = Project(
             ],
             dependencies: [
                 .target(name: "EngineKit"),
-                .target(name: "EngineKitTestSupport"),
                 .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
+                .project(target: "AudioSettings", path: .relativeToManifest("../AudioSettings")),
+                .project(target: "AudioSettingsTestSupport", path: .relativeToManifest("../AudioSettings")),
             ]
         ),
     ]

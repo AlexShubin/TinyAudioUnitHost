@@ -1,6 +1,6 @@
 //
 //  AggregateDeviceManager.swift
-//  EngineKit
+//  AudioSettings
 //
 //  Created by Alex Shubin on 24.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -13,24 +13,24 @@ public protocol AggregateDeviceManagerType: Sendable {
     func resolveTarget() async -> TargetAudioDevice?
 }
 
-final actor AggregateDeviceManager: AggregateDeviceManagerType {
+// TODO(phase 5): revert to internal once AudioSettings.Dependencies wires this up.
+public final actor AggregateDeviceManager: AggregateDeviceManagerType {
     private let devicesProvider: AudioDevicesProviderType
     private let settingsStore: AudioSettingsStoreType
     private let factory: AggregateDeviceFactoryType
     private var cachedTarget: TargetAudioDevice?
 
-    init(
+    public init(
         devicesProvider: AudioDevicesProviderType,
-        settingsStore: AudioSettingsStoreType,
-        factory: AggregateDeviceFactoryType
+        settingsStore: AudioSettingsStoreType
     ) {
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
-        self.factory = factory
+        self.factory = AggregateDeviceFactory(devicesProvider: devicesProvider)
         factory.destroyOrphans()
     }
 
-    func resolveTarget() async -> TargetAudioDevice? {
+    public func resolveTarget() async -> TargetAudioDevice? {
         let settings = await settingsStore.current()
         let input = settings.input.deviceUID.flatMap(devicesProvider.device(uid:))
         let output = settings.output.deviceUID.flatMap(devicesProvider.device(uid:))

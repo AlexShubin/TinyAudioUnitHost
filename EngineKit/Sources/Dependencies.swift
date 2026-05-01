@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettings
 import AVFoundation
 import StorageKit
 
@@ -20,8 +21,7 @@ public struct Dependencies: Sendable {
         let settingsStore = StorageKit.Dependencies.live.audioSettingsStore
         let aggregateDeviceManager = AggregateDeviceManager(
             devicesProvider: devicesProvider,
-            settingsStore: settingsStore,
-            factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
+            settingsStore: settingsStore
         )
         return Dependencies(
             audioDevicesProvider: devicesProvider,

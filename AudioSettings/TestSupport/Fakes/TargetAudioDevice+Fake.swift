@@ -1,14 +1,14 @@
 //
 //  TargetAudioDevice+Fake.swift
-//  EngineKitTestSupport
+//  AudioSettingsTestSupport
 //
 //  Created by Alex Shubin on 30.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettings
 import Common
 import CommonTestSupport
-import EngineKit
 
 public extension TargetAudioDevice {
     static func fake(

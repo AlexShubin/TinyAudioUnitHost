@@ -6,8 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-// Placeholder so the test target has source while the project skeleton lands.
-// Phase 7 replaces this with the real AudioSettingsRepositoryTests.
+// Phase 7 replaces this with AudioSettingsRepositoryTests.
 import Testing
 
 @Suite
