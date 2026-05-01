@@ -8,8 +8,6 @@
 
 import AudioSettingsKit
 import AVFoundation
-import Common
-import StorageKit
 
 public protocol EngineType: Sendable {
     func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
@@ -22,8 +20,7 @@ final actor Engine: EngineType {
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
     private let coreMidiManager: CoreMidiManagerType
-    private let settingsStore: AudioSettingsStoreType
-    private let aggregateDeviceManager: AggregateDeviceManagerType
+    private let audioSettingsRepository: AudioSettingsRepositoryType
     private var currentAVAudioUnit: AVAudioUnit?
 
     init(
@@ -32,16 +29,14 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiManager: CoreMidiManagerType,
-        settingsStore: AudioSettingsStoreType,
-        aggregateDeviceManager: AggregateDeviceManagerType
+        audioSettingsRepository: AudioSettingsRepositoryType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
         self.coreMidiManager = coreMidiManager
-        self.settingsStore = settingsStore
-        self.aggregateDeviceManager = aggregateDeviceManager
+        self.audioSettingsRepository = audioSettingsRepository
         engine.attach(inputMixer)
     }
 
@@ -65,8 +60,8 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async {
-        let settings = await settingsStore.current()
-        let target = await aggregateDeviceManager.resolveTarget()
+        let settings = await audioSettingsRepository.current()
+        let target = settings.target
 
         bindDevice(target)
         if let deviceID = target?.device.id {
@@ -80,10 +75,10 @@ final actor Engine: EngineType {
 
         guard let avAudioUnit = currentAVAudioUnit else { return }
 
-        if let input = settings.input.selectedChannel, avAudioUnit.acceptsAudioInput {
+        if let input = settings.inputChannel, avAudioUnit.acceptsAudioInput {
             connectInputs(avAudioUnit: avAudioUnit, channels: input, hardwareOffset: target?.inputOffset ?? 0)
         }
-        if let output = settings.output.selectedChannel {
+        if let output = settings.outputChannel {
             connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target?.outputOffset ?? 0)
         }
     }

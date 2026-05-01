@@ -7,7 +7,6 @@
 //
 
 import AVFoundation
-import Common
 
 public protocol AudioUnitComponentsLibraryType: Sendable {
     var components: [AudioUnitComponent] { get }
