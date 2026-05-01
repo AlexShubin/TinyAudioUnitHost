@@ -15,7 +15,8 @@ public extension AudioDevice {
         name: String = "Test Device",
         inputChannels: [AudioChannel] = [],
         outputChannels: [AudioChannel] = [],
-        availableBufferSizes: [UInt32] = []
+        availableBufferSizes: [UInt32] = [],
+        availableSampleRates: [Float64] = []
     ) -> AudioDevice {
         AudioDevice(
             id: id,
@@ -23,7 +24,8 @@ public extension AudioDevice {
             name: name,
             inputChannels: inputChannels,
             outputChannels: outputChannels,
-            availableBufferSizes: availableBufferSizes
+            availableBufferSizes: availableBufferSizes,
+            availableSampleRates: availableSampleRates
         )
     }
 }

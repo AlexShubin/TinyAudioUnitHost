@@ -13,6 +13,7 @@ public struct AudioDevice: Sendable, Identifiable, Hashable {
     public let inputChannels: [AudioChannel]
     public let outputChannels: [AudioChannel]
     public let availableBufferSizes: [UInt32]
+    public let availableSampleRates: [Float64]
 
     public init(
         id: UInt32,
@@ -20,7 +21,8 @@ public struct AudioDevice: Sendable, Identifiable, Hashable {
         name: String,
         inputChannels: [AudioChannel],
         outputChannels: [AudioChannel],
-        availableBufferSizes: [UInt32]
+        availableBufferSizes: [UInt32],
+        availableSampleRates: [Float64]
     ) {
         self.id = id
         self.uid = uid
@@ -28,6 +30,7 @@ public struct AudioDevice: Sendable, Identifiable, Hashable {
         self.inputChannels = inputChannels
         self.outputChannels = outputChannels
         self.availableBufferSizes = availableBufferSizes
+        self.availableSampleRates = availableSampleRates
     }
 }
 

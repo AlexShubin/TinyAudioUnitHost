@@ -16,4 +16,12 @@ public enum SelectedChannel: Sendable, Equatable, Hashable {
         case .stereo(let l, let r): return [l, r]
         }
     }
+
+    public init?(from array: [AudioChannel]) {
+        switch array.count {
+            case 0: return nil
+            case 1: self = .mono(array[0])
+            default: self = .stereo(l: array[0], r: array[1])
+        }
+    }
 }

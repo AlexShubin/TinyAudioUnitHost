@@ -46,7 +46,8 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                            name: name,
                            inputChannels: channels(count: inputChannelCount),
                            outputChannels: channels(count: outputChannelCount),
-                           availableBufferSizes: bufferSizes(deviceID: id))
+                           availableBufferSizes: bufferSizes(deviceID: id),
+                           availableSampleRates: [])
     }
 
     private func channels(count: Int) -> [AudioChannel] {
