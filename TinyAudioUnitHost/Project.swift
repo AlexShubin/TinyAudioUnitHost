@@ -32,7 +32,6 @@ let project = Project(
                 "Resources",
             ],
             dependencies: [
-                .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettings", path: .relativeToManifest("../AudioSettings")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),

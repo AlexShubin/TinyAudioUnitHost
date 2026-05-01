@@ -6,8 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Common
-
 public struct TargetAudioDevice: Sendable, Equatable {
     public let device: AudioDevice
     public let inputSource: AudioDevice?

@@ -4,7 +4,6 @@ let workspace = Workspace(
     name: "TinyAudioUnitHost",
     projects: [
         "TinyAudioUnitHost",
-        "Common",
         "StorageKit",
         "AudioSettings",
         "EngineKit",

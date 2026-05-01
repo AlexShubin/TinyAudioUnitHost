@@ -39,6 +39,7 @@
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
 - Prefer a computed `var` over a `func` with no parameters. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`.
+- Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper init, scope it via a `private extension` in the consumer's own file. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
 
 ## Naming Conventions
 

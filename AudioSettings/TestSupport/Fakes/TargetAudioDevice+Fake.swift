@@ -7,8 +7,6 @@
 //
 
 import AudioSettings
-import Common
-import CommonTestSupport
 
 public extension TargetAudioDevice {
     static func fake(

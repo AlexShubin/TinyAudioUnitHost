@@ -7,9 +7,9 @@
 //
 
 public struct Dependencies: Sendable {
-    public let audioSettingsStore: AudioSettingsStoreType
+    public let rawSettingsStore: RawSettingsStoreType
 
     public static let live = Dependencies(
-        audioSettingsStore: AudioSettingsStore(fileStorage: FileStorage())
+        rawSettingsStore: RawSettingsStore(fileStorage: FileStorage())
     )
 }

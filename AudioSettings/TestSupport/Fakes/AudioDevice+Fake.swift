@@ -1,12 +1,12 @@
 //
 //  AudioDevice+Fake.swift
-//  CommonTestSupport
+//  AudioSettingsTestSupport
 //
 //  Created by Alex Shubin on 30.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Common
+import AudioSettings
 
 public extension AudioDevice {
     static func fake(

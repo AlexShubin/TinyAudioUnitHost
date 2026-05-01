@@ -1,6 +1,6 @@
 //
 //  SelectedChannel.swift
-//  Common
+//  AudioSettings
 //
 //  Created by Alex Shubin on 23.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.

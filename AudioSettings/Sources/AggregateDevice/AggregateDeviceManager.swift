@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Common
 import StorageKit
 
 public protocol AggregateDeviceManagerType: Sendable {
@@ -16,13 +15,13 @@ public protocol AggregateDeviceManagerType: Sendable {
 // TODO(phase 5): revert to internal once AudioSettings.Dependencies wires this up.
 public final actor AggregateDeviceManager: AggregateDeviceManagerType {
     private let devicesProvider: AudioDevicesProviderType
-    private let settingsStore: AudioSettingsStoreType
+    private let settingsStore: RawSettingsStoreType
     private let factory: AggregateDeviceFactoryType
     private var cachedTarget: TargetAudioDevice?
 
     public init(
         devicesProvider: AudioDevicesProviderType,
-        settingsStore: AudioSettingsStoreType
+        settingsStore: RawSettingsStoreType
     ) {
         self.devicesProvider = devicesProvider
         self.settingsStore = settingsStore
@@ -32,8 +31,8 @@ public final actor AggregateDeviceManager: AggregateDeviceManagerType {
 
     public func resolveTarget() async -> TargetAudioDevice? {
         let settings = await settingsStore.current()
-        let input = settings.input.deviceUID.flatMap(devicesProvider.device(uid:))
-        let output = settings.output.deviceUID.flatMap(devicesProvider.device(uid:))
+        let input = settings.target.input.uid.flatMap(devicesProvider.device(uid:))
+        let output = settings.target.output.uid.flatMap(devicesProvider.device(uid:))
 
         if input?.id == cachedTarget?.inputSource?.id
             && output?.id == cachedTarget?.outputSource?.id
