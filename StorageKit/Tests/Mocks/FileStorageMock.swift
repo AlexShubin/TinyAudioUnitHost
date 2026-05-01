@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Foundation
 @testable import StorageKit
 
 final class FileStorageMock: FileStorageType, @unchecked Sendable {
@@ -16,21 +15,19 @@ final class FileStorageMock: FileStorageType, @unchecked Sendable {
     }
 
     private(set) var calls: [Calls] = []
-    var storage: [String: Data] = [:]
+    var storage: [String: Any] = [:]
 
-    init(storage: [String: Data] = [:]) {
+    init(storage: [String: Any] = [:]) {
         self.storage = storage
     }
 
     func read<T: Decodable>(_ type: T.Type, key: String) -> T? {
         calls.append(.read(key))
-        guard let data = storage[key] else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+        return storage[key] as? T
     }
 
     func write<T: Encodable>(_ value: T, key: String) {
         calls.append(.write(key))
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        storage[key] = data
+        storage[key] = value
     }
 }

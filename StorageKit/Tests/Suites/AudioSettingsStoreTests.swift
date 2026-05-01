@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Foundation
 import StorageKitTestSupport
 import Testing
 @testable import StorageKit
@@ -33,9 +32,9 @@ struct AudioSettingsStoreTests {
     }
 
     @Test
-    mutating func init_readsStoredSettings() async throws {
+    mutating func init_readsStoredSettings() async {
         let stored = AudioSettings.fake(bufferSize: 256, sampleRate: 48_000)
-        fileStorageMock.storage["audioSettings"] = try JSONEncoder().encode(stored)
+        fileStorageMock.storage["audioSettings"] = stored
         createSut()
 
         #expect(await sut.current() == stored)
@@ -43,8 +42,8 @@ struct AudioSettingsStoreTests {
     }
 
     @Test
-    mutating func init_corruptedStorage_returnsEmpty() async {
-        fileStorageMock.storage["audioSettings"] = Data([0xFF, 0xFE, 0xFD])
+    mutating func init_wrongTypeInStorage_returnsEmpty() async {
+        fileStorageMock.storage["audioSettings"] = "not an AudioSettings"
         createSut()
 
         #expect(await sut.current() == .empty)
@@ -58,8 +57,7 @@ struct AudioSettingsStoreTests {
 
         #expect(await sut.current().bufferSize == 512)
         #expect(fileStorageMock.calls == [.read("audioSettings"), .write("audioSettings")])
-        let persisted = try #require(fileStorageMock.storage["audioSettings"])
-        let decoded = try JSONDecoder().decode(AudioSettings.self, from: persisted)
-        #expect(decoded.bufferSize == 512)
+        let persisted = try #require(fileStorageMock.storage["audioSettings"] as? AudioSettings)
+        #expect(persisted.bufferSize == 512)
     }
 }
