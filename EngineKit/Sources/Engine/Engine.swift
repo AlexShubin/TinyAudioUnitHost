@@ -79,15 +79,10 @@ final actor Engine: EngineType {
 
         guard let avAudioUnit = currentAVAudioUnit else { return }
 
-        let inputChannels = target?.inputSource?.inputChannels ?? []
-        if let inputIDs = settings.input.selectedChannelIDs,
-           let input = SelectedChannel(ids: inputIDs, in: inputChannels),
-           avAudioUnit.acceptsAudioInput {
+        if let input = settings.input.selectedChannel, avAudioUnit.acceptsAudioInput {
             connectInputs(avAudioUnit: avAudioUnit, channels: input, hardwareOffset: target?.inputOffset ?? 0)
         }
-        let outputChannels = target?.outputSource?.outputChannels ?? []
-        if let outputIDs = settings.output.selectedChannelIDs,
-           let output = SelectedChannel(ids: outputIDs, in: outputChannels) {
+        if let output = settings.output.selectedChannel {
             connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target?.outputOffset ?? 0)
         }
     }
