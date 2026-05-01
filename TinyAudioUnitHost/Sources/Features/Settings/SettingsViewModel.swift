@@ -17,6 +17,8 @@ protocol SettingsViewModelType: Observable {
     var outputState: DevicePickerState { get }
     var bufferSize: UInt32? { get }
     var availableBufferSizes: [UInt32] { get }
+    var sampleRate: Float64? { get }
+    var availableSampleRates: [Float64] { get }
     func accept(action: SettingsViewAction) async
 }
 
@@ -26,6 +28,8 @@ final class SettingsViewModel: SettingsViewModelType {
     private(set) var outputState: DevicePickerState = .empty
     private(set) var bufferSize: UInt32?
     private(set) var availableBufferSizes: [UInt32] = []
+    private(set) var sampleRate: Float64?
+    private(set) var availableSampleRates: [Float64] = []
 
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let settingsStore: AudioSettingsStoreType
@@ -49,7 +53,9 @@ final class SettingsViewModel: SettingsViewModelType {
         case .task:
             let inputLoaded = await loadInitial(kind: .input)
             let outputLoaded = await loadInitial(kind: .output)
-            bufferSize = await settingsStore.current().bufferSize
+            let current = await settingsStore.current()
+            bufferSize = current.bufferSize
+            sampleRate = current.sampleRate
             if inputLoaded || outputLoaded {
                 await applyToEngine()
             }
@@ -60,6 +66,11 @@ final class SettingsViewModel: SettingsViewModelType {
         case .selectBufferSize(let size):
             guard bufferSize != size else { return }
             bufferSize = size
+            await persist()
+            await applyToEngine()
+        case .selectSampleRate(let rate):
+            guard sampleRate != rate else { return }
+            sampleRate = rate
             await persist()
             await applyToEngine()
         }
@@ -137,18 +148,21 @@ final class SettingsViewModel: SettingsViewModelType {
         let input = inputState
         let output = outputState
         let buffer = bufferSize
+        let rate = sampleRate
         await settingsStore.update { settings in
             settings.input.device = input.selectedDevice
             settings.input.selectedChannel = input.selectedChannel
             settings.output.device = output.selectedDevice
             settings.output.selectedChannel = output.selectedChannel
             settings.bufferSize = buffer
+            settings.sampleRate = rate
         }
     }
 
     private func applyToEngine() async {
         await engine.reload()
         let target = await aggregateDeviceManager.resolveTarget()
+        await refreshSampleRate(target: target)
         await refreshBufferSize(target: target)
     }
 
@@ -163,11 +177,20 @@ final class SettingsViewModel: SettingsViewModelType {
     private func resolveBufferSize(current: UInt32?, available: [UInt32]) -> UInt32? {
         guard !available.isEmpty else { return nil }
         if let current, available.contains(current) { return current }
-        if let current {
-            return available.min { left, right in
-                abs(Int64(left) - Int64(current)) < abs(Int64(right) - Int64(current))
-            }
-        }
-        return available.contains(256) ? 256 : available.first
+        return available.contains(32) ? 32 : available.first
+    }
+
+    private func refreshSampleRate(target: TargetAudioDevice?) async {
+        availableSampleRates = target?.device.availableSampleRates ?? []
+        let resolved = resolveSampleRate(current: sampleRate, available: availableSampleRates)
+        guard resolved != sampleRate else { return }
+        sampleRate = resolved
+        await persist()
+    }
+
+    private func resolveSampleRate(current: Float64?, available: [Float64]) -> Float64? {
+        guard !available.isEmpty else { return nil }
+        if let current, available.contains(current) { return current }
+        return available.contains(48_000) ? 48_000 : available.first
     }
 }
