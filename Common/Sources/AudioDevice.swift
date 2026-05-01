@@ -33,13 +33,3 @@ public struct AudioDevice: Sendable, Identifiable, Hashable {
         self.availableSampleRates = availableSampleRates
     }
 }
-
-public struct AudioChannel: Sendable, Identifiable, Hashable, Codable {
-    public let id: UInt32
-    public let name: String
-
-    public init(id: UInt32, name: String) {
-        self.id = id
-        self.name = name
-    }
-}
