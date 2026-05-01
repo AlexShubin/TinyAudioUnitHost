@@ -1,5 +1,10 @@
 # Project Notes
 
+## Git workflow
+
+- **Never commit or push without explicit per-action permission.** Applies to every branch, especially `main`. Instructions like "reverse this commit on origin" or "make these changes" are *not* implicit authorization to commit or push — leave the work as working-tree edits and ask. Each commit and each push needs its own explicit go-ahead.
+- Force-pushes to `main` are off-limits unless the user uses the words "force push".
+
 ## Tuist
 
 - To regenerate the Xcode project, run: `mise run generate`
