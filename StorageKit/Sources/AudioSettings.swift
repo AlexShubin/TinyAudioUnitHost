@@ -1,21 +1,23 @@
 //
 //  AudioSettings.swift
-//  Common
+//  StorageKit
 //
 //  Created by Alex Shubin on 22.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
+
 public struct DeviceSettings: Sendable, Equatable {
-    public var device: AudioDevice?
+    public var deviceUID: String?
     public var selectedChannel: SelectedChannel?
 
-    public init(device: AudioDevice?, selectedChannel: SelectedChannel?) {
-        self.device = device
+    public init(deviceUID: String?, selectedChannel: SelectedChannel?) {
+        self.deviceUID = deviceUID
         self.selectedChannel = selectedChannel
     }
 
-    public static let empty = DeviceSettings(device: nil, selectedChannel: nil)
+    public static let empty = DeviceSettings(deviceUID: nil, selectedChannel: nil)
 }
 
 public struct AudioSettings: Sendable, Equatable {

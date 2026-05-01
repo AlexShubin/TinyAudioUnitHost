@@ -148,6 +148,7 @@ public extension AudioDevice {
 }
 ```
 
+- **Add the fake at the same time you add the type.** Whenever you introduce or extend a public value type that tests will construct (any `public struct` in `Sources/`, any new field on one), add or update its `Type+Fake.swift` in the same module's `TestSupport/Fakes/` in the same change. Don't wait for the first test that needs it — by then call sites have already accumulated inline `Type(...)` constructions that will need cleanup.
 - Every parameter is defaulted. `Type.fake()` must work with no arguments — that's the whole point. Overrides happen at the call site.
 - Compose fakes by defaulting one to another (`device: AudioDevice = .fake()`). Tests can override at any layer (e.g. `TargetAudioDevice.fake(inputOffset: 2)`).
 - A type's fake lives in the same module's `TestSupport` as the type (`AudioDevice` → `CommonTestSupport`, `TargetAudioDevice` → `EngineKitTestSupport`). Cross-module composition flows through `import CommonTestSupport` etc.

@@ -32,8 +32,8 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
 
     func resolveTarget() async -> TargetAudioDevice? {
         let settings = await settingsStore.current()
-        let input = settings.input.device
-        let output = settings.output.device
+        let input = settings.input.deviceUID.flatMap(devicesProvider.device(uid:))
+        let output = settings.output.deviceUID.flatMap(devicesProvider.device(uid:))
 
         if input?.id == cachedTarget?.inputSource?.id
             && output?.id == cachedTarget?.outputSource?.id

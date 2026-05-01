@@ -51,14 +51,12 @@ final class SettingsViewModel: SettingsViewModelType {
     func accept(action: SettingsViewAction) async {
         switch action {
         case .task:
-            let inputLoaded = await loadInitial(kind: .input)
-            let outputLoaded = await loadInitial(kind: .output)
+            await loadInitial(kind: .input)
+            await loadInitial(kind: .output)
             let current = await settingsStore.current()
             bufferSize = current.bufferSize
             sampleRate = current.sampleRate
-            if inputLoaded || outputLoaded {
-                await applyToEngine()
-            }
+            await applyToEngine()
         case .inputDevicePickerAction(let pickerAction):
             await handle(pickerAction, kind: .input)
         case .outputDevicePickerAction(let pickerAction):
@@ -76,18 +74,20 @@ final class SettingsViewModel: SettingsViewModelType {
         }
     }
 
-    private func loadInitial(kind: DevicePickerKind) async -> Bool {
+    private func loadInitial(kind: DevicePickerKind) async {
         let devices = devicesProvider.devices(filter(for: kind))
-        mutatePickerState(kind: kind) { $0.devices = devices }
-        guard pickerState(kind: kind).selectedDevice == nil else { return false }
         let stored = slice(in: await settingsStore.current(), kind: kind)
         mutatePickerState(kind: kind) { state in
-            if let storedDevice = stored.device, devices.contains(storedDevice) {
-                state.selectedDevice = storedDevice
+            state.devices = devices
+            if let storedUID = stored.deviceUID,
+               let live = devices.first(where: { $0.uid == storedUID }) {
+                state.selectedDevice = live
                 state.selectedChannel = stored.selectedChannel
+            } else {
+                state.selectedDevice = nil
+                state.selectedChannel = nil
             }
         }
-        return true
     }
 
     private func handle(_ action: DevicePickerViewAction, kind: DevicePickerKind) async {
@@ -150,9 +150,9 @@ final class SettingsViewModel: SettingsViewModelType {
         let buffer = bufferSize
         let rate = sampleRate
         await settingsStore.update { settings in
-            settings.input.device = input.selectedDevice
+            settings.input.deviceUID = input.selectedDevice?.uid
             settings.input.selectedChannel = input.selectedChannel
-            settings.output.device = output.selectedDevice
+            settings.output.deviceUID = output.selectedDevice?.uid
             settings.output.selectedChannel = output.selectedChannel
             settings.bufferSize = buffer
             settings.sampleRate = rate
