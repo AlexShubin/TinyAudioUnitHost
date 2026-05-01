@@ -317,11 +317,11 @@ private extension EngineTests {
     )
 
     static var effectComponent: AudioUnitComponent {
-        .fake(name: "Dyn", manufacturer: "Apple", componentDescription: effectDescription)
+        AudioUnitComponent(name: "Dyn", manufacturer: "Apple", componentDescription: effectDescription)
     }
 
     static var mixerComponent: AudioUnitComponent {
-        .fake(name: "Mix", manufacturer: "Apple", componentDescription: mixerDescription)
+        AudioUnitComponent(name: "Mix", manufacturer: "Apple", componentDescription: mixerDescription)
     }
 
     static func makeAVAudioUnit(_ desc: AudioComponentDescription) async throws -> AVAudioUnit {
