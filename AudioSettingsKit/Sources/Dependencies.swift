@@ -9,7 +9,7 @@
 import StorageKit
 
 public struct Dependencies: Sendable {
-    public let repository: AudioSettingsRepositoryType
+    public let facade: AudioSettingsFacadeType
     public let devicesProvider: AudioDevicesProviderType
 
     public static let live: Dependencies = {
@@ -20,7 +20,7 @@ public struct Dependencies: Sendable {
             settingsStore: rawStore
         )
         return Dependencies(
-            repository: AudioSettingsRepository(
+            facade: AudioSettingsFacade(
                 rawStore: rawStore,
                 devicesProvider: devicesProvider,
                 aggregateDeviceManager: aggregateDeviceManager

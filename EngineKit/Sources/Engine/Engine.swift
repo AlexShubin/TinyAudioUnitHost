@@ -20,7 +20,7 @@ final actor Engine: EngineType {
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
     private let coreMidiManager: CoreMidiManagerType
-    private let audioSettingsRepository: AudioSettingsRepositoryType
+    private let audioSettingsFacade: AudioSettingsFacadeType
     private var currentAVAudioUnit: AVAudioUnit?
 
     init(
@@ -29,14 +29,14 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiManager: CoreMidiManagerType,
-        audioSettingsRepository: AudioSettingsRepositoryType
+        audioSettingsFacade: AudioSettingsFacadeType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
         self.coreMidiManager = coreMidiManager
-        self.audioSettingsRepository = audioSettingsRepository
+        self.audioSettingsFacade = audioSettingsFacade
         engine.attach(inputMixer)
     }
 
@@ -60,7 +60,7 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async {
-        let settings = await audioSettingsRepository.current()
+        let settings = await audioSettingsFacade.current()
         let target = settings.target
 
         bindDevice(target)

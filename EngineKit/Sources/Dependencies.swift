@@ -20,7 +20,7 @@ public struct Dependencies: Sendable {
             avAudioUnitFactory: AVAudioUnitFactory(),
             coreAudioGateway: CoreAudioGateway(),
             coreMidiManager: CoreMidiManager(),
-            audioSettingsRepository: AudioSettingsKit.Dependencies.live.repository
+            audioSettingsFacade: AudioSettingsKit.Dependencies.live.facade
         ),
         audioUnitComponentsLibrary: AudioUnitComponentsLibrary()
     )

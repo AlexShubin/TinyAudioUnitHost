@@ -1,5 +1,5 @@
 //
-//  AudioSettingsRepository.swift
+//  AudioSettingsFacade.swift
 //  AudioSettingsKit
 //
 //  Created by Alex Shubin on 02.05.26.
@@ -8,16 +8,15 @@
 
 import StorageKit
 
-public protocol AudioSettingsRepositoryType: Sendable {
+public protocol AudioSettingsFacadeType: Sendable {
     func current() async -> AudioSettings
     func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
 }
 
-public actor AudioSettingsRepository: AudioSettingsRepositoryType {
+public actor AudioSettingsFacade: AudioSettingsFacadeType {
     private let rawStore: RawSettingsStoreType
     private let devicesProvider: AudioDevicesProviderType
     private let aggregateDeviceManager: AggregateDeviceManagerType
-    private var resolved: AudioSettings?
 
     public init(
         rawStore: RawSettingsStoreType,
@@ -30,14 +29,11 @@ public actor AudioSettingsRepository: AudioSettingsRepositoryType {
     }
 
     public func current() async -> AudioSettings {
-        if let resolved { return resolved }
-        let new = await resolve()
-        resolved = new
-        return new
+        await resolve()
     }
 
     public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
-        var copy = await current()
+        var copy = await resolve()
         transform(&copy)
         let inputUID = copy.inputDevice?.uid
         let inputChannels = copy.inputChannel?.channels.map(\.id) ?? []
@@ -53,7 +49,6 @@ public actor AudioSettingsRepository: AudioSettingsRepositoryType {
             raw.bufferSize = bufferSize
             raw.sampleRate = sampleRate
         }
-        resolved = await resolve()
     }
 
     private func resolve() async -> AudioSettings {
