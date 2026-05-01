@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettings
+import AudioSettingsKit
 import AVFoundation
 import StorageKit
 

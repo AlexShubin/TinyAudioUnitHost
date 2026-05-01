@@ -1,12 +1,12 @@
 //
 //  AggregateDeviceManagerMock.swift
-//  AudioSettingsTestSupport
+//  AudioSettingsKitTestSupport
 //
 //  Created by Alex Shubin on 30.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettings
+import AudioSettingsKit
 
 public actor AggregateDeviceManagerMock: AggregateDeviceManagerType {
     public enum Calls: Equatable {

@@ -33,7 +33,7 @@ let project = Project(
             ],
             dependencies: [
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
-                .project(target: "AudioSettings", path: .relativeToManifest("../AudioSettings")),
+                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
             ],
             settings: .settings(

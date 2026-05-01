@@ -1,6 +1,6 @@
 //
 //  AudioChannel.swift
-//  AudioSettings
+//  AudioSettingsKit
 //
 //  Created by Alex Shubin on 22.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.

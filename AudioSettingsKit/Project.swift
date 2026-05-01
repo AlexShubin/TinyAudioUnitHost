@@ -1,7 +1,7 @@
 import ProjectDescription
 
 let project = Project(
-    name: "AudioSettings",
+    name: "AudioSettingsKit",
     settings: .settings(
         base: [
             "SWIFT_VERSION": "6.0",
@@ -18,10 +18,10 @@ let project = Project(
     ),
     targets: [
         .target(
-            name: "AudioSettings",
+            name: "AudioSettingsKit",
             destinations: .macOS,
             product: .staticFramework,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettings",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettingsKit",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "Sources",
@@ -31,31 +31,31 @@ let project = Project(
             ]
         ),
         .target(
-            name: "AudioSettingsTestSupport",
+            name: "AudioSettingsKitTestSupport",
             destinations: .macOS,
             product: .staticFramework,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettingsTestSupport",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettingsKitTestSupport",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "TestSupport",
             ],
             dependencies: [
-                .target(name: "AudioSettings"),
+                .target(name: "AudioSettingsKit"),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
             ]
         ),
         .target(
-            name: "AudioSettingsTests",
+            name: "AudioSettingsKitTests",
             destinations: .macOS,
             product: .unitTests,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettingsTests",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.AudioSettingsKitTests",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "Tests",
             ],
             dependencies: [
-                .target(name: "AudioSettings"),
-                .target(name: "AudioSettingsTestSupport"),
+                .target(name: "AudioSettingsKit"),
+                .target(name: "AudioSettingsKitTestSupport"),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
             ]

@@ -6,8 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettings
-import AudioSettingsTestSupport
+import AudioSettingsKit
+import AudioSettingsKitTestSupport
 import AudioToolbox
 import AVFoundation
 import Common

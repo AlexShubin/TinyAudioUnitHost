@@ -1,6 +1,6 @@
 //
 //  AudioDevicesProvider.swift
-//  AudioSettings
+//  AudioSettingsKit
 //
 //  Created by Alex Shubin on 22.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -20,14 +20,11 @@ public enum AudioDeviceFilter: Sendable {
     case output
 }
 
-// TODO(phase 5): revert to internal once AudioSettings.Dependencies wires this up.
-public struct AudioDevicesProvider: AudioDevicesProviderType {
+struct AudioDevicesProvider: AudioDevicesProviderType {
     private static let candidateBufferSizes: [UInt32] = [32, 64, 128, 256, 512]
     private static let candidateSampleRates: [Float64] = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000]
 
-    public init() {}
-
-    public func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
+    func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
             .getArray(selector: kAudioHardwarePropertyDevices)
         return ids.compactMap(device(id:)).filter { device in
@@ -39,7 +36,7 @@ public struct AudioDevicesProvider: AudioDevicesProviderType {
         }
     }
 
-    public func device(id: AudioDeviceID) -> AudioDevice? {
+    func device(id: AudioDeviceID) -> AudioDevice? {
         guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
               let name = id.getString(selector: kAudioObjectPropertyName)
         else { return nil }
@@ -54,7 +51,7 @@ public struct AudioDevicesProvider: AudioDevicesProviderType {
                            availableSampleRates: sampleRates(deviceID: id))
     }
 
-    public func device(uid: String) -> AudioDevice? {
+    func device(uid: String) -> AudioDevice? {
         devices(.all).first { $0.uid == uid }
     }
 
