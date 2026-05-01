@@ -17,12 +17,8 @@ final class FileStorage: FileStorageType {
     private let directory: URL
 
     init() {
-        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            preconditionFailure("applicationSupportDirectory unavailable; this should never happen for an .app bundle")
-        }
-        guard let bundleID = Bundle.main.bundleIdentifier else {
-            preconditionFailure("Bundle.main.bundleIdentifier is nil; this should never happen for an .app bundle")
-        }
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let bundleID = Bundle.main.bundleIdentifier!
         self.directory = base.appending(path: bundleID)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
