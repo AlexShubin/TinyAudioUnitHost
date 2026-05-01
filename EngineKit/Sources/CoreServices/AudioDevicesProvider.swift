@@ -22,6 +22,7 @@ public enum AudioDeviceFilter: Sendable {
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
     private static let candidateBufferSizes: [UInt32] = [32, 64, 128, 256, 512]
+    private static let candidateSampleRates: [Float64] = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000]
 
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
         let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
@@ -47,7 +48,7 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                            inputChannels: channels(count: inputChannelCount),
                            outputChannels: channels(count: outputChannelCount),
                            availableBufferSizes: bufferSizes(deviceID: id),
-                           availableSampleRates: [])
+                           availableSampleRates: sampleRates(deviceID: id))
     }
 
     private func channels(count: Int) -> [AudioChannel] {
@@ -74,6 +75,14 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         ) else { return [] }
         return Self.candidateBufferSizes.filter {
             Double($0) >= range.mMinimum && Double($0) <= range.mMaximum
+        }
+    }
+
+    private func sampleRates(deviceID: AudioDeviceID) -> [Float64] {
+        let ranges: [AudioValueRange] = deviceID.getArray(selector: kAudioDevicePropertyAvailableNominalSampleRates)
+        guard !ranges.isEmpty else { return [] }
+        return Self.candidateSampleRates.filter { rate in
+            ranges.contains { rate >= $0.mMinimum && rate <= $0.mMaximum }
         }
     }
 }
