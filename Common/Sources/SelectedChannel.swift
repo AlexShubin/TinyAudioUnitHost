@@ -24,4 +24,9 @@ public enum SelectedChannel: Sendable, Equatable, Hashable, Codable {
             default: self = .stereo(l: array[0], r: array[1])
         }
     }
+
+    public init?(ids: [UInt32], in channels: [AudioChannel]) {
+        let resolved = ids.compactMap { id in channels.first { $0.id == id } }
+        self.init(from: resolved)
+    }
 }

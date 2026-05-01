@@ -6,14 +6,13 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Common
 import StorageKit
 
 public extension DeviceSettings {
     static func fake(
         deviceUID: String? = nil,
-        selectedChannel: SelectedChannel? = nil
+        selectedChannelIDs: [UInt32]? = nil
     ) -> DeviceSettings {
-        DeviceSettings(deviceUID: deviceUID, selectedChannel: selectedChannel)
+        DeviceSettings(deviceUID: deviceUID, selectedChannelIDs: selectedChannelIDs)
     }
 }

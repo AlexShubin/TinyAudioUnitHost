@@ -10,14 +10,14 @@ import Common
 
 public struct DeviceSettings: Sendable, Equatable, Codable {
     public var deviceUID: String?
-    public var selectedChannel: SelectedChannel?
+    public var selectedChannelIDs: [UInt32]?
 
-    public init(deviceUID: String?, selectedChannel: SelectedChannel?) {
+    public init(deviceUID: String?, selectedChannelIDs: [UInt32]?) {
         self.deviceUID = deviceUID
-        self.selectedChannel = selectedChannel
+        self.selectedChannelIDs = selectedChannelIDs
     }
 
-    public static let empty = DeviceSettings(deviceUID: nil, selectedChannel: nil)
+    public static let empty = DeviceSettings(deviceUID: nil, selectedChannelIDs: nil)
 }
 
 public struct AudioSettings: Sendable, Equatable, Codable {

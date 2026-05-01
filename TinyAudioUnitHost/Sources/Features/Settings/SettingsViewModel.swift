@@ -82,11 +82,20 @@ final class SettingsViewModel: SettingsViewModelType {
             if let storedUID = stored.deviceUID,
                let live = devices.first(where: { $0.uid == storedUID }) {
                 state.selectedDevice = live
-                state.selectedChannel = stored.selectedChannel
+                state.selectedChannel = stored.selectedChannelIDs.flatMap {
+                    SelectedChannel(ids: $0, in: deviceChannels(live, kind: kind))
+                }
             } else {
                 state.selectedDevice = nil
                 state.selectedChannel = nil
             }
+        }
+    }
+
+    private func deviceChannels(_ device: AudioDevice, kind: DevicePickerKind) -> [AudioChannel] {
+        switch kind {
+        case .input: device.inputChannels
+        case .output: device.outputChannels
         }
     }
 
@@ -151,9 +160,9 @@ final class SettingsViewModel: SettingsViewModelType {
         let rate = sampleRate
         await settingsStore.update { settings in
             settings.input.deviceUID = input.selectedDevice?.uid
-            settings.input.selectedChannel = input.selectedChannel
+            settings.input.selectedChannelIDs = input.selectedChannel?.channels.map(\.id)
             settings.output.deviceUID = output.selectedDevice?.uid
-            settings.output.selectedChannel = output.selectedChannel
+            settings.output.selectedChannelIDs = output.selectedChannel?.channels.map(\.id)
             settings.bufferSize = buffer
             settings.sampleRate = rate
         }

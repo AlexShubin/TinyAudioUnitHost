@@ -212,15 +212,14 @@ struct EngineTests {
     mutating func load_withStereoInputOnEffectAU_setsInputChannelMap() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let inputAU = AudioUnit(bitPattern: 0xBADC0DE)!
-        let stereo = SelectedChannel.stereo(
-            l: AudioChannel(id: 1, name: "L"),
-            r: AudioChannel(id: 2, name: "R")
-        )
 
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(.fake(inputOffset: 2))
-        await audioSettingsStoreMock.setSettings(.fake(input: .fake(selectedChannel: stereo)))
+        await aggregateDeviceManagerMock.setResolveTargetResult(.fake(
+            inputSource: .fake(inputChannels: Self.stereoChannels),
+            inputOffset: 2
+        ))
+        await audioSettingsStoreMock.setSettings(.fake(input: .fake(selectedChannelIDs: [1, 2])))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -234,15 +233,13 @@ struct EngineTests {
     mutating func load_withNonEffectAU_skipsInputConnectionEvenIfChannelSelected() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.mixerDescription)
         let inputAU = AudioUnit(bitPattern: 0xBADC0DE)!
-        let stereo = SelectedChannel.stereo(
-            l: AudioChannel(id: 1, name: "L"),
-            r: AudioChannel(id: 2, name: "R")
-        )
 
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(.fake())
-        await audioSettingsStoreMock.setSettings(.fake(input: .fake(selectedChannel: stereo)))
+        await aggregateDeviceManagerMock.setResolveTargetResult(.fake(
+            inputSource: .fake(inputChannels: Self.stereoChannels)
+        ))
+        await audioSettingsStoreMock.setSettings(.fake(input: .fake(selectedChannelIDs: [1, 2])))
         createSut()
 
         _ = await sut.load(component: Self.mixerComponent)
@@ -255,17 +252,13 @@ struct EngineTests {
     mutating func load_withStereoOutput_setsOutputChannelMap() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-        let stereo = SelectedChannel.stereo(
-            l: AudioChannel(id: 1, name: "L"),
-            r: AudioChannel(id: 2, name: "R")
-        )
 
-        let target = TargetAudioDevice.fake()
+        let target = TargetAudioDevice.fake(outputSource: .fake(outputChannels: Self.stereoChannels))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         coreAudioGatewayMock.physicalChannelCountResult = 4
         await aggregateDeviceManagerMock.setResolveTargetResult(target)
-        await audioSettingsStoreMock.setSettings(.fake(output: .fake(selectedChannel: stereo)))
+        await audioSettingsStoreMock.setSettings(.fake(output: .fake(selectedChannelIDs: [1, 2])))
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -299,6 +292,11 @@ struct EngineTests {
 
 private extension EngineTests {
     enum TestError: Error { case factoryFailed }
+
+    static let stereoChannels: [AudioChannel] = [
+        AudioChannel(id: 1, name: "L"),
+        AudioChannel(id: 2, name: "R")
+    ]
 
     static let effectDescription = AudioComponentDescription(
         componentType: kAudioUnitType_Effect,
