@@ -17,6 +17,7 @@ final class CoreAudioGatewayMock: CoreAudioGatewayType, @unchecked Sendable {
         case setChannelMap([Int32], AudioUnitElement, AudioUnit)
         case physicalChannelCount(AudioUnit)
         case setBufferSize(UInt32, AudioDeviceID)
+        case setSampleRate(Float64, AudioDeviceID)
     }
 
     private(set) var calls: [Calls] = []
@@ -45,5 +46,9 @@ final class CoreAudioGatewayMock: CoreAudioGatewayType, @unchecked Sendable {
 
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) {
         calls.append(.setBufferSize(frames, deviceID))
+    }
+
+    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) {
+        calls.append(.setSampleRate(rate, deviceID))
     }
 }

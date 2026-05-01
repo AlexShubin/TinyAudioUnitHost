@@ -15,6 +15,7 @@ protocol CoreAudioGatewayType {
     func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit)
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID)
+    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID)
 }
 
 struct CoreAudioGateway: CoreAudioGatewayType {
@@ -90,5 +91,23 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             &size
         )
         assert(status == noErr, "Failed to set buffer size: \(status)")
+    }
+
+    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) {
+        var rate = rate
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectSetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            UInt32(MemoryLayout<Float64>.size),
+            &rate
+        )
+        assert(status == noErr, "Failed to set sample rate: \(status)")
     }
 }
