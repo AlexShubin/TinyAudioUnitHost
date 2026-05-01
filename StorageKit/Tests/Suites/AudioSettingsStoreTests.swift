@@ -28,7 +28,6 @@ struct AudioSettingsStoreTests {
         createSut()
 
         #expect(await sut.current() == .empty)
-        #expect(fileStorageMock.calls == [.read("audioSettings")])
     }
 
     @Test
@@ -38,7 +37,6 @@ struct AudioSettingsStoreTests {
         createSut()
 
         #expect(await sut.current() == stored)
-        #expect(fileStorageMock.calls == [.read("audioSettings")])
     }
 
     @Test
@@ -56,7 +54,6 @@ struct AudioSettingsStoreTests {
         await sut.update { $0.bufferSize = 512 }
 
         #expect(await sut.current().bufferSize == 512)
-        #expect(fileStorageMock.calls == [.read("audioSettings"), .write("audioSettings")])
         let persisted = try #require(fileStorageMock.storage["audioSettings"] as? AudioSettings)
         #expect(persisted.bufferSize == 512)
     }

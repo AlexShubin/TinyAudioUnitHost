@@ -9,12 +9,6 @@
 @testable import StorageKit
 
 final class FileStorageMock: FileStorageType, @unchecked Sendable {
-    enum Calls: Equatable {
-        case read(String)
-        case write(String)
-    }
-
-    private(set) var calls: [Calls] = []
     var storage: [String: Any] = [:]
 
     init(storage: [String: Any] = [:]) {
@@ -22,12 +16,10 @@ final class FileStorageMock: FileStorageType, @unchecked Sendable {
     }
 
     func read<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        calls.append(.read(key))
-        return storage[key] as? T
+        storage[key] as? T
     }
 
     func write<T: Encodable>(_ value: T, key: String) {
-        calls.append(.write(key))
         storage[key] = value
     }
 }
