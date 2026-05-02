@@ -13,7 +13,7 @@ public protocol AudioSettingsFacadeType: Sendable {
     func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
 }
 
-public actor AudioSettingsFacade: AudioSettingsFacadeType {
+public struct AudioSettingsFacade: AudioSettingsFacadeType {
     private let rawStore: RawSettingsStoreType
     private let devicesProvider: AudioDevicesProviderType
 
@@ -50,8 +50,9 @@ public actor AudioSettingsFacade: AudioSettingsFacadeType {
 
     private func resolve() async -> AudioSettings {
         let raw = await rawStore.current()
-        let inputDevice = raw.target.input.uid.flatMap(devicesProvider.device(uid:))
-        let outputDevice = raw.target.output.uid.flatMap(devicesProvider.device(uid:))
+        let devices = devicesProvider.devices(.all)
+        let inputDevice = raw.target.input.uid.flatMap { uid in devices.first { $0.uid == uid } }
+        let outputDevice = raw.target.output.uid.flatMap { uid in devices.first { $0.uid == uid } }
         let inputChannel = SelectedChannel(
             ids: raw.target.input.channels,
             in: inputDevice?.inputChannels ?? []

@@ -60,24 +60,23 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async {
-        let target = await aggregateDeviceManager.resolveTarget()
+        guard let target = await aggregateDeviceManager.resolveTarget() else { return }
+        let settings = target.settings
 
         bindDevice(target)
-        if let target {
-            if let rate = target.settings.sampleRate {
-                coreAudioGateway.setSampleRate(rate, deviceID: target.device.id)
-            }
-            if let frames = target.settings.bufferSize {
-                coreAudioGateway.setBufferSize(frames, deviceID: target.device.id)
-            }
+        if let rate = settings.sampleRate {
+            coreAudioGateway.setSampleRate(rate, deviceID: target.device.id)
+        }
+        if let frames = settings.bufferSize {
+            coreAudioGateway.setBufferSize(frames, deviceID: target.device.id)
         }
 
-        guard let avAudioUnit = currentAVAudioUnit, let target else { return }
+        guard let avAudioUnit = currentAVAudioUnit else { return }
 
-        if let input = target.settings.inputChannel, avAudioUnit.acceptsAudioInput {
+        if let input = settings.inputChannel, avAudioUnit.acceptsAudioInput {
             connectInputs(avAudioUnit: avAudioUnit, channels: input)
         }
-        if let output = target.settings.outputChannel {
+        if let output = settings.outputChannel {
             connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target.outputOffset)
         }
     }
