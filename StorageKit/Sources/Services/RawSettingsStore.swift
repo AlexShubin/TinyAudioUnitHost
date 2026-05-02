@@ -12,7 +12,7 @@ public protocol RawSettingsStoreType: Sendable {
 }
 
 final actor RawSettingsStore: RawSettingsStoreType {
-    private static let key = "audioSettings"
+    private static let key = "audio_settings"
     private let fileStorage: FileStorageType
     private var settings: RawAudioSettings
 
