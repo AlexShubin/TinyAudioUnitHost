@@ -25,9 +25,6 @@ let project = Project(
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "Sources",
-            ],
-            dependencies: [
-                .project(target: "Common", path: .relativeToManifest("../Common")),
             ]
         ),
         .target(
@@ -41,7 +38,6 @@ let project = Project(
             ],
             dependencies: [
                 .target(name: "StorageKit"),
-                .project(target: "Common", path: .relativeToManifest("../Common")),
             ]
         ),
         .target(
@@ -56,7 +52,6 @@ let project = Project(
             dependencies: [
                 .target(name: "StorageKit"),
                 .target(name: "StorageKitTestSupport"),
-                .project(target: "Common", path: .relativeToManifest("../Common")),
             ]
         ),
     ]

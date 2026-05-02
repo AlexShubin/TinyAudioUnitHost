@@ -23,6 +23,7 @@
 - MVVM with `@Observable` ViewModels that expose state as observed properties directly
 - DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
 - Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
+- **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, view models) consume the resolved types and never see UIDs.
 
 ## Code Style
 
@@ -39,12 +40,19 @@
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
 - Prefer a computed `var` over a `func` with no parameters. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`.
+- Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper init, scope it via a `private extension` in the consumer's own file. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
 
 ## Naming Conventions
 
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
 - `*Action` for view model action enums
 - Features organized as `Features/FeatureName/` with View, ViewModel, and optional `Subviews/`
+- **Avoid `*Manager`.** "Manager" is famously vague. Pick a name that describes the role:
+  - `*Gateway` — protocols whose job is to wrap calls into a foreign API (CoreAudio, CoreMIDI, external SDKs). Naming the FFI seam tells the reader why the protocol exists. Example: `CoreAudioGatewayType` over `CoreAudioManagerType`.
+  - `*Provider` — protocols that produce/resolve domain values (`AudioSettingsProviderType`, `TargetSettingsProviderType`, `AudioDevicesProviderType`).
+  - `*Store` / `*Factory` / `*Repository` — when one of those names actually fits.
+- **`*Gateway` protocols hold only C-API primitives, not domain logic.** Each gateway method should map roughly 1:1 onto an underlying C call (`setChannelMap(_ map: [Int32], element:, on:)`, `physicalChannelCount(of:) -> Int?`). Logic that *builds* the C-friendly inputs from domain types (e.g. computing a channel map from `SelectedChannel` + an offset) stays in the caller as private methods. Otherwise correctness-critical code hides behind a non-substitutable boundary and the gateway gets coupled to types that have nothing to do with the foreign API.
+- **File-backed storage keys use snake_case.** Keys that become on-disk filenames, plist keys, or other external persistent identifiers should be snake_case (`"audio_settings"` → `audio_settings.json`), not camelCase. Swift symbol naming inside the codebase still follows normal camelCase.
 
 ## Subview communication
 
@@ -83,7 +91,9 @@ struct FooView: View {
 - Cross-target dependencies *within the same project* use `.target(name: "OtherTargetInSameProject")`; cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
-- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Mocks/` for mocks. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Engine/Engine.swift` → `Tests/Suites/Engine/EngineTests.swift`). `Tests/Mocks/` stays flat.
+- Inside `Sources/`, library modules use three top-level folders: `Sources/Services/` (protocols + concrete implementations — providers, stores, gateways, factories), `Sources/Models/` (public value types — settings, devices, IDs), `Sources/Helpers/` (internal extensions and FFI helpers, e.g. `CoreAudioHelpers.swift`). `Sources/Dependencies.swift` sits at the top level. Small modules can omit a subfolder if it would be empty.
+- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Mocks/` for mocks. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Engine.swift` → `Tests/Suites/Services/EngineTests.swift`). `Tests/Mocks/` stays flat.
+- Inside `TestSupport/`, two flat folders: `TestSupport/Mocks/` (mocks for `public` protocols, see [Mock pattern](#mock-pattern)) and `TestSupport/Fakes/` (`Type+Fake.swift` for public value types, see [Fake pattern](#fake-pattern)).
 
 ## Dependencies pattern
 
