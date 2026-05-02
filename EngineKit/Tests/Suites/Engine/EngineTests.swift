@@ -20,7 +20,7 @@ struct EngineTests {
     var avAudioUnitFactoryMock: AVAudioUnitFactoryMock!
     var coreAudioGatewayMock: CoreAudioGatewayMock!
     var coreMidiManagerMock: CoreMidiManagerMock!
-    var aggregateDeviceManagerMock: AggregateDeviceManagerMock!
+    var targetSettingsProviderMock: TargetSettingsProviderMock!
     var sut: EngineType!
 
     init() {
@@ -29,7 +29,7 @@ struct EngineTests {
         avAudioUnitFactoryMock = AVAudioUnitFactoryMock()
         coreAudioGatewayMock = CoreAudioGatewayMock()
         coreMidiManagerMock = CoreMidiManagerMock()
-        aggregateDeviceManagerMock = AggregateDeviceManagerMock()
+        targetSettingsProviderMock = TargetSettingsProviderMock()
     }
 
     mutating func createSut() {
@@ -39,7 +39,7 @@ struct EngineTests {
             avAudioUnitFactory: avAudioUnitFactoryMock,
             coreAudioGateway: coreAudioGatewayMock,
             coreMidiManager: coreMidiManagerMock,
-            aggregateDeviceManager: aggregateDeviceManagerMock
+            targetSettingsProvider: targetSettingsProviderMock
         )
     }
 
@@ -127,14 +127,14 @@ struct EngineTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
-        let target = TargetDevice.fake(settings: .fake(
+        let target = TargetSettings.fake(settings: .fake(
             inputDevice: .fake(),
             bufferSize: 256,
             sampleRate: 48_000
         ))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -153,13 +153,13 @@ struct EngineTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
-        let target = TargetDevice.fake(settings: .fake(
+        let target = TargetSettings.fake(settings: .fake(
             inputDevice: .fake(),
             sampleRate: 48_000
         ))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -177,10 +177,10 @@ struct EngineTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
-        let target = TargetDevice.fake(settings: .fake(inputDevice: .fake()))
+        let target = TargetSettings.fake(settings: .fake(inputDevice: .fake()))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -211,12 +211,12 @@ struct EngineTests {
             r: AudioChannel(id: 2, name: "R")
         )
 
-        let target = TargetDevice.fake(
+        let target = TargetSettings.fake(
             settings: .fake(inputDevice: .fake(), inputChannel: stereo)
         )
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)
@@ -235,12 +235,12 @@ struct EngineTests {
             r: AudioChannel(id: 2, name: "R")
         )
 
-        let target = TargetDevice.fake(
+        let target = TargetSettings.fake(
             settings: .fake(inputDevice: .fake(), inputChannel: stereo)
         )
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.mixerComponent)
@@ -257,14 +257,14 @@ struct EngineTests {
             l: AudioChannel(id: 1, name: "L"),
             r: AudioChannel(id: 2, name: "R")
         )
-        let target = TargetDevice.fake(
+        let target = TargetSettings.fake(
             settings: .fake(outputDevice: .fake(), outputChannel: stereo)
         )
 
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         coreAudioGatewayMock.physicalChannelCountResult = 4
-        await aggregateDeviceManagerMock.setResolveTargetResult(target)
+        await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
         _ = await sut.load(component: Self.effectComponent)

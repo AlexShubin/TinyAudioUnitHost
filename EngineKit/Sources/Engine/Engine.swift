@@ -20,7 +20,7 @@ final actor Engine: EngineType {
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
     private let coreMidiManager: CoreMidiManagerType
-    private let aggregateDeviceManager: AggregateDeviceManagerType
+    private let targetSettingsProvider: TargetSettingsProviderType
     private var currentAVAudioUnit: AVAudioUnit?
 
     init(
@@ -29,14 +29,14 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiManager: CoreMidiManagerType,
-        aggregateDeviceManager: AggregateDeviceManagerType
+        targetSettingsProvider: TargetSettingsProviderType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
         self.coreMidiManager = coreMidiManager
-        self.aggregateDeviceManager = aggregateDeviceManager
+        self.targetSettingsProvider = targetSettingsProvider
         engine.attach(inputMixer)
     }
 
@@ -60,7 +60,7 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async {
-        guard let target = await aggregateDeviceManager.resolveTarget() else { return }
+        guard let target = await targetSettingsProvider.resolveTarget() else { return }
         let settings = target.settings
 
         bindDevice(target)
@@ -81,7 +81,7 @@ final actor Engine: EngineType {
         }
     }
 
-    private func bindDevice(_ target: TargetDevice?) {
+    private func bindDevice(_ target: TargetSettings?) {
         guard let target, let audioUnit = engine.outputAudioUnit else { return }
         coreAudioGateway.setEnableIO(target.settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
         coreAudioGateway.setEnableIO(target.settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
@@ -168,7 +168,7 @@ fileprivate extension AVAudioUnit {
     }
 }
 
-private extension TargetDevice {
+private extension TargetSettings {
     /// Output position in the aggregate's physical channel layout.
     /// Sub-devices are listed [input, output], so output's channels start
     /// after the input device's output channels in the combined layout.

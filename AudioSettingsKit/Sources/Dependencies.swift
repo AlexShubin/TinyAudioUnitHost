@@ -10,20 +10,20 @@ import StorageKit
 
 public struct Dependencies: Sendable {
     public let facade: AudioSettingsFacadeType
-    public let aggregateDeviceManager: AggregateDeviceManagerType
+    public let targetSettingsProvider: TargetSettingsProviderType
     public let devicesProvider: AudioDevicesProviderType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
         let rawStore = StorageKit.Dependencies.live.rawSettingsStore
         let facade = AudioSettingsFacade(rawStore: rawStore, devicesProvider: devicesProvider)
-        let aggregateDeviceManager = AggregateDeviceManager(
+        let targetSettingsProvider = TargetSettingsProvider(
             facade: facade,
             devicesProvider: devicesProvider
         )
         return Dependencies(
             facade: facade,
-            aggregateDeviceManager: aggregateDeviceManager,
+            targetSettingsProvider: targetSettingsProvider,
             devicesProvider: devicesProvider
         )
     }()

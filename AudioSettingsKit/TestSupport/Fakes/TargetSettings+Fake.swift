@@ -1,5 +1,5 @@
 //
-//  TargetDevice+Fake.swift
+//  TargetSettings+Fake.swift
 //  AudioSettingsKitTestSupport
 //
 //  Created by Alex Shubin on 30.04.26.
@@ -8,11 +8,11 @@
 
 import AudioSettingsKit
 
-public extension TargetDevice {
+public extension TargetSettings {
     static func fake(
         settings: AudioSettings = .empty,
         device: AudioDevice = .fake()
-    ) -> TargetDevice {
-        TargetDevice(settings: settings, device: device)
+    ) -> TargetSettings {
+        TargetSettings(settings: settings, device: device)
     }
 }

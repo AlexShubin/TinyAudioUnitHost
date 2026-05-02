@@ -1,16 +1,16 @@
 //
-//  AggregateDeviceManager.swift
+//  TargetSettingsProvider.swift
 //  AudioSettingsKit
 //
 //  Created by Alex Shubin on 24.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-public protocol AggregateDeviceManagerType: Sendable {
-    func resolveTarget() async -> TargetDevice?
+public protocol TargetSettingsProviderType: Sendable {
+    func resolveTarget() async -> TargetSettings?
 }
 
-final actor AggregateDeviceManager: AggregateDeviceManagerType {
+final actor TargetSettingsProvider: TargetSettingsProviderType {
     private let facade: AudioSettingsFacadeType
     private let devicesProvider: AudioDevicesProviderType
     private let factory: AggregateDeviceFactoryType
@@ -26,30 +26,30 @@ final actor AggregateDeviceManager: AggregateDeviceManagerType {
         factory.destroyOrphans()
     }
 
-    func resolveTarget() async -> TargetDevice? {
+    func resolveTarget() async -> TargetSettings? {
         let settings = await facade.current()
         return resolve(settings)
     }
 
-    private func resolve(_ settings: AudioSettings) -> TargetDevice? {
+    private func resolve(_ settings: AudioSettings) -> TargetSettings? {
         switch (settings.inputDevice, settings.outputDevice) {
         case (nil, nil):
             destroyCachedAggregate()
             return nil
         case let (device?, nil):
             destroyCachedAggregate()
-            return TargetDevice(settings: settings, device: device)
+            return TargetSettings(settings: settings, device: device)
         case let (nil, device?):
             destroyCachedAggregate()
-            return TargetDevice(settings: settings, device: device)
+            return TargetSettings(settings: settings, device: device)
         case let (input?, output?) where input.id == output.id:
             destroyCachedAggregate()
-            return TargetDevice(settings: settings, device: input)
+            return TargetSettings(settings: settings, device: input)
         case let (input?, output?):
             guard let aggregate = obtainAggregate(inputUID: input.uid, outputUID: output.uid) else {
                 return nil
             }
-            return TargetDevice(settings: settings, device: aggregate)
+            return TargetSettings(settings: settings, device: aggregate)
         }
     }
 
