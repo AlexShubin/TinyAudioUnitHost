@@ -1,5 +1,5 @@
 //
-//  AudioSettingsFacadeMock.swift
+//  AudioSettingsProviderMock.swift
 //  AudioSettingsKitTestSupport
 //
 //  Created by Alex Shubin on 02.05.26.
@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 
-public actor AudioSettingsFacadeMock: AudioSettingsFacadeType {
+public actor AudioSettingsProviderMock: AudioSettingsProviderType {
     public enum Calls: Equatable {
         case current
         case update

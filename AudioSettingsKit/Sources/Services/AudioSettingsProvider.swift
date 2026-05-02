@@ -1,5 +1,5 @@
 //
-//  AudioSettingsFacade.swift
+//  AudioSettingsProvider.swift
 //  AudioSettingsKit
 //
 //  Created by Alex Shubin on 02.05.26.
@@ -8,12 +8,12 @@
 
 import StorageKit
 
-public protocol AudioSettingsFacadeType: Sendable {
+public protocol AudioSettingsProviderType: Sendable {
     func current() async -> AudioSettings
     func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
 }
 
-public struct AudioSettingsFacade: AudioSettingsFacadeType {
+public struct AudioSettingsProvider: AudioSettingsProviderType {
     private let rawStore: RawSettingsStoreType
     private let devicesProvider: AudioDevicesProviderType
 

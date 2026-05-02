@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-// Phase 7 replaces this with AudioSettingsFacadeTests.
+// Phase 7 replaces this with AudioSettingsProviderTests.
 import Testing
 
 @Suite

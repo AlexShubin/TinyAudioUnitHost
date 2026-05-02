@@ -11,23 +11,23 @@ public protocol TargetSettingsProviderType: Sendable {
 }
 
 final actor TargetSettingsProvider: TargetSettingsProviderType {
-    private let facade: AudioSettingsFacadeType
+    private let audioSettings: AudioSettingsProviderType
     private let devicesProvider: AudioDevicesProviderType
     private let factory: AggregateDeviceFactoryType
     private var cachedAggregate: CachedAggregate?
 
     init(
-        facade: AudioSettingsFacadeType,
+        audioSettings: AudioSettingsProviderType,
         devicesProvider: AudioDevicesProviderType
     ) {
-        self.facade = facade
+        self.audioSettings = audioSettings
         self.devicesProvider = devicesProvider
         self.factory = AggregateDeviceFactory(devicesProvider: devicesProvider)
         factory.destroyOrphans()
     }
 
     func resolveTarget() async -> TargetSettings? {
-        let settings = await facade.current()
+        let settings = await audioSettings.current()
         return resolve(settings)
     }
 

@@ -9,20 +9,20 @@
 import StorageKit
 
 public struct Dependencies: Sendable {
-    public let facade: AudioSettingsFacadeType
+    public let audioSettingsProvider: AudioSettingsProviderType
     public let targetSettingsProvider: TargetSettingsProviderType
     public let devicesProvider: AudioDevicesProviderType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
         let rawStore = StorageKit.Dependencies.live.rawSettingsStore
-        let facade = AudioSettingsFacade(rawStore: rawStore, devicesProvider: devicesProvider)
+        let audioSettingsProvider = AudioSettingsProvider(rawStore: rawStore, devicesProvider: devicesProvider)
         let targetSettingsProvider = TargetSettingsProvider(
-            facade: facade,
+            audioSettings: audioSettingsProvider,
             devicesProvider: devicesProvider
         )
         return Dependencies(
-            facade: facade,
+            audioSettingsProvider: audioSettingsProvider,
             targetSettingsProvider: targetSettingsProvider,
             devicesProvider: devicesProvider
         )

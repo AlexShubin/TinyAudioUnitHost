@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-public enum SelectedChannel: Sendable, Equatable, Hashable, Codable {
+public enum SelectedChannel: Sendable, Equatable, Hashable {
     case mono(AudioChannel)
     case stereo(l: AudioChannel, r: AudioChannel)
 

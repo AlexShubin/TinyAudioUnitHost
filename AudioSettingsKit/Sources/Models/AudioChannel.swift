@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-public struct AudioChannel: Sendable, Identifiable, Hashable, Codable {
+public struct AudioChannel: Sendable, Identifiable, Hashable {
     public let id: UInt32
     public let name: String
 
