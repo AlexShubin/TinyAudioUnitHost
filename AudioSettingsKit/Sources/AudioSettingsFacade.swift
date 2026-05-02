@@ -39,10 +39,10 @@ public struct AudioSettingsFacade: AudioSettingsFacadeType {
         let bufferSize = copy.bufferSize
         let sampleRate = copy.sampleRate
         await rawStore.update { raw in
-            raw.target.input.uid = inputUID
-            raw.target.input.channels = inputChannels
-            raw.target.output.uid = outputUID
-            raw.target.output.channels = outputChannels
+            raw.input.uid = inputUID
+            raw.input.selectedChannels = inputChannels
+            raw.output.uid = outputUID
+            raw.output.selectedChannels = outputChannels
             raw.bufferSize = bufferSize
             raw.sampleRate = sampleRate
         }
@@ -51,14 +51,14 @@ public struct AudioSettingsFacade: AudioSettingsFacadeType {
     private func resolve() async -> AudioSettings {
         let raw = await rawStore.current()
         let devices = devicesProvider.devices(.all)
-        let inputDevice = raw.target.input.uid.flatMap { uid in devices.first { $0.uid == uid } }
-        let outputDevice = raw.target.output.uid.flatMap { uid in devices.first { $0.uid == uid } }
+        let inputDevice = raw.input.uid.flatMap { uid in devices.first { $0.uid == uid } }
+        let outputDevice = raw.output.uid.flatMap { uid in devices.first { $0.uid == uid } }
         let inputChannel = SelectedChannel(
-            ids: raw.target.input.channels,
+            ids: raw.input.selectedChannels,
             in: inputDevice?.inputChannels ?? []
         )
         let outputChannel = SelectedChannel(
-            ids: raw.target.output.channels,
+            ids: raw.output.selectedChannels,
             in: outputDevice?.outputChannels ?? []
         )
         return AudioSettings(

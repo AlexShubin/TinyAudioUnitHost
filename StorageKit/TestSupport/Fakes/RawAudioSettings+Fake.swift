@@ -10,10 +10,11 @@ import StorageKit
 
 public extension RawAudioSettings {
     static func fake(
-        target: RawTargetDevice = .fake(),
+        input: RawDeviceSettings = .fake(),
+        output: RawDeviceSettings = .fake(),
         bufferSize: UInt32? = nil,
         sampleRate: Float64? = nil
     ) -> RawAudioSettings {
-        RawAudioSettings(target: target, bufferSize: bufferSize, sampleRate: sampleRate)
+        RawAudioSettings(input: input, output: output, bufferSize: bufferSize, sampleRate: sampleRate)
     }
 }
