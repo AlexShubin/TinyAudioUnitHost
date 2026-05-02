@@ -16,16 +16,13 @@ public protocol AudioSettingsFacadeType: Sendable {
 public actor AudioSettingsFacade: AudioSettingsFacadeType {
     private let rawStore: RawSettingsStoreType
     private let devicesProvider: AudioDevicesProviderType
-    private let aggregateDeviceManager: AggregateDeviceManagerType
 
     public init(
         rawStore: RawSettingsStoreType,
-        devicesProvider: AudioDevicesProviderType,
-        aggregateDeviceManager: AggregateDeviceManagerType
+        devicesProvider: AudioDevicesProviderType
     ) {
         self.rawStore = rawStore
         self.devicesProvider = devicesProvider
-        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     public func current() async -> AudioSettings {
@@ -53,16 +50,15 @@ public actor AudioSettingsFacade: AudioSettingsFacadeType {
 
     private func resolve() async -> AudioSettings {
         let raw = await rawStore.current()
-        let target = await aggregateDeviceManager.resolveTarget()
         let inputDevice = raw.target.input.uid.flatMap(devicesProvider.device(uid:))
         let outputDevice = raw.target.output.uid.flatMap(devicesProvider.device(uid:))
         let inputChannel = SelectedChannel(
             ids: raw.target.input.channels,
-            in: target?.inputSource?.inputChannels ?? []
+            in: inputDevice?.inputChannels ?? []
         )
         let outputChannel = SelectedChannel(
             ids: raw.target.output.channels,
-            in: target?.outputSource?.outputChannels ?? []
+            in: outputDevice?.outputChannels ?? []
         )
         return AudioSettings(
             inputDevice: inputDevice,
@@ -70,8 +66,7 @@ public actor AudioSettingsFacade: AudioSettingsFacadeType {
             inputChannel: inputChannel,
             outputChannel: outputChannel,
             bufferSize: raw.bufferSize,
-            sampleRate: raw.sampleRate,
-            target: target
+            sampleRate: raw.sampleRate
         )
     }
 }

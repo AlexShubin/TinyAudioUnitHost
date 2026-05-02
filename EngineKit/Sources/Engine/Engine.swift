@@ -20,7 +20,7 @@ final actor Engine: EngineType {
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
     private let coreMidiManager: CoreMidiManagerType
-    private let audioSettingsFacade: AudioSettingsFacadeType
+    private let aggregateDeviceManager: AggregateDeviceManagerType
     private var currentAVAudioUnit: AVAudioUnit?
 
     init(
@@ -29,14 +29,14 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiManager: CoreMidiManagerType,
-        audioSettingsFacade: AudioSettingsFacadeType
+        aggregateDeviceManager: AggregateDeviceManagerType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
         self.coreMidiManager = coreMidiManager
-        self.audioSettingsFacade = audioSettingsFacade
+        self.aggregateDeviceManager = aggregateDeviceManager
         engine.attach(inputMixer)
     }
 
@@ -60,37 +60,36 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async {
-        let settings = await audioSettingsFacade.current()
-        let target = settings.target
+        let target = await aggregateDeviceManager.resolveTarget()
 
         bindDevice(target)
-        if let deviceID = target?.device.id {
-            if let rate = settings.sampleRate {
-                coreAudioGateway.setSampleRate(rate, deviceID: deviceID)
+        if let target {
+            if let rate = target.settings.sampleRate {
+                coreAudioGateway.setSampleRate(rate, deviceID: target.device.id)
             }
-            if let frames = settings.bufferSize {
-                coreAudioGateway.setBufferSize(frames, deviceID: deviceID)
+            if let frames = target.settings.bufferSize {
+                coreAudioGateway.setBufferSize(frames, deviceID: target.device.id)
             }
         }
 
-        guard let avAudioUnit = currentAVAudioUnit else { return }
+        guard let avAudioUnit = currentAVAudioUnit, let target else { return }
 
-        if let input = settings.inputChannel, avAudioUnit.acceptsAudioInput {
-            connectInputs(avAudioUnit: avAudioUnit, channels: input, hardwareOffset: target?.inputOffset ?? 0)
+        if let input = target.settings.inputChannel, avAudioUnit.acceptsAudioInput {
+            connectInputs(avAudioUnit: avAudioUnit, channels: input)
         }
-        if let output = settings.outputChannel {
-            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target?.outputOffset ?? 0)
+        if let output = target.settings.outputChannel {
+            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target.outputOffset)
         }
     }
 
-    private func bindDevice(_ target: TargetAudioDevice?) {
+    private func bindDevice(_ target: TargetDevice?) {
         guard let target, let audioUnit = engine.outputAudioUnit else { return }
-        coreAudioGateway.setEnableIO(target.inputSource != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
-        coreAudioGateway.setEnableIO(target.outputSource != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
+        coreAudioGateway.setEnableIO(target.settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit)
+        coreAudioGateway.setEnableIO(target.settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit)
         coreAudioGateway.setCurrentDevice(target.device.id, on: audioUnit)
     }
 
-    private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
+    private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel) {
         let hardwareFormat = engine.hardwareOutputFormat
         let userFormat = AVAudioFormat(
             standardFormatWithSampleRate: hardwareFormat.sampleRate,
@@ -102,7 +101,7 @@ final actor Engine: EngineType {
         )
 
         if let inputAudioUnit = engine.inputAudioUnit {
-            let map: [Int32] = channels.channels.map { Int32(hardwareOffset) + Int32($0.id) - 1 }
+            let map: [Int32] = channels.channels.map { Int32($0.id) - 1 }
             coreAudioGateway.setChannelMap(map, element: 1, on: inputAudioUnit)
         }
 
@@ -167,5 +166,17 @@ fileprivate extension AVAudioUnit {
     var acceptsAudioInput: Bool {
         let type = audioComponentDescription.componentType
         return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
+    }
+}
+
+private extension TargetDevice {
+    /// Output position in the aggregate's physical channel layout.
+    /// Sub-devices are listed [input, output], so output's channels start
+    /// after the input device's output channels in the combined layout.
+    var outputOffset: Int {
+        guard let input = settings.inputDevice,
+              let output = settings.outputDevice,
+              input.id != output.id else { return 0 }
+        return input.outputChannels.count
     }
 }

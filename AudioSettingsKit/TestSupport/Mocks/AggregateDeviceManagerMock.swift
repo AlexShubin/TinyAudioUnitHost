@@ -14,18 +14,18 @@ public actor AggregateDeviceManagerMock: AggregateDeviceManagerType {
     }
 
     public private(set) var calls: [Calls] = []
-    public var resolveTargetResult: TargetAudioDevice?
+    public var resolveTargetResult: TargetDevice?
 
-    public init(resolveTargetResult: TargetAudioDevice? = nil) {
+    public init(resolveTargetResult: TargetDevice? = nil) {
         self.resolveTargetResult = resolveTargetResult
     }
 
-    public func resolveTarget() -> TargetAudioDevice? {
+    public func resolveTarget() -> TargetDevice? {
         calls.append(.resolveTarget)
         return resolveTargetResult
     }
 
-    public func setResolveTargetResult(_ value: TargetAudioDevice?) {
+    public func setResolveTargetResult(_ value: TargetDevice?) {
         resolveTargetResult = value
     }
 }

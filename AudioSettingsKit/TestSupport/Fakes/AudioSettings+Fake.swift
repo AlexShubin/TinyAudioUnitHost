@@ -15,8 +15,7 @@ public extension AudioSettings {
         inputChannel: SelectedChannel? = nil,
         outputChannel: SelectedChannel? = nil,
         bufferSize: UInt32? = nil,
-        sampleRate: Float64? = nil,
-        target: TargetAudioDevice? = nil
+        sampleRate: Float64? = nil
     ) -> AudioSettings {
         AudioSettings(
             inputDevice: inputDevice,
@@ -24,8 +23,7 @@ public extension AudioSettings {
             inputChannel: inputChannel,
             outputChannel: outputChannel,
             bufferSize: bufferSize,
-            sampleRate: sampleRate,
-            target: target
+            sampleRate: sampleRate
         )
     }
 }

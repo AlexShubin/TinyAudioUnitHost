@@ -6,94 +6,77 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import StorageKit
-
 public protocol AggregateDeviceManagerType: Sendable {
-    func resolveTarget() async -> TargetAudioDevice?
+    func resolveTarget() async -> TargetDevice?
 }
 
 final actor AggregateDeviceManager: AggregateDeviceManagerType {
+    private let facade: AudioSettingsFacadeType
     private let devicesProvider: AudioDevicesProviderType
-    private let settingsStore: RawSettingsStoreType
     private let factory: AggregateDeviceFactoryType
-    private var cachedTarget: TargetAudioDevice?
+    private var cachedAggregate: CachedAggregate?
 
     init(
-        devicesProvider: AudioDevicesProviderType,
-        settingsStore: RawSettingsStoreType
+        facade: AudioSettingsFacadeType,
+        devicesProvider: AudioDevicesProviderType
     ) {
+        self.facade = facade
         self.devicesProvider = devicesProvider
-        self.settingsStore = settingsStore
         self.factory = AggregateDeviceFactory(devicesProvider: devicesProvider)
         factory.destroyOrphans()
     }
 
-    func resolveTarget() async -> TargetAudioDevice? {
-        let settings = await settingsStore.current()
-        let input = settings.target.input.uid.flatMap(devicesProvider.device(uid:))
-        let output = settings.target.output.uid.flatMap(devicesProvider.device(uid:))
-
-        if input?.id == cachedTarget?.inputSource?.id
-            && output?.id == cachedTarget?.outputSource?.id
-        {
-            return cachedTarget
-        }
-
-        cachedTarget = resolve(input: input, output: output)
-        return cachedTarget
+    func resolveTarget() async -> TargetDevice? {
+        let settings = await facade.current()
+        return resolve(settings)
     }
 
-    private func resolve(input: AudioDevice?, output: AudioDevice?) -> TargetAudioDevice? {
-        destroyCachedAggregate()
-
-        switch (input, output) {
+    private func resolve(_ settings: AudioSettings) -> TargetDevice? {
+        switch (settings.inputDevice, settings.outputDevice) {
         case (nil, nil):
+            destroyCachedAggregate()
             return nil
         case let (device?, nil):
-            return TargetAudioDevice(
-                device: device,
-                inputSource: device,
-                outputSource: nil,
-                inputOffset: 0,
-                outputOffset: 0
-            )
+            destroyCachedAggregate()
+            return TargetDevice(settings: settings, device: device)
         case let (nil, device?):
-            return TargetAudioDevice(
-                device: device,
-                inputSource: nil,
-                outputSource: device,
-                inputOffset: 0,
-                outputOffset: 0
-            )
+            destroyCachedAggregate()
+            return TargetDevice(settings: settings, device: device)
         case let (input?, output?) where input.id == output.id:
-            return TargetAudioDevice(
-                device: input,
-                inputSource: input,
-                outputSource: output,
-                inputOffset: 0,
-                outputOffset: 0
-            )
+            destroyCachedAggregate()
+            return TargetDevice(settings: settings, device: input)
         case let (input?, output?):
-            guard let id = factory.create(inputUID: input.uid, outputUID: output.uid),
-                  let aggregate = devicesProvider.device(id: id)
-            else { return nil }
-            return TargetAudioDevice(
-                device: aggregate,
-                inputSource: input,
-                outputSource: output,
-                inputOffset: 0,
-                outputOffset: input.outputChannels.count
-            )
+            guard let aggregate = obtainAggregate(inputUID: input.uid, outputUID: output.uid) else {
+                return nil
+            }
+            return TargetDevice(settings: settings, device: aggregate)
         }
     }
 
-    /// Destroys the cached aggregate if the current target is one we created
-    /// (both sources non-nil with different IDs ⇒ `device` is the aggregate).
+    private func obtainAggregate(inputUID: String, outputUID: String) -> AudioDevice? {
+        if let cached = cachedAggregate,
+           cached.inputUID == inputUID,
+           cached.outputUID == outputUID,
+           let live = devicesProvider.device(id: cached.device.id) {
+            return live
+        }
+        destroyCachedAggregate()
+        guard let id = factory.create(inputUID: inputUID, outputUID: outputUID),
+              let aggregate = devicesProvider.device(id: id) else { return nil }
+        cachedAggregate = CachedAggregate(inputUID: inputUID, outputUID: outputUID, device: aggregate)
+        return aggregate
+    }
+
     private func destroyCachedAggregate() {
-        guard let cached = cachedTarget,
-              let inputSource = cached.inputSource,
-              let outputSource = cached.outputSource,
-              inputSource.id != outputSource.id else { return }
-        factory.destroy(id: cached.device.id)
+        if let cached = cachedAggregate {
+            factory.destroy(id: cached.device.id)
+        }
+        cachedAggregate = nil
+    }
+
+    private struct CachedAggregate {
+        let inputUID: String
+        let outputUID: String
+        let device: AudioDevice
     }
 }
