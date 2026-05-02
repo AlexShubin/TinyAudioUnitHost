@@ -7,10 +7,8 @@
 //
 
 import AudioSettingsKit
-import Common
 import EngineKit
 import Observation
-import StorageKit
 
 @MainActor
 protocol SettingsViewModelType: Observable {
@@ -32,29 +30,29 @@ final class SettingsViewModel: SettingsViewModelType {
     private(set) var sampleRate: Float64?
     private(set) var availableSampleRates: [Float64] = []
 
+    @ObservationIgnored private let audioSettings: AudioSettingsProviderType
+    @ObservationIgnored private let targetSettings: TargetSettingsProviderType
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
-    @ObservationIgnored private let settingsStore: AudioSettingsStoreType
     @ObservationIgnored private let engine: EngineType
-    @ObservationIgnored private let aggregateDeviceManager: AggregateDeviceManagerType
 
     init(
+        audioSettings: AudioSettingsProviderType,
+        targetSettings: TargetSettingsProviderType,
         devicesProvider: AudioDevicesProviderType,
-        settingsStore: AudioSettingsStoreType,
-        engine: EngineType,
-        aggregateDeviceManager: AggregateDeviceManagerType
+        engine: EngineType
     ) {
+        self.audioSettings = audioSettings
+        self.targetSettings = targetSettings
         self.devicesProvider = devicesProvider
-        self.settingsStore = settingsStore
         self.engine = engine
-        self.aggregateDeviceManager = aggregateDeviceManager
     }
 
     func accept(action: SettingsViewAction) async {
         switch action {
         case .task:
-            await loadInitial(kind: .input)
-            await loadInitial(kind: .output)
-            let current = await settingsStore.current()
+            let current = await audioSettings.current()
+            inputState = makePickerState(kind: .input, settings: current)
+            outputState = makePickerState(kind: .output, settings: current)
             bufferSize = current.bufferSize
             sampleRate = current.sampleRate
             await applyToEngine()
@@ -72,22 +70,6 @@ final class SettingsViewModel: SettingsViewModelType {
             sampleRate = rate
             await persist()
             await applyToEngine()
-        }
-    }
-
-    private func loadInitial(kind: DevicePickerKind) async {
-        let devices = devicesProvider.devices(filter(for: kind))
-        let stored = slice(in: await settingsStore.current(), kind: kind)
-        mutatePickerState(kind: kind) { state in
-            state.devices = devices
-            if let storedUID = stored.deviceUID,
-               let live = devices.first(where: { $0.uid == storedUID }) {
-                state.selectedDevice = live
-                state.selectedChannel = stored.selectedChannel
-            } else {
-                state.selectedDevice = nil
-                state.selectedChannel = nil
-            }
         }
     }
 
@@ -117,6 +99,23 @@ final class SettingsViewModel: SettingsViewModelType {
         }
     }
 
+    private func makePickerState(kind: DevicePickerKind, settings: AudioSettings) -> DevicePickerState {
+        switch kind {
+        case .input:
+            DevicePickerState(
+                devices: devicesProvider.devices(.input),
+                selectedDevice: settings.inputDevice,
+                selectedChannel: settings.inputChannel
+            )
+        case .output:
+            DevicePickerState(
+                devices: devicesProvider.devices(.output),
+                selectedDevice: settings.outputDevice,
+                selectedChannel: settings.outputChannel
+            )
+        }
+    }
+
     private func pickerState(kind: DevicePickerKind) -> DevicePickerState {
         switch kind {
         case .input: inputState
@@ -131,30 +130,16 @@ final class SettingsViewModel: SettingsViewModelType {
         }
     }
 
-    private func filter(for kind: DevicePickerKind) -> AudioDeviceFilter {
-        switch kind {
-        case .input: .input
-        case .output: .output
-        }
-    }
-
-    private func slice(in settings: AudioSettings, kind: DevicePickerKind) -> DeviceSettings {
-        switch kind {
-        case .input: settings.input
-        case .output: settings.output
-        }
-    }
-
     private func persist() async {
         let input = inputState
         let output = outputState
         let buffer = bufferSize
         let rate = sampleRate
-        await settingsStore.update { settings in
-            settings.input.deviceUID = input.selectedDevice?.uid
-            settings.input.selectedChannel = input.selectedChannel
-            settings.output.deviceUID = output.selectedDevice?.uid
-            settings.output.selectedChannel = output.selectedChannel
+        await audioSettings.update { settings in
+            settings.inputDevice = input.selectedDevice
+            settings.inputChannel = input.selectedChannel
+            settings.outputDevice = output.selectedDevice
+            settings.outputChannel = output.selectedChannel
             settings.bufferSize = buffer
             settings.sampleRate = rate
         }
@@ -162,12 +147,12 @@ final class SettingsViewModel: SettingsViewModelType {
 
     private func applyToEngine() async {
         await engine.reload()
-        let target = await aggregateDeviceManager.resolveTarget()
+        let target = await targetSettings.resolveTarget()
         await refreshSampleRate(target: target)
         await refreshBufferSize(target: target)
     }
 
-    private func refreshBufferSize(target: TargetAudioDevice?) async {
+    private func refreshBufferSize(target: TargetSettings?) async {
         availableBufferSizes = target?.device.availableBufferSizes ?? []
         let resolved = resolveBufferSize(current: bufferSize, available: availableBufferSizes)
         guard resolved != bufferSize else { return }
@@ -181,7 +166,7 @@ final class SettingsViewModel: SettingsViewModelType {
         return available.contains(32) ? 32 : available.first
     }
 
-    private func refreshSampleRate(target: TargetAudioDevice?) async {
+    private func refreshSampleRate(target: TargetSettings?) async {
         availableSampleRates = target?.device.availableSampleRates ?? []
         let resolved = resolveSampleRate(current: sampleRate, available: availableSampleRates)
         guard resolved != sampleRate else { return }
