@@ -18,11 +18,12 @@ final actor TargetSettingsProvider: TargetSettingsProviderType {
 
     init(
         audioSettings: AudioSettingsProviderType,
-        devicesProvider: AudioDevicesProviderType
+        devicesProvider: AudioDevicesProviderType,
+        factory: AggregateDeviceFactoryType
     ) {
         self.audioSettings = audioSettings
         self.devicesProvider = devicesProvider
-        self.factory = AggregateDeviceFactory(devicesProvider: devicesProvider)
+        self.factory = factory
         factory.destroyOrphans()
     }
 
@@ -32,24 +33,17 @@ final actor TargetSettingsProvider: TargetSettingsProviderType {
     }
 
     private func resolve(_ settings: AudioSettings) -> TargetSettings? {
-        switch (settings.inputDevice, settings.outputDevice) {
-        case (nil, nil):
+        let targetDevice: AudioDevice?
+        if let inputDevice = settings.inputDevice,
+           let outputDevice = settings.outputDevice,
+           inputDevice.id != outputDevice.id {
+            targetDevice = obtainAggregate(inputUID: inputDevice.uid, outputUID: outputDevice.uid)
+        } else {
             destroyCachedAggregate()
-            return nil
-        case let (device?, nil):
-            destroyCachedAggregate()
-            return TargetSettings(settings: settings, device: device)
-        case let (nil, device?):
-            destroyCachedAggregate()
-            return TargetSettings(settings: settings, device: device)
-        case let (input?, output?) where input.id == output.id:
-            destroyCachedAggregate()
-            return TargetSettings(settings: settings, device: input)
-        case let (input?, output?):
-            guard let aggregate = obtainAggregate(inputUID: input.uid, outputUID: output.uid) else {
-                return nil
-            }
-            return TargetSettings(settings: settings, device: aggregate)
+            targetDevice = settings.outputDevice
+        }
+        return targetDevice.map {
+            .init(settings: settings, device: $0)
         }
     }
 
@@ -57,19 +51,19 @@ final actor TargetSettingsProvider: TargetSettingsProviderType {
         if let cached = cachedAggregate,
            cached.inputUID == inputUID,
            cached.outputUID == outputUID,
-           let live = devicesProvider.device(id: cached.device.id) {
+           let live = devicesProvider.device(id: cached.id) {
             return live
         }
         destroyCachedAggregate()
         guard let id = factory.create(inputUID: inputUID, outputUID: outputUID),
               let aggregate = devicesProvider.device(id: id) else { return nil }
-        cachedAggregate = CachedAggregate(inputUID: inputUID, outputUID: outputUID, device: aggregate)
+        cachedAggregate = CachedAggregate(inputUID: inputUID, outputUID: outputUID, id: id)
         return aggregate
     }
 
     private func destroyCachedAggregate() {
         if let cached = cachedAggregate {
-            factory.destroy(id: cached.device.id)
+            factory.destroy(id: cached.id)
         }
         cachedAggregate = nil
     }
@@ -77,6 +71,6 @@ final actor TargetSettingsProvider: TargetSettingsProviderType {
     private struct CachedAggregate {
         let inputUID: String
         let outputUID: String
-        let device: AudioDevice
+        let id: UInt32
     }
 }

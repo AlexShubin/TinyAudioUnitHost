@@ -103,6 +103,8 @@ The factory is **always** a parameterless `public static let live: Dependencies`
 
 The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. View-model factories then reach through the nested struct (e.g. `engine.engine`). Adding a new service to a module becomes zero-touch in the app.
 
+**One init per type — push live wiring to the composition root, not a convenience init.** When you make a previously-internal helper injectable for testing (e.g. adding `factory: AggregateDeviceFactoryType` to a type's init), do *not* keep a second convenience init that constructs the live helper internally. Pass the live helper explicitly at the composition site (`AudioSettingsKit.Dependencies.live`). One construction path keeps the dependency tree auditable in one place; two paths invite drift, and the convenience init papers over the wiring you wanted to make visible in the first place.
+
 ## Mock pattern
 
 Mocks for `*Type` protocols live in one of two places depending on scope:

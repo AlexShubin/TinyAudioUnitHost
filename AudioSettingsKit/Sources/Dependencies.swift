@@ -19,7 +19,8 @@ public struct Dependencies: Sendable {
         let audioSettingsProvider = AudioSettingsProvider(rawStore: rawStore, devicesProvider: devicesProvider)
         let targetSettingsProvider = TargetSettingsProvider(
             audioSettings: audioSettingsProvider,
-            devicesProvider: devicesProvider
+            devicesProvider: devicesProvider,
+            factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
         return Dependencies(
             audioSettingsProvider: audioSettingsProvider,
