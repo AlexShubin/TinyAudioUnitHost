@@ -11,7 +11,6 @@ import CoreAudio
 public protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
     func device(id: AudioDeviceID) -> AudioDevice?
-    func device(uid: String) -> AudioDevice?
 }
 
 public enum AudioDeviceFilter: Sendable {
@@ -49,10 +48,6 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
                            outputChannels: channels(count: outputChannelCount),
                            availableBufferSizes: bufferSizes(deviceID: id),
                            availableSampleRates: sampleRates(deviceID: id))
-    }
-
-    func device(uid: String) -> AudioDevice? {
-        devices(.all).first { $0.uid == uid }
     }
 
     private func channels(count: Int) -> [AudioChannel] {
