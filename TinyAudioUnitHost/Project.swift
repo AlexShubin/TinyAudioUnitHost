@@ -2,6 +2,7 @@ import ProjectDescription
 
 let project = Project(
     name: "TinyAudioUnitHost",
+    options: .options(automaticSchemesOptions: .enabled(codeCoverageEnabled: true)),
     settings: .settings(
         base: [
             "SWIFT_VERSION": "6.0",
