@@ -15,6 +15,8 @@ protocol FileStorageType: Sendable {
 
 final class FileStorage: FileStorageType {
     private let directory: URL
+    private let jsonDecoder = JSONDecoder()
+    private let jsonEncoder = JSONEncoder()
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -26,11 +28,11 @@ final class FileStorage: FileStorageType {
     func read<T: Decodable>(_ type: T.Type, key: String) -> T? {
         let url = url(for: key)
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+        return try? jsonDecoder.decode(T.self, from: data)
     }
 
     func write<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
+        guard let data = try? jsonEncoder.encode(value) else { return }
         try? data.write(to: url(for: key), options: .atomic)
     }
 
