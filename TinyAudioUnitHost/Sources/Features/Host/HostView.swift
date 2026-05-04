@@ -48,6 +48,7 @@ struct HostView: View {
                 }
             }
             .listStyle(.sidebar)
+            .disabled(viewModel.content == .loading)
         } detail: {
             switch viewModel.content {
             case .empty:
