@@ -145,12 +145,12 @@ struct SettingsViewModelTests {
     }
 
     @Test
-    mutating func task_callsEngineReload() async {
+    mutating func task_doesNotReloadEngine() async {
         createSut()
 
         await sut.accept(action: .task)
 
-        #expect(await engineMock.calls == [.reload])
+        #expect(await engineMock.calls == [])
     }
 
     // MARK: - device picker
@@ -166,7 +166,7 @@ struct SettingsViewModelTests {
 
         #expect(sut.inputState.selectedDevice == device)
         #expect(await audioSettingsMock.settings.inputDevice == device)
-        #expect(await engineMock.calls == [.reload, .reload])
+        #expect(await engineMock.calls == [.reload])
     }
 
     @Test
@@ -268,7 +268,7 @@ struct SettingsViewModelTests {
 
         #expect(sut.bufferSize == 128)
         #expect(await audioSettingsMock.settings.bufferSize == 128)
-        #expect(await engineMock.calls == [.reload, .reload])
+        #expect(await engineMock.calls == [.reload])
     }
 
     @Test

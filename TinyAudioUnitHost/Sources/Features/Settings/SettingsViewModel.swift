@@ -55,7 +55,9 @@ final class SettingsViewModel: SettingsViewModelType {
             outputState = makePickerState(kind: .output, settings: current)
             bufferSize = current.bufferSize
             sampleRate = current.sampleRate
-            await applyToEngine()
+            let target = await targetSettings.resolveTarget()
+            await refreshSampleRate(target: target)
+            await refreshBufferSize(target: target)
         case .inputDevicePickerAction(let pickerAction):
             await handle(pickerAction, kind: .input)
         case .outputDevicePickerAction(let pickerAction):
