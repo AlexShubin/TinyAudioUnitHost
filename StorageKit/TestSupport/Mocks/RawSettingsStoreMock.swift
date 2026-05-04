@@ -9,7 +9,7 @@
 import StorageKit
 
 public actor RawSettingsStoreMock: RawSettingsStoreType {
-    public enum Calls: Equatable {
+    public enum Calls: Equatable, Sendable {
         case update
         case current
     }

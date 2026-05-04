@@ -13,7 +13,7 @@ public protocol AudioDevicesProviderType: Sendable {
     func device(id: AudioDeviceID) -> AudioDevice?
 }
 
-public enum AudioDeviceFilter: Sendable {
+public enum AudioDeviceFilter: Sendable, Equatable {
     case all
     case input
     case output
