@@ -9,7 +9,7 @@
 import AudioSettingsKit
 
 public actor AudioSettingsProviderMock: AudioSettingsProviderType {
-    public enum Calls: Equatable {
+    public enum Calls: Equatable, Sendable {
         case current
         case update
     }

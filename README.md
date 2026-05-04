@@ -26,6 +26,5 @@ Then open `TinyAudioUnitHost.xcworkspace` in Xcode and run.
 
 🚧 What's next:
 
-1. Add tests.
-2. **Presets** — save and restore AU state between launches.
-3. **Logging & error handling** — replace the `assert(status == noErr, ...)` calls in `CoreAudioGateway` (and similar fail-fast spots) with structured logging and graceful recovery. Currently the app crashes in debug and silently misbehaves in release on CoreAudio failures.
+1. **Presets** — save and restore AU state between launches.
+2. **Logging & error handling** — replace the `assert(status == noErr, ...)` calls in `CoreAudioGateway` (and similar fail-fast spots) with structured logging and graceful recovery. Currently the app crashes in debug and silently misbehaves in release on CoreAudio failures.

@@ -45,5 +45,22 @@ let project = Project(
                 ]
             )
         ),
+        .target(
+            name: "TinyAudioUnitHostTests",
+            destinations: .macOS,
+            product: .unitTests,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.TinyAudioUnitHostTests",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "Tests",
+            ],
+            dependencies: [
+                .target(name: "TinyAudioUnitHost"),
+                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
+                .project(target: "AudioSettingsKitTestSupport", path: .relativeToManifest("../AudioSettingsKit")),
+                .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
+                .project(target: "EngineKitTestSupport", path: .relativeToManifest("../EngineKit")),
+            ]
+        ),
     ]
 )

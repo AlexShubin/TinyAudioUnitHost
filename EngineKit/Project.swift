@@ -33,6 +33,20 @@ let project = Project(
             ]
         ),
         .target(
+            name: "EngineKitTestSupport",
+            destinations: .macOS,
+            product: .staticFramework,
+            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTestSupport",
+            deploymentTargets: .macOS("26.0"),
+            buildableFolders: [
+                "TestSupport",
+            ],
+            dependencies: [
+                .target(name: "EngineKit"),
+                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
+            ]
+        ),
+        .target(
             name: "EngineKitTests",
             destinations: .macOS,
             product: .unitTests,
