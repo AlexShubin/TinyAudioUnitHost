@@ -49,15 +49,16 @@ struct HostView: View {
             }
             .listStyle(.sidebar)
         } detail: {
-            if let audioUnit = viewModel.audioUnit {
-                AudioUnitView(audioUnit: audioUnit)
-            } else if viewModel.selectedComponent != nil {
-                ProgressView("Loading Audio Unit...")
-                    .frame(width: 480, height: 320)
-            } else {
+            switch viewModel.content {
+            case .empty:
                 Text("Select an instrument")
                     .foregroundStyle(.secondary)
                     .frame(width: 480, height: 320)
+            case .loading:
+                ProgressView("Loading Audio Unit...")
+                    .frame(width: 480, height: 320)
+            case .loaded(let audioUnit):
+                AudioUnitView(audioUnit: audioUnit)
             }
         }
         .task {

@@ -15,11 +15,17 @@ enum HostViewModelAction {
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
 }
 
+enum HostContent: Sendable, Equatable {
+    case empty
+    case loading
+    case loaded(LoadedAudioUnit)
+}
+
 @MainActor
 protocol HostViewModelType: Observable {
     var groups: [ManufacturerGroup] { get }
     var selectedComponent: AudioUnitComponent? { get }
-    var audioUnit: LoadedAudioUnit? { get }
+    var content: HostContent { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -27,7 +33,7 @@ protocol HostViewModelType: Observable {
 final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var selectedComponent: AudioUnitComponent?
-    private(set) var audioUnit: LoadedAudioUnit?
+    private(set) var content: HostContent = .empty
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
@@ -46,8 +52,10 @@ final class HostViewModel: HostViewModelType {
             groups = grouped(library.components)
         case .selected(let component):
             selectedComponent = component
-            audioUnit = nil
-            audioUnit = await engine.load(component: component)
+            content = .loading
+            if let loaded = await engine.load(component: component) {
+                content = .loaded(loaded)
+            }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
