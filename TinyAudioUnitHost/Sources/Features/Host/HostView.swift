@@ -50,16 +50,26 @@ struct HostView: View {
             .listStyle(.sidebar)
             .disabled(viewModel.content == .loading)
         } detail: {
-            switch viewModel.content {
-            case .empty:
-                Text("Select an instrument")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 480, height: 320)
-            case .loading:
-                ProgressView("Loading Audio Unit...")
-                    .frame(width: 480, height: 320)
-            case .loaded(let audioUnit):
-                AudioUnitView(audioUnit: audioUnit)
+            Group {
+                switch viewModel.content {
+                case .empty:
+                    Text("Select an audio unit")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 480, height: 320)
+                case .loading:
+                    ProgressView("Loading Audio Unit...")
+                        .frame(width: 480, height: 320)
+                case .loaded(let audioUnit):
+                    AudioUnitView(audioUnit: audioUnit)
+                }
+            }
+            .navigationTitle("Preset: Default")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    SettingsLink {
+                        Image(systemName: "gear")
+                    }
+                }
             }
         }
         .task {
