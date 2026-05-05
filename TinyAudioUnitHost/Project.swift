@@ -35,6 +35,7 @@ let project = Project(
             dependencies: [
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
+                .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
             ],
             settings: .settings(
@@ -58,6 +59,8 @@ let project = Project(
                 .target(name: "TinyAudioUnitHost"),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "AudioSettingsKitTestSupport", path: .relativeToManifest("../AudioSettingsKit")),
+                .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
+                .project(target: "AudioUnitsKitTestSupport", path: .relativeToManifest("../AudioUnitsKit")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
                 .project(target: "EngineKitTestSupport", path: .relativeToManifest("../EngineKit")),
             ]

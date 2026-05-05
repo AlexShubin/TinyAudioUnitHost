@@ -7,21 +7,23 @@
 //
 
 import AudioSettingsKit
+import AudioUnitsKit
 import EngineKit
 import SwiftUI
 
 struct Dependencies: Sendable {
     let audioSettings: AudioSettingsKit.Dependencies
+    let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
 
     static let live: Dependencies = {
-        Dependencies(audioSettings: .live, engine: .live)
+        Dependencies(audioSettings: .live, audioUnits: .live, engine: .live)
     }()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             engine: engine.engine,
-            library: engine.audioUnitComponentsLibrary
+            library: audioUnits.audioUnitComponentsLibrary
         )
     }
 

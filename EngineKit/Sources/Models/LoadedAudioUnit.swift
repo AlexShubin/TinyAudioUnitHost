@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import AudioUnitsKit
 import CoreAudioKit
 
 public struct LoadedAudioUnit: Sendable, Equatable {

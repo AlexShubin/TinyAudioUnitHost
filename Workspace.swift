@@ -6,6 +6,7 @@ let workspace = Workspace(
         "TinyAudioUnitHost",
         "StorageKit",
         "AudioSettingsKit",
+        "AudioUnitsKit",
         "EngineKit",
     ],
     generationOptions: .options(

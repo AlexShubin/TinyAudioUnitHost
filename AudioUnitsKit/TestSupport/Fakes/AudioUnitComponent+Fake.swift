@@ -1,13 +1,13 @@
 //
 //  AudioUnitComponent+Fake.swift
-//  EngineKitTestSupport
+//  AudioUnitsKitTestSupport
 //
 //  Created by Alex Shubin on 04.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AudioToolbox
-import EngineKit
+import AudioUnitsKit
 
 public extension AudioUnitComponent {
     static func fake(

@@ -11,7 +11,6 @@ import AVFoundation
 
 public struct Dependencies: Sendable {
     public let engine: EngineType
-    public let audioUnitComponentsLibrary: AudioUnitComponentsLibraryType
 
     public static let live = Dependencies(
         engine: Engine(
@@ -21,7 +20,6 @@ public struct Dependencies: Sendable {
             coreAudioGateway: CoreAudioGateway(),
             coreMidiManager: CoreMidiManager(),
             targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider
-        ),
-        audioUnitComponentsLibrary: AudioUnitComponentsLibrary()
+        )
     )
 }

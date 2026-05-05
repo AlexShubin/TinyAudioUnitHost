@@ -7,6 +7,7 @@
 //
 
 import AudioSettingsKit
+import AudioUnitsKit
 import AVFoundation
 
 public protocol EngineType: Sendable {

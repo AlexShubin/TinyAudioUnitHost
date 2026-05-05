@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
 import EngineKit
 import Observation
 
