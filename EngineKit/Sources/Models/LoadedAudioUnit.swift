@@ -27,4 +27,26 @@ public struct LoadedAudioUnit: Sendable, Equatable {
             auAudioUnit.requestViewController { continuation.resume(returning: $0) }
         }
     }
+
+    public var snapshot: Data? {
+        auAudioUnit.fullState?.binaryPlist
+    }
+
+    public func restore(_ data: Data) {
+        guard let state = data.asStringAnyDictionary else { return }
+        auAudioUnit.fullState = state
+    }
+}
+
+private extension [String: Any] {
+    var binaryPlist: Data? {
+        try? PropertyListSerialization.data(fromPropertyList: self, format: .binary, options: 0)
+    }
+}
+
+private extension Data {
+    var asStringAnyDictionary: [String: Any]? {
+        let plist = try? PropertyListSerialization.propertyList(from: self, options: [], format: nil)
+        return plist as? [String: Any]
+    }
 }
