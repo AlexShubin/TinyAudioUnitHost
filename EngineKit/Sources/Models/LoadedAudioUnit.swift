@@ -36,6 +36,18 @@ public struct LoadedAudioUnit: Sendable, Equatable {
         guard let state = data.asStringAnyDictionary else { return }
         auAudioUnit.fullState = state
     }
+
+    public func waitForModification() async {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        let token = auAudioUnit.parameterTree?.token(byAddingParameterObserver: { _, _ in
+            continuation.yield()
+        })
+        defer {
+            if let token { auAudioUnit.parameterTree?.removeParameterObserver(token) }
+            continuation.finish()
+        }
+        for await _ in stream { break }
+    }
 }
 
 private extension [String: Any] {
