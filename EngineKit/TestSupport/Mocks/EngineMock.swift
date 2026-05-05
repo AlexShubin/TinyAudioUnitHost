@@ -8,10 +8,11 @@
 
 import AudioUnitsKit
 import EngineKit
+import Foundation
 
 public actor EngineMock: EngineType {
     public enum Calls: Equatable, Sendable {
-        case load(AudioUnitComponent)
+        case load(AudioUnitComponent, Data?)
         case reload
     }
 
@@ -22,8 +23,8 @@ public actor EngineMock: EngineType {
         self.loadResult = loadResult
     }
 
-    public func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
-        calls.append(.load(component))
+    public func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit? {
+        calls.append(.load(component, state))
         return loadResult
     }
 

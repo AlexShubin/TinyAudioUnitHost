@@ -127,7 +127,7 @@ struct HostViewModelTests {
 
         await sut.accept(action: .selected(component))
 
-        #expect(await engineMock.calls == [.load(component)])
+        #expect(await engineMock.calls == [.load(component, nil)])
     }
 
     // MARK: - groupExpansionChanged

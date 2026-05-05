@@ -54,7 +54,7 @@ final class HostViewModel: HostViewModelType {
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            if let loaded = await engine.load(component: component) {
+            if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):

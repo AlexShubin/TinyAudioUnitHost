@@ -11,7 +11,7 @@ import AudioUnitsKit
 import AVFoundation
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
+    func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit?
     func reload() async
 }
 
@@ -41,11 +41,12 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
+    func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit? {
         engine.stop()
         disconnect()
 
         guard let loaded = await loadAudioUnit(component) else { return nil }
+        if let state { loaded.restore(state) }
 
         await applyConnections()
         try? engine.start()
