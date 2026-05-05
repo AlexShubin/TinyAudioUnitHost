@@ -15,11 +15,11 @@ final class FileStorageMock: FileStorageType, @unchecked Sendable {
         self.storage = storage
     }
 
-    func read<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        storage[key] as? T
+    func read<T: Decodable>(_ type: T.Type, at relativePath: String) -> T? {
+        storage[relativePath] as? T
     }
 
-    func write<T: Encodable>(_ value: T, key: String) {
-        storage[key] = value
+    func write<T: Encodable>(_ value: T, at relativePath: String) {
+        storage[relativePath] = value
     }
 }

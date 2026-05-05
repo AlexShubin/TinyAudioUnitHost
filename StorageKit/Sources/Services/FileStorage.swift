@@ -9,8 +9,8 @@
 import Foundation
 
 protocol FileStorageType: Sendable {
-    func read<T: Decodable>(_ type: T.Type, key: String) -> T?
-    func write<T: Encodable>(_ value: T, key: String)
+    func read<T: Decodable>(_ type: T.Type, at relativePath: String) -> T?
+    func write<T: Encodable>(_ value: T, at relativePath: String)
 }
 
 final class FileStorage: FileStorageType {
@@ -25,18 +25,19 @@ final class FileStorage: FileStorageType {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    func read<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        let url = url(for: key)
-        guard let data = try? Data(contentsOf: url) else { return nil }
+    func read<T: Decodable>(_ type: T.Type, at relativePath: String) -> T? {
+        guard let data = try? Data(contentsOf: url(for: relativePath)) else { return nil }
         return try? jsonDecoder.decode(T.self, from: data)
     }
 
-    func write<T: Encodable>(_ value: T, key: String) {
+    func write<T: Encodable>(_ value: T, at relativePath: String) {
+        let url = url(for: relativePath)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? jsonEncoder.encode(value) else { return }
-        try? data.write(to: url(for: key), options: .atomic)
+        try? data.write(to: url, options: .atomic)
     }
 
-    private func url(for key: String) -> URL {
-        directory.appending(path: "\(key).json")
+    private func url(for relativePath: String) -> URL {
+        directory.appending(path: "\(relativePath).json")
     }
 }
