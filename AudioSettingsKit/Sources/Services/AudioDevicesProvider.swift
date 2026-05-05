@@ -20,7 +20,7 @@ public enum AudioDeviceFilter: Sendable, Equatable {
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
-    private static let candidateBufferSizes: [UInt32] = [32, 64, 128, 256, 512]
+    private static let candidateBufferSizes: [UInt32] = [16, 32, 64, 128, 256, 512]
     private static let candidateSampleRates: [Float64] = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000]
 
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
