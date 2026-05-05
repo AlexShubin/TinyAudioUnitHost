@@ -1,5 +1,5 @@
 //
-//  Preset+Fake.swift
+//  RawPreset+Fake.swift
 //  StorageKitTestSupport
 //
 //  Created by Alex Shubin on 05.05.26.
@@ -9,14 +9,14 @@
 import Foundation
 import StorageKit
 
-public extension Preset {
+public extension RawPreset {
     static func fake(
         componentType: UInt32 = 0,
         componentSubType: UInt32 = 0,
         componentManufacturer: UInt32 = 0,
         state: Data = Data()
-    ) -> Preset {
-        Preset(
+    ) -> RawPreset {
+        RawPreset(
             componentType: componentType,
             componentSubType: componentSubType,
             componentManufacturer: componentManufacturer,

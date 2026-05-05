@@ -1,5 +1,5 @@
 //
-//  Preset.swift
+//  RawPreset.swift
 //  StorageKit
 //
 //  Created by Alex Shubin on 05.05.26.
@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct Preset: Sendable, Equatable, Codable {
+public struct RawPreset: Sendable, Equatable, Codable {
     public var componentType: UInt32
     public var componentSubType: UInt32
     public var componentManufacturer: UInt32

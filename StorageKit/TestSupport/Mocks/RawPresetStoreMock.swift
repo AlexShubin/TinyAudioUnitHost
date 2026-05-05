@@ -1,5 +1,5 @@
 //
-//  PresetStoreMock.swift
+//  RawPresetStoreMock.swift
 //  StorageKitTestSupport
 //
 //  Created by Alex Shubin on 05.05.26.
@@ -8,30 +8,30 @@
 
 import StorageKit
 
-public actor PresetStoreMock: PresetStoreType {
+public actor RawPresetStoreMock: RawPresetStoreType {
     public enum Calls: Equatable, Sendable {
         case load(name: String)
-        case save(Preset, name: String)
+        case save(RawPreset, name: String)
     }
 
     public private(set) var calls: [Calls] = []
-    public var presets: [String: Preset]
+    public var presets: [String: RawPreset]
 
-    public init(presets: [String: Preset] = [:]) {
+    public init(presets: [String: RawPreset] = [:]) {
         self.presets = presets
     }
 
-    public func load(name: String) -> Preset? {
+    public func load(name: String) -> RawPreset? {
         calls.append(.load(name: name))
         return presets[name]
     }
 
-    public func save(_ preset: Preset, name: String) {
+    public func save(_ preset: RawPreset, name: String) {
         presets[name] = preset
         calls.append(.save(preset, name: name))
     }
 
-    public func setPresets(_ value: [String: Preset]) {
+    public func setPresets(_ value: [String: RawPreset]) {
         presets = value
     }
 }

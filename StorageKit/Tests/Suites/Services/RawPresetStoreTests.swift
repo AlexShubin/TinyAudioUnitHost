@@ -1,5 +1,5 @@
 //
-//  PresetStoreTests.swift
+//  RawPresetStoreTests.swift
 //  StorageKitTests
 //
 //  Created by Alex Shubin on 05.05.26.
@@ -12,16 +12,16 @@ import Testing
 @testable import StorageKit
 
 @Suite
-struct PresetStoreTests {
+struct RawPresetStoreTests {
     var fileStorageMock: FileStorageMock!
-    var sut: PresetStoreType!
+    var sut: RawPresetStoreType!
 
     init() {
         fileStorageMock = FileStorageMock()
     }
 
     mutating func createSut() {
-        sut = PresetStore(fileStorage: fileStorageMock)
+        sut = RawPresetStore(fileStorage: fileStorageMock)
     }
 
     @Test
@@ -33,7 +33,7 @@ struct PresetStoreTests {
 
     @Test
     mutating func load_existingPreset_returnsIt() async {
-        let stored = Preset.fake(componentType: 1, state: Data([0xDE, 0xAD]))
+        let stored = RawPreset.fake(componentType: 1, state: Data([0xDE, 0xAD]))
         fileStorageMock.storage["presets/default"] = stored
         createSut()
 
@@ -42,7 +42,7 @@ struct PresetStoreTests {
 
     @Test
     mutating func load_wrongTypeAtPath_returnsNil() async {
-        fileStorageMock.storage["presets/default"] = "not a Preset"
+        fileStorageMock.storage["presets/default"] = "not a RawPreset"
         createSut()
 
         #expect(await sut.load(name: "default") == nil)
@@ -51,18 +51,18 @@ struct PresetStoreTests {
     @Test
     mutating func save_writesAtPresetsSlashName() async throws {
         createSut()
-        let preset = Preset.fake(componentType: 42, state: Data([0xBE, 0xEF]))
+        let preset = RawPreset.fake(componentType: 42, state: Data([0xBE, 0xEF]))
 
         await sut.save(preset, name: "default")
 
-        let written = try #require(fileStorageMock.storage["presets/default"] as? Preset)
+        let written = try #require(fileStorageMock.storage["presets/default"] as? RawPreset)
         #expect(written == preset)
     }
 
     @Test
     mutating func save_thenLoad_roundTrips() async {
         createSut()
-        let preset = Preset.fake(componentSubType: 7)
+        let preset = RawPreset.fake(componentSubType: 7)
 
         await sut.save(preset, name: "lead")
 
