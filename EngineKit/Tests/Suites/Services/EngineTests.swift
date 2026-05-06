@@ -98,7 +98,9 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: stateAtMax)
+        await Task(priority: .utility) { [sut] in
+            _ = await sut!.load(component: Self.effectComponent, state: stateAtMax)
+        }.value
 
         #expect(parameter.value == parameter.maxValue)
     }
