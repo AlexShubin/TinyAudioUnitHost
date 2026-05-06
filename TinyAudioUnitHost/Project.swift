@@ -37,6 +37,7 @@ let project = Project(
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
+                .project(target: "PresetKit", path: .relativeToManifest("../PresetKit")),
             ],
             settings: .settings(
                 base: [
@@ -63,6 +64,8 @@ let project = Project(
                 .project(target: "AudioUnitsKitTestSupport", path: .relativeToManifest("../AudioUnitsKit")),
                 .project(target: "EngineKit", path: .relativeToManifest("../EngineKit")),
                 .project(target: "EngineKitTestSupport", path: .relativeToManifest("../EngineKit")),
+                .project(target: "PresetKit", path: .relativeToManifest("../PresetKit")),
+                .project(target: "PresetKitTestSupport", path: .relativeToManifest("../PresetKit")),
             ]
         ),
     ]

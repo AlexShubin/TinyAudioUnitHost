@@ -38,16 +38,14 @@ public struct LoadedAudioUnit: Sendable, Equatable {
         auAudioUnit.fullState = state
     }
 
-    public func waitForModification() async {
-        let (stream, continuation) = AsyncStream<Void>.makeStream()
-        let token = auAudioUnit.parameterTree?.token(byAddingParameterObserver: { _, _ in
-            continuation.yield()
+    public func modification(block: @escaping @Sendable () -> Void) {
+        var token: AUParameterObserverToken?
+        token = auAudioUnit.parameterTree?.token(byAddingParameterObserver: { [weak auAudioUnit] _, _ in
+            block()
+            if let token {
+                auAudioUnit?.parameterTree?.removeParameterObserver(token)
+            }
         })
-        defer {
-            if let token { auAudioUnit.parameterTree?.removeParameterObserver(token) }
-            continuation.finish()
-        }
-        for await _ in stream { break }
     }
 }
 

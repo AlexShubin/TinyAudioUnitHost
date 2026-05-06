@@ -10,6 +10,9 @@ import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import EngineKit
 import EngineKitTestSupport
+import Foundation
+import PresetKit
+import PresetKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -18,15 +21,17 @@ import Testing
 struct HostViewModelTests {
     var engineMock: EngineMock!
     var libraryMock: AudioUnitComponentsLibraryMock!
+    var presetProviderMock: PresetProviderMock!
     var sut: HostViewModelType!
 
     init() {
         engineMock = EngineMock()
         libraryMock = AudioUnitComponentsLibraryMock()
+        presetProviderMock = PresetProviderMock()
     }
 
     mutating func createSut() {
-        sut = HostViewModel(engine: engineMock, library: libraryMock)
+        sut = HostViewModel(engine: engineMock, library: libraryMock, presetProvider: presetProviderMock)
     }
 
     // MARK: - task
@@ -78,12 +83,54 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_doesNotCallEngine() async {
+    mutating func task_noSavedPreset_doesNotCallEngine() async {
         createSut()
 
         await sut.accept(action: .task)
 
         #expect(await engineMock.calls == [])
+    }
+
+    @Test
+    mutating func task_savedPresetExists_loadsThroughEngineWithComponentAndState() async {
+        let component = AudioUnitComponent.fake()
+        let state = Data([0xDE, 0xAD])
+        presetProviderMock = PresetProviderMock(presets: ["default": Preset(component: component, state: state)])
+        let loaded = LoadedAudioUnit.fake(component: component)
+        await engineMock.setLoadResult(loaded)
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(await engineMock.calls == [.load(component, state)])
+    }
+
+    @Test
+    mutating func task_savedPresetExists_setsLoadedContentAndSelectedComponent() async {
+        let component = AudioUnitComponent.fake(name: "Dyn")
+        let preset = Preset(component: component, state: Data([0x01]))
+        presetProviderMock = PresetProviderMock(presets: ["default": preset])
+        let loaded = LoadedAudioUnit.fake(component: component)
+        await engineMock.setLoadResult(loaded)
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(sut.selectedComponent == component)
+        #expect(sut.content == .loaded(loaded))
+    }
+
+    @Test
+    mutating func task_savedPresetExists_doesNotMarkModified() async {
+        let component = AudioUnitComponent.fake()
+        let preset = Preset(component: component, state: Data())
+        presetProviderMock = PresetProviderMock(presets: ["default": preset])
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(sut.presetTitle == "Preset: Default")
     }
 
     // MARK: - selected
@@ -121,13 +168,64 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_callsEngineLoadWithComponent() async {
+    mutating func selected_callsEngineLoadWithComponentAndNilState() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         createSut()
 
         await sut.accept(action: .selected(component))
 
         #expect(await engineMock.calls == [.load(component, nil)])
+    }
+
+    @Test
+    mutating func selected_marksTitleModified() async {
+        let component = AudioUnitComponent.fake(name: "Dynamics")
+        createSut()
+
+        await sut.accept(action: .selected(component))
+
+        #expect(sut.presetTitle == "Preset: Default*")
+    }
+
+    // MARK: - saveCurrentPreset
+
+    @Test
+    mutating func saveCurrentPreset_loadedContent_savesViaProviderAndClearsTitle() async {
+        let component = AudioUnitComponent.fake(name: "Dyn")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        await engineMock.setLoadResult(loaded)
+        createSut()
+        await sut.accept(action: .selected(component))
+        #expect(sut.presetTitle == "Preset: Default*")
+
+        await sut.accept(action: .saveCurrentPreset)
+
+        #expect(sut.presetTitle == "Preset: Default")
+        let calls = await presetProviderMock.calls
+        #expect(calls.contains { call in
+            if case .save(let preset, let name) = call {
+                return preset.component == component && name == "default"
+            }
+            return false
+        })
+    }
+
+    @Test
+    mutating func saveCurrentPreset_emptyContent_doesNotCallProvider() async {
+        createSut()
+
+        await sut.accept(action: .saveCurrentPreset)
+
+        #expect(await presetProviderMock.calls == [])
+    }
+
+    // MARK: - presetTitle
+
+    @Test
+    mutating func presetTitle_initialState_showsDefaultWithoutAsterisk() async {
+        createSut()
+
+        #expect(sut.presetTitle == "Preset: Default")
     }
 
     // MARK: - groupExpansionChanged
