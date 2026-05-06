@@ -11,18 +11,33 @@ import CoreAudioKit
 
 public protocol AUAudioUnitType: AnyObject, Sendable {
     var fullState: Data? { get set }
+    var modifications: AsyncStream<Void> { get }
 
     @MainActor
     func requestViewController() async -> NSViewController?
-
-    func onChange(_ block: @escaping @Sendable () -> Void)
 }
 
 final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
     private let au: AUAudioUnit
+    private let token: AUParameterObserverToken?
+    private let continuation: AsyncStream<Void>.Continuation
+    let modifications: AsyncStream<Void>
 
     init(_ au: AUAudioUnit) {
         self.au = au
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        self.modifications = stream
+        self.continuation = continuation
+        self.token = au.parameterTree?.token(byAddingParameterObserver: { _, _ in
+            continuation.yield()
+        })
+    }
+
+    deinit {
+        if let token {
+            au.parameterTree?.removeParameterObserver(token)
+        }
+        continuation.finish()
     }
 
     var fullState: Data? {
@@ -35,16 +50,6 @@ final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
         await withCheckedContinuation { continuation in
             au.requestViewController { continuation.resume(returning: $0) }
         }
-    }
-
-    func onChange(_ block: @escaping @Sendable () -> Void) {
-        var token: AUParameterObserverToken?
-        token = au.parameterTree?.token(byAddingParameterObserver: { [weak au] _, _ in
-            block()
-            if let token {
-                au?.parameterTree?.removeParameterObserver(token)
-            }
-        })
     }
 }
 

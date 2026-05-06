@@ -47,6 +47,7 @@ final class HostViewModel: HostViewModelType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let presetProvider: PresetProviderType
+    @ObservationIgnored private var modificationTask: Task<Void, Never>?
 
     init(
         engine: EngineType,
@@ -87,9 +88,11 @@ final class HostViewModel: HostViewModelType {
     }
 
     private func installModificationListener(for loaded: LoadedAudioUnit) {
-        loaded.audioUnit.onChange { [weak self] in
-            Task { @MainActor in
+        modificationTask?.cancel()
+        modificationTask = Task { @MainActor [weak self, audioUnit = loaded.audioUnit] in
+            for await _ in audioUnit.modifications {
                 self?.isModified = true
+                break
             }
         }
     }

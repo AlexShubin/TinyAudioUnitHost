@@ -232,7 +232,7 @@ struct HostViewModelTests {
         #expect(sut.presetTitle == "Preset: Default")
 
         auMock.triggerOnChange()
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(20))
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
@@ -249,7 +249,7 @@ struct HostViewModelTests {
         #expect(sut.presetTitle == "Preset: Default")
 
         auMock.triggerOnChange()
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(20))
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
