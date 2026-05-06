@@ -46,7 +46,7 @@ final actor Engine: EngineType {
         disconnect()
 
         guard let loaded = await loadAudioUnit(component) else { return nil }
-        if let state { loaded.restore(state) }
+        if let state { loaded.audioUnit.fullState = state }
 
         await applyConnections()
         try? engine.start()
@@ -150,7 +150,7 @@ final actor Engine: EngineType {
 
             coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
 
-            return LoadedAudioUnit(component: component, auAudioUnit: avAudioUnit.auAudioUnit)
+            return LoadedAudioUnit(component: component, audioUnit: AUAudioUnitWrapper(avAudioUnit.auAudioUnit))
         } catch {
             return nil
         }

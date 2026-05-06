@@ -47,7 +47,6 @@ final class HostViewModel: HostViewModelType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let presetProvider: PresetProviderType
-    @ObservationIgnored private var modificationTask: Task<Void, Never>?
 
     init(
         engine: EngineType,
@@ -80,7 +79,7 @@ final class HostViewModel: HostViewModelType {
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
             guard case .loaded(let loaded) = content,
-                  let state = loaded.snapshot else { return }
+                  let state = loaded.audioUnit.fullState else { return }
             await presetProvider.save(Preset(component: loaded.component, state: state), name: Self.presetName)
             isModified = false
             installModificationListener(for: loaded)
@@ -88,7 +87,7 @@ final class HostViewModel: HostViewModelType {
     }
 
     private func installModificationListener(for loaded: LoadedAudioUnit) {
-        loaded.modification { [weak self] in
+        loaded.audioUnit.onChange { [weak self] in
             Task { @MainActor in
                 self?.isModified = true
             }

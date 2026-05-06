@@ -24,7 +24,7 @@ struct AudioUnitView: View {
             }
             .task(id: audioUnit.component.id) {
                 controller = nil
-                guard let vc = await audioUnit.requestViewController() else { return }
+                guard let vc = await audioUnit.audioUnit.requestViewController() else { return }
                 controller = vc
 
                 for await newSize in vc.preferredContentSizeStream() {
