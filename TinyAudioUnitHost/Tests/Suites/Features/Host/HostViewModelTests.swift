@@ -219,6 +219,41 @@ struct HostViewModelTests {
         #expect(await presetProviderMock.calls == [])
     }
 
+    @Test
+    mutating func task_savedPreset_paramChange_marksTitleModified() async {
+        let component = AudioUnitComponent.fake()
+        let preset = Preset(component: component, state: Data())
+        presetProviderMock = PresetProviderMock(presets: ["default": preset])
+        let auMock = AUAudioUnitMock()
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        createSut()
+
+        await sut.accept(action: .task)
+        #expect(sut.presetTitle == "Preset: Default")
+
+        auMock.triggerOnChange()
+        await Task.yield()
+
+        #expect(sut.presetTitle == "Preset: Default*")
+    }
+
+    @Test
+    mutating func saveCurrentPreset_paramChangeAfterSave_marksTitleModified() async {
+        let component = AudioUnitComponent.fake()
+        let auMock = AUAudioUnitMock(fullState: Data([0x42]))
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        createSut()
+        await sut.accept(action: .selected(component))
+        #expect(sut.presetTitle == "Preset: Default*")
+        await sut.accept(action: .saveCurrentPreset)
+        #expect(sut.presetTitle == "Preset: Default")
+
+        auMock.triggerOnChange()
+        await Task.yield()
+
+        #expect(sut.presetTitle == "Preset: Default*")
+    }
+
     // MARK: - presetTitle
 
     @Test

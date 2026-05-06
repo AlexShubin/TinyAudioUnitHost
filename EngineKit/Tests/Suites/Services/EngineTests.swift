@@ -91,10 +91,8 @@ struct EngineTests {
         let parameter = try #require(avAudioUnit.auAudioUnit.parameterTree?.allParameters.first)
 
         parameter.value = parameter.maxValue
-        let stateAtMax = try #require(LoadedAudioUnit(
-            component: Self.effectComponent,
-            audioUnit: AUAudioUnitWrapper(avAudioUnit.auAudioUnit)
-        ).audioUnit.fullState)
+        let fullState = try #require(avAudioUnit.auAudioUnit.fullState)
+        let stateAtMax = try PropertyListSerialization.data(fromPropertyList: fullState, format: .binary, options: 0)
         parameter.value = parameter.minValue
 
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)

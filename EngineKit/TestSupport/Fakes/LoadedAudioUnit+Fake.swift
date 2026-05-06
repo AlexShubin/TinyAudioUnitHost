@@ -8,14 +8,14 @@
 
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
-import CoreAudioKit
-@testable import EngineKit
+import EngineKit
+import Foundation
 
 public extension LoadedAudioUnit {
-    static func fake(component: AudioUnitComponent = .fake()) -> LoadedAudioUnit {
-        // Apple's DynamicsProcessor is built into the system, so this
-        // synchronous instantiation succeeds without a network/cache.
-        let auAudioUnit = try! AUAudioUnit(componentDescription: .fakeEffect)
-        return LoadedAudioUnit(component: component, audioUnit: AUAudioUnitWrapper(auAudioUnit))
+    static func fake(
+        component: AudioUnitComponent = .fake(),
+        audioUnit: AUAudioUnitType = AUAudioUnitMock(fullState: Data())
+    ) -> LoadedAudioUnit {
+        LoadedAudioUnit(component: component, audioUnit: audioUnit)
     }
 }
