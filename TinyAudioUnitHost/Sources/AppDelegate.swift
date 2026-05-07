@@ -10,13 +10,17 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var quitCoordinator: QuitCoordinatorType?
+    var onQuit: (@Sendable () async -> Void)?
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let quitCoordinator else { return .terminateNow }
+        guard let onQuit else { return .terminateNow }
         Task { @MainActor in
-            let proceed = await quitCoordinator.requestQuit()
-            NSApp.reply(toApplicationShouldTerminate: proceed)
+            await onQuit()
+            NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
     }

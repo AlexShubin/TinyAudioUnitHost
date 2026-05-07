@@ -17,7 +17,7 @@ struct Dependencies: Sendable {
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
-    let quitCoordinator: QuitCoordinatorType
+    let sessionPersister: SessionPersisterType
 
     static let live: Dependencies = {
         Dependencies(
@@ -25,7 +25,7 @@ struct Dependencies: Sendable {
             audioUnits: .live,
             engine: .live,
             presets: .live,
-            quitCoordinator: QuitCoordinator()
+            sessionPersister: SessionPersister(presetProvider: PresetKit.Dependencies.live.presetProvider)
         )
     }()
 
@@ -34,7 +34,7 @@ struct Dependencies: Sendable {
             engine: engine.engine,
             library: audioUnits.audioUnitComponentsLibrary,
             presetProvider: presets.presetProvider,
-            quitCoordinator: quitCoordinator
+            sessionPersister: sessionPersister
         )
     }
 

@@ -9,14 +9,12 @@
 import EngineKit
 import PresetKit
 
-@MainActor
 protocol SessionPersisterType: Sendable {
-    func setCurrent(_ loaded: LoadedAudioUnit?)
+    func setCurrent(_ loaded: LoadedAudioUnit?) async
     func persistSession() async
 }
 
-@MainActor
-final class SessionPersister: SessionPersisterType {
+actor SessionPersister: SessionPersisterType {
     private let presetProvider: PresetProviderType
     private var current: LoadedAudioUnit?
 

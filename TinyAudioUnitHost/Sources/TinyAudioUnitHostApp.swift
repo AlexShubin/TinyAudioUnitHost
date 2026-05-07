@@ -12,13 +12,20 @@ import SwiftUI
 struct TinyAudioUnitHostApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @Environment(\.dependencies) private var dependencies
+    @State private var viewModel: HostViewModelType?
 
     var body: some Scene {
         WindowGroup {
-            HostView(viewModel: dependencies.makeHostViewModel())
-                .task {
-                    delegate.quitCoordinator = dependencies.quitCoordinator
+            if let viewModel {
+                HostView(viewModel: viewModel)
+            } else {
+                Color.clear.task {
+                    viewModel = dependencies.makeHostViewModel()
+                    delegate.onQuit = { [persister = dependencies.sessionPersister] in
+                        await persister.persistSession()
+                    }
                 }
+            }
         }
         .windowResizability(.contentSize)
 
