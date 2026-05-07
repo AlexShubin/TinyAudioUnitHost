@@ -22,16 +22,23 @@ struct HostViewModelTests {
     var engineMock: EngineMock!
     var libraryMock: AudioUnitComponentsLibraryMock!
     var presetProviderMock: PresetProviderMock!
+    var quitCoordinator: QuitCoordinator!
     var sut: HostViewModelType!
 
     init() {
         engineMock = EngineMock()
         libraryMock = AudioUnitComponentsLibraryMock()
         presetProviderMock = PresetProviderMock()
+        quitCoordinator = QuitCoordinator()
     }
 
     mutating func createSut() {
-        sut = HostViewModel(engine: engineMock, library: libraryMock, presetProvider: presetProviderMock)
+        sut = HostViewModel(
+            engine: engineMock,
+            library: libraryMock,
+            presetProvider: presetProviderMock,
+            quitCoordinator: quitCoordinator
+        )
     }
 
     // MARK: - task
@@ -304,5 +311,92 @@ struct HostViewModelTests {
         await sut.accept(action: .groupExpansionChanged(manufacturer: "Unknown", isExpanded: true))
 
         #expect(sut.groups == groupsBefore)
+    }
+
+    // MARK: - quit
+
+    @Test
+    mutating func quitRequest_clean_resolvesProceedTrueWithoutShowingAlert() async {
+        createSut()
+
+        let proceed = await quitCoordinator.requestQuit()
+
+        #expect(proceed == true)
+        #expect(sut.isQuitAlertShown == false)
+    }
+
+    @Test
+    mutating func quitRequest_dirty_showsAlert() async {
+        let component = AudioUnitComponent.fake()
+        createSut()
+        await sut.accept(action: .selected(component))
+        let coordinator = quitCoordinator!
+
+        let proceedTask = Task { await coordinator.requestQuit() }
+        try? await Task.sleep(for: .milliseconds(20))
+
+        #expect(sut.isQuitAlertShown == true)
+
+        await sut.accept(action: .quit(.cancel))
+        _ = await proceedTask.value
+    }
+
+    @Test
+    mutating func quit_save_persistsPresetAndResolvesProceedTrue() async {
+        let component = AudioUnitComponent.fake()
+        let auMock = AUAudioUnitMock(fullState: Data([0x42]))
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        createSut()
+        await sut.accept(action: .selected(component))
+        let coordinator = quitCoordinator!
+
+        let proceedTask = Task { await coordinator.requestQuit() }
+        try? await Task.sleep(for: .milliseconds(20))
+
+        await sut.accept(action: .quit(.save))
+
+        #expect(await proceedTask.value == true)
+        #expect(sut.isQuitAlertShown == false)
+        let calls = await presetProviderMock.calls
+        #expect(calls.contains { call in
+            if case .save(let preset, let name) = call {
+                return preset.component == component && name == "default"
+            }
+            return false
+        })
+    }
+
+    @Test
+    mutating func quit_discard_resolvesProceedTrueAndDoesNotSave() async {
+        let component = AudioUnitComponent.fake()
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
+        createSut()
+        await sut.accept(action: .selected(component))
+        let coordinator = quitCoordinator!
+
+        let proceedTask = Task { await coordinator.requestQuit() }
+        try? await Task.sleep(for: .milliseconds(20))
+
+        await sut.accept(action: .quit(.discard))
+
+        #expect(await proceedTask.value == true)
+        #expect(sut.isQuitAlertShown == false)
+        #expect(await presetProviderMock.calls == [])
+    }
+
+    @Test
+    mutating func quit_cancel_resolvesProceedFalse() async {
+        let component = AudioUnitComponent.fake()
+        createSut()
+        await sut.accept(action: .selected(component))
+        let coordinator = quitCoordinator!
+
+        let proceedTask = Task { await coordinator.requestQuit() }
+        try? await Task.sleep(for: .milliseconds(20))
+
+        await sut.accept(action: .quit(.cancel))
+
+        #expect(await proceedTask.value == false)
+        #expect(sut.isQuitAlertShown == false)
     }
 }

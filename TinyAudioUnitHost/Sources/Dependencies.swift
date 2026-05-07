@@ -33,7 +33,8 @@ struct Dependencies: Sendable {
         HostViewModel(
             engine: engine.engine,
             library: audioUnits.audioUnitComponentsLibrary,
-            presetProvider: presets.presetProvider
+            presetProvider: presets.presetProvider,
+            quitCoordinator: quitCoordinator
         )
     }
 
