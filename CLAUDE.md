@@ -22,6 +22,7 @@
 ## Architecture
 
 - MVVM with `@Observable` ViewModels that expose state as observed properties directly
+- **ViewModels live and die with their view.** A VM must be held *only* by the view that renders it (`@State` inside the SwiftUI `View` struct). Never stash a VM in App-scope `@State`, an `NSApplicationDelegate`, an environment value, a singleton, or any object that outlives the view. When the view is dismissed the VM must deinit. If something needs to outlive the view (cached data, in-flight async work, an AU reference for a quit-time persist), put it in a use case / service that the VM talks to via DI — never the other way around. The VM is also not a state bag for non-view consumers; if AppDelegate or a use case needs information, surface it through the use case's own state, not by reaching into the VM.
 - DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
 - Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
 - **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, view models) consume the resolved types and never see UIDs.
@@ -40,7 +41,7 @@
   ```
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
-- Prefer a computed `var` over a `func` with no parameters. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`.
+- Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
 - Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper init, scope it via a `private extension` in the consumer's own file. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
 
 ## Naming Conventions
@@ -208,3 +209,9 @@ struct FooTests {
 - Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
 - For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
 - Read the test's name to identify which mock(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary mocks with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental mocks, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those mocks, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-mock orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named mock.
+
+## Testing through DI seams
+
+- Direct unit tests target code that sits behind a real dependency-injection seam — a protocol injected via the module's `Dependencies` factory. Tests that reach past `private` scope, exercise file-private extensions, or pull a standalone helper out for isolated assertions are hacks.
+- When a helper has no DI seam (a `private extension`, a small inline transformation, an internal `enum` namespace), don't add a test that targets it directly. Either test it through the consumer that uses it (the VM, the store, the engine), or — if the testing need is real — extract it into a properly injected dependency. The seam should be motivated by the behavior's importance, not invented to make a test possible.
+- Corollary: not every Swift file deserves a sibling test file. Some code's only meaningful test lives one layer up.

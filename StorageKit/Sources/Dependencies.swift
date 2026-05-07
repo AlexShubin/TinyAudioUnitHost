@@ -8,8 +8,10 @@
 
 public struct Dependencies: Sendable {
     public let rawSettingsStore: RawSettingsStoreType
+    public let rawPresetStore: RawPresetStoreType
 
     public static let live = Dependencies(
-        rawSettingsStore: RawSettingsStore(fileStorage: FileStorage())
+        rawSettingsStore: RawSettingsStore(fileStorage: FileStorage()),
+        rawPresetStore: RawPresetStore(fileStorage: FileStorage())
     )
 }

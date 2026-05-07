@@ -12,19 +12,19 @@ public protocol RawSettingsStoreType: Sendable {
 }
 
 final actor RawSettingsStore: RawSettingsStoreType {
-    private static let key = "audio_settings"
+    private static let path = "audio_settings"
     private let fileStorage: FileStorageType
     private var settings: RawAudioSettings
 
     init(fileStorage: FileStorageType) {
         self.fileStorage = fileStorage
-        self.settings = fileStorage.read(RawAudioSettings.self, key: Self.key) ?? .empty
+        self.settings = fileStorage.read(RawAudioSettings.self, at: Self.path) ?? .empty
     }
 
     func current() -> RawAudioSettings { settings }
 
     func update(_ transform: @Sendable (inout RawAudioSettings) -> Void) {
         transform(&settings)
-        fileStorage.write(settings, key: Self.key)
+        fileStorage.write(settings, at: Self.path)
     }
 }

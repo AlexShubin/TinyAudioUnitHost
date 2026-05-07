@@ -7,21 +7,34 @@
 //
 
 import AudioSettingsKit
+import AudioUnitsKit
 import EngineKit
+import PresetKit
 import SwiftUI
 
 struct Dependencies: Sendable {
     let audioSettings: AudioSettingsKit.Dependencies
+    let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
+    let presets: PresetKit.Dependencies
+    let sessionPersister: SessionPersisterType
 
     static let live: Dependencies = {
-        Dependencies(audioSettings: .live, engine: .live)
+        Dependencies(
+            audioSettings: .live,
+            audioUnits: .live,
+            engine: .live,
+            presets: .live,
+            sessionPersister: SessionPersister(presetProvider: PresetKit.Dependencies.live.presetProvider)
+        )
     }()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             engine: engine.engine,
-            library: engine.audioUnitComponentsLibrary
+            library: audioUnits.audioUnitComponentsLibrary,
+            presetProvider: presets.presetProvider,
+            sessionPersister: sessionPersister
         )
     }
 

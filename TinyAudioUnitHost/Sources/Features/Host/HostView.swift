@@ -63,9 +63,16 @@ struct HostView: View {
                     AudioUnitView(audioUnit: audioUnit)
                 }
             }
-            .navigationTitle("Preset: Default")
+            .navigationTitle(viewModel.presetTitle)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        Task { await viewModel.accept(action: .saveCurrentPreset) }
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .help("Save preset")
+                    Spacer()
                     SettingsLink {
                         Image(systemName: "gear")
                     }

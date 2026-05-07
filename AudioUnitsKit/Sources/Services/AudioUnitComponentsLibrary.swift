@@ -1,6 +1,6 @@
 //
 //  AudioUnitComponentsLibrary.swift
-//  EngineKit
+//  AudioUnitsKit
 //
 //  Created by Alex Shubin on 20.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.

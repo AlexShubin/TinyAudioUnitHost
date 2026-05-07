@@ -7,10 +7,11 @@
 //
 
 import AudioSettingsKit
+import AudioUnitsKit
 import AVFoundation
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit?
+    func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit?
     func reload() async
 }
 
@@ -40,11 +41,12 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent) async -> LoadedAudioUnit? {
+    func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit? {
         engine.stop()
         disconnect()
 
         guard let loaded = await loadAudioUnit(component) else { return nil }
+        if let state { loaded.audioUnit.fullState = state }
 
         await applyConnections()
         try? engine.start()
@@ -148,7 +150,7 @@ final actor Engine: EngineType {
 
             coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
 
-            return LoadedAudioUnit(component: component, auAudioUnit: avAudioUnit.auAudioUnit)
+            return LoadedAudioUnit(component: component, audioUnit: AUAudioUnitWrapper(avAudioUnit.auAudioUnit))
         } catch {
             return nil
         }

@@ -1,7 +1,7 @@
 import ProjectDescription
 
 let project = Project(
-    name: "EngineKit",
+    name: "PresetKit",
     options: .options(automaticSchemesOptions: .enabled(codeCoverageEnabled: true)),
     settings: .settings(
         base: [
@@ -19,50 +19,48 @@ let project = Project(
     ),
     targets: [
         .target(
-            name: "EngineKit",
+            name: "PresetKit",
             destinations: .macOS,
             product: .staticFramework,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKit",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.PresetKit",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "Sources",
             ],
             dependencies: [
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
-                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
             ]
         ),
         .target(
-            name: "EngineKitTestSupport",
+            name: "PresetKitTestSupport",
             destinations: .macOS,
             product: .staticFramework,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTestSupport",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.PresetKitTestSupport",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "TestSupport",
             ],
             dependencies: [
-                .target(name: "EngineKit"),
-                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
+                .target(name: "PresetKit"),
                 .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
+                .project(target: "AudioUnitsKitTestSupport", path: .relativeToManifest("../AudioUnitsKit")),
             ]
         ),
         .target(
-            name: "EngineKitTests",
+            name: "PresetKitTests",
             destinations: .macOS,
             product: .unitTests,
-            bundleId: "com.alexshubin.TinyAudioUnitHost.EngineKitTests",
+            bundleId: "com.alexshubin.TinyAudioUnitHost.PresetKitTests",
             deploymentTargets: .macOS("26.0"),
             buildableFolders: [
                 "Tests",
             ],
             dependencies: [
-                .target(name: "EngineKit"),
+                .target(name: "PresetKit"),
+                .target(name: "PresetKitTestSupport"),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
-                .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
-                .project(target: "AudioSettingsKitTestSupport", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
                 .project(target: "AudioUnitsKitTestSupport", path: .relativeToManifest("../AudioUnitsKit")),
             ]

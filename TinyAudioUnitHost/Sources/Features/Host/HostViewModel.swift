@@ -6,13 +6,16 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
 import EngineKit
 import Observation
+import PresetKit
 
 enum HostViewModelAction {
     case task
     case selected(AudioUnitComponent)
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
+    case saveCurrentPreset
 }
 
 enum HostContent: Sendable, Equatable {
@@ -26,6 +29,7 @@ protocol HostViewModelType: Observable {
     var groups: [ManufacturerGroup] { get }
     var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
+    var presetTitle: String { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -34,31 +38,70 @@ final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var content: HostContent = .empty
+    private(set) var isModified: Bool = false
+
+    var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
+    @ObservationIgnored private let presetProvider: PresetProviderType
+    @ObservationIgnored private let sessionPersister: SessionPersisterType
+    @ObservationIgnored private var modificationTask: Task<Void, Never>?
 
     init(
         engine: EngineType,
-        library: AudioUnitComponentsLibraryType
+        library: AudioUnitComponentsLibraryType,
+        presetProvider: PresetProviderType,
+        sessionPersister: SessionPersisterType
     ) {
         self.engine = engine
         self.library = library
+        self.presetProvider = presetProvider
+        self.sessionPersister = sessionPersister
     }
 
     func accept(action: HostViewModelAction) async {
         switch action {
         case .task:
             groups = grouped(library.components)
+            guard case .empty = content else { return }
+            let session = await presetProvider.load(slot: .session)
+            let preset = await presetProvider.load(slot: .default)
+            guard let active = session ?? preset,
+                  let loaded = await engine.load(component: active.component, state: active.state) else { return }
+            selectedComponent = active.component
+            content = .loaded(loaded)
+            isModified = session != nil && session != preset
+            await sessionPersister.setCurrent(loaded)
+            installModificationListener(for: loaded)
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            if let loaded = await engine.load(component: component) {
+            isModified = true
+            if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
+                await sessionPersister.setCurrent(loaded)
+                installModificationListener(for: loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
+        case .saveCurrentPreset:
+            guard case .loaded(let loaded) = content,
+                  let state = loaded.audioUnit.fullState else { return }
+            let preset = Preset(component: loaded.component, state: state)
+            await presetProvider.save(preset, slot: .default)
+            await presetProvider.save(preset, slot: .session)
+            isModified = false
+        }
+    }
+
+    private func installModificationListener(for loaded: LoadedAudioUnit) {
+        modificationTask?.cancel()
+        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
+            for await _ in audioUnit.modifications {
+                self?.isModified = true
+            }
         }
     }
 
