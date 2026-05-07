@@ -98,7 +98,7 @@ final class HostViewModel: HostViewModelType {
 
     private func installModificationListener(for loaded: LoadedAudioUnit) {
         modificationTask?.cancel()
-        modificationTask = Task { @MainActor [weak self, audioUnit = loaded.audioUnit] in
+        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
             for await _ in audioUnit.modifications {
                 self?.isModified = true
             }
