@@ -10,11 +10,15 @@ import SwiftUI
 
 @main
 struct TinyAudioUnitHostApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @Environment(\.dependencies) private var dependencies
 
     var body: some Scene {
         WindowGroup {
             HostView(viewModel: dependencies.makeHostViewModel())
+                .task {
+                    delegate.quitCoordinator = dependencies.quitCoordinator
+                }
         }
         .windowResizability(.contentSize)
 

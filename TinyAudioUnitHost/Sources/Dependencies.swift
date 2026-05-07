@@ -17,9 +17,16 @@ struct Dependencies: Sendable {
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
+    let quitCoordinator: QuitCoordinatorType
 
     static let live: Dependencies = {
-        Dependencies(audioSettings: .live, audioUnits: .live, engine: .live, presets: .live)
+        Dependencies(
+            audioSettings: .live,
+            audioUnits: .live,
+            engine: .live,
+            presets: .live,
+            quitCoordinator: QuitCoordinator()
+        )
     }()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
