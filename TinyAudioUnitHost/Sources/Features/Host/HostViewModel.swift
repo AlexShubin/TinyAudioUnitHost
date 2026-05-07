@@ -81,6 +81,7 @@ final class HostViewModel: HostViewModelType {
             if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
                 await sessionPersister.setCurrent(loaded)
+                installModificationListener(for: loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
@@ -92,7 +93,6 @@ final class HostViewModel: HostViewModelType {
             await presetProvider.save(preset, slot: .default)
             await presetProvider.save(preset, slot: .session)
             isModified = false
-            installModificationListener(for: loaded)
         }
     }
 
@@ -101,7 +101,6 @@ final class HostViewModel: HostViewModelType {
         modificationTask = Task { @MainActor [weak self, audioUnit = loaded.audioUnit] in
             for await _ in audioUnit.modifications {
                 self?.isModified = true
-                break
             }
         }
     }

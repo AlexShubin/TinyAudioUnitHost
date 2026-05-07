@@ -41,6 +41,21 @@ struct HostViewModelTests {
         )
     }
 
+    /// Triggers a parameter change on the AU and awaits the VM's reactive update
+    /// to `presetTitle` via Observation tracking. Modifications use unbounded
+    /// buffering, so the trigger may fire before or after the listener task
+    /// reaches its for-await suspension — either way the value lands.
+    private func triggerAndAwaitTitleChange(_ auMock: AUAudioUnitMock) async {
+        await withCheckedContinuation { continuation in
+            withObservationTracking {
+                _ = sut.presetTitle
+            } onChange: {
+                continuation.resume()
+            }
+            auMock.triggerOnChange()
+        }
+    }
+
     // MARK: - task
 
     @Test
@@ -324,8 +339,7 @@ struct HostViewModelTests {
         await sut.accept(action: .task)
         #expect(sut.presetTitle == "Preset: Default")
 
-        auMock.triggerOnChange()
-        try? await Task.sleep(for: .milliseconds(20))
+        await triggerAndAwaitTitleChange(auMock)
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
@@ -341,8 +355,7 @@ struct HostViewModelTests {
         await sut.accept(action: .saveCurrentPreset)
         #expect(sut.presetTitle == "Preset: Default")
 
-        auMock.triggerOnChange()
-        try? await Task.sleep(for: .milliseconds(20))
+        await triggerAndAwaitTitleChange(auMock)
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
