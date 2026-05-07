@@ -10,16 +10,16 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var onQuit: (@Sendable () async -> Void)?
+    var sessionPersister: SessionPersisterType?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let onQuit else { return .terminateNow }
+        guard let sessionPersister else { return .terminateNow }
         Task { @MainActor in
-            await onQuit()
+            await sessionPersister.persistSession()
             NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
