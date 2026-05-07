@@ -10,28 +10,28 @@ import PresetKit
 
 public actor PresetProviderMock: PresetProviderType {
     public enum Calls: Equatable, Sendable {
-        case load(name: String)
-        case save(Preset, name: String)
+        case load(slot: PresetSlot)
+        case save(Preset, slot: PresetSlot)
     }
 
     public private(set) var calls: [Calls] = []
-    public var presets: [String: Preset]
+    public var presets: [PresetSlot: Preset]
 
-    public init(presets: [String: Preset] = [:]) {
+    public init(presets: [PresetSlot: Preset] = [:]) {
         self.presets = presets
     }
 
-    public func load(name: String) -> Preset? {
-        calls.append(.load(name: name))
-        return presets[name]
+    public func load(slot: PresetSlot) -> Preset? {
+        calls.append(.load(slot: slot))
+        return presets[slot]
     }
 
-    public func save(_ preset: Preset, name: String) {
-        presets[name] = preset
-        calls.append(.save(preset, name: name))
+    public func save(_ preset: Preset, slot: PresetSlot) {
+        presets[slot] = preset
+        calls.append(.save(preset, slot: slot))
     }
 
-    public func setPresets(_ value: [String: Preset]) {
+    public func setPresets(_ value: [PresetSlot: Preset]) {
         presets = value
     }
 }

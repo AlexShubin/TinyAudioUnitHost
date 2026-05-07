@@ -10,8 +10,8 @@ import AudioUnitsKit
 import StorageKit
 
 public protocol PresetProviderType: Sendable {
-    func load(name: String) async -> Preset?
-    func save(_ preset: Preset, name: String) async
+    func load(slot: PresetSlot) async -> Preset?
+    func save(_ preset: Preset, slot: PresetSlot) async
 }
 
 final actor PresetProvider: PresetProviderType {
@@ -23,14 +23,21 @@ final actor PresetProvider: PresetProviderType {
         self.library = library
     }
 
-    func load(name: String) async -> Preset? {
-        guard let raw = await rawStore.load(name: name),
+    func load(slot: PresetSlot) async -> Preset? {
+        guard let raw = await rawStore.load(name: name(for: slot)),
               let component = resolve(raw) else { return nil }
         return Preset(component: component, state: raw.state)
     }
 
-    func save(_ preset: Preset, name: String) async {
-        await rawStore.save(raw(from: preset), name: name)
+    func save(_ preset: Preset, slot: PresetSlot) async {
+        await rawStore.save(raw(from: preset), name: name(for: slot))
+    }
+
+    private func name(for slot: PresetSlot) -> String {
+        switch slot {
+        case .session: "raw_session"
+        case .default: "default"
+        }
     }
 
     private func resolve(_ raw: RawPreset) -> AudioUnitComponent? {
