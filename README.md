@@ -4,7 +4,7 @@
 
 🎛️ Pick any effect AU from the sidebar, route your mic or audio interface through it, and listen to the result. Useful for practicing — when you just need a piano to sing along to, or a single guitar amp sim, without firing up something heavy like Logic.
 
-🧪 Built with `AVAudioEngine`, SwiftUI, and Swift 6 strict concurrency. Zero external dependencies — only Apple frameworks.
+🧪 Built directly on Apple's audio stack — Core Audio (aggregate devices, channel maps, low-level device control), `AVAudioEngine`, CoreMIDI, and CoreAudioKit for AU GUIs. SwiftUI front-end. Swift 6 strict concurrency. Zero external dependencies. Modular architecture with Tuist.
 
 🎸 A small idea that I'll be growing over time. Let's see where it goes.
 
