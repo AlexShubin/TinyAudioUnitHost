@@ -49,6 +49,7 @@ struct HostView: View {
             }
             .listStyle(.sidebar)
             .disabled(viewModel.content == .loading)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             Group {
                 switch viewModel.content {
