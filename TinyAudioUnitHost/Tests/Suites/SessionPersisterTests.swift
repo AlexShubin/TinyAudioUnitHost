@@ -8,8 +8,6 @@
 
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
-import EngineKit
-import EngineKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport

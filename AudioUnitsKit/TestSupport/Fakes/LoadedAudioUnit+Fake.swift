@@ -1,14 +1,12 @@
 //
 //  LoadedAudioUnit+Fake.swift
-//  EngineKitTestSupport
+//  AudioUnitsKitTestSupport
 //
 //  Created by Alex Shubin on 04.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AudioUnitsKit
-import AudioUnitsKitTestSupport
-import EngineKit
 import Foundation
 
 public extension LoadedAudioUnit {
