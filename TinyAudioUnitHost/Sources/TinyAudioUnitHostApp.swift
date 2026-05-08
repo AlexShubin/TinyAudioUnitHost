@@ -17,7 +17,7 @@ struct TinyAudioUnitHostApp: App {
         WindowGroup {
             HostView(viewModel: dependencies.makeHostViewModel())
                 .task {
-                    delegate.presetManager = dependencies.presets.presetManager
+                    delegate.quitCoordinator = dependencies.quitCoordinator
                 }
         }
         .windowResizability(.contentSize)

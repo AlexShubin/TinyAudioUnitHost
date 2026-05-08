@@ -7,21 +7,20 @@
 //
 
 import AppKit
-import PresetKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var presetManager: PresetManagerType?
+    var quitCoordinator: QuitCoordinatorType?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let presetManager else { return .terminateNow }
+        guard let quitCoordinator else { return .terminateNow }
         Task { @MainActor in
-            await presetManager.persistSession()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            let proceed = await quitCoordinator.requestQuit()
+            NSApp.reply(toApplicationShouldTerminate: proceed)
         }
         return .terminateLater
     }

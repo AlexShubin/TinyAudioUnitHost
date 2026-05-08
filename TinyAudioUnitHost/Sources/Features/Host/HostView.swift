@@ -82,5 +82,24 @@ struct HostView: View {
         .task {
             await viewModel.accept(action: .task)
         }
+        .alert(
+            "Save preset before quitting?",
+            isPresented: Binding(
+                get: { viewModel.isQuitAlertShown },
+                set: { _ in }
+            )
+        ) {
+            Button("Save") {
+                Task { await viewModel.accept(action: .quit(.save)) }
+            }
+            Button("Don't Save", role: .destructive) {
+                Task { await viewModel.accept(action: .quit(.discard)) }
+            }
+            Button("Cancel", role: .cancel) {
+                Task { await viewModel.accept(action: .quit(.cancel)) }
+            }
+        } message: {
+            Text("Your preset has unsaved changes.")
+        }
     }
 }

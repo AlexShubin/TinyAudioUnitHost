@@ -10,57 +10,31 @@ import AudioUnitsKit
 import StorageKit
 
 public protocol PresetManagerType: Sendable {
-    func loadActive() async -> ActivePreset?
-    func setCurrent(_ loaded: LoadedAudioUnit?) async
-    func save() async
-    func persistSession() async
+    func load() async -> Preset?
+    func save(_ loaded: LoadedAudioUnit) async
 }
 
 final actor PresetManager: PresetManagerType {
-    private static let defaultName = "default"
-    private static let sessionName = "raw_session"
+    private static let presetName = "default"
 
     private let rawStore: RawPresetStoreType
     private let library: AudioUnitComponentsLibraryType
-    private var current: LoadedAudioUnit?
 
     init(rawStore: RawPresetStoreType, library: AudioUnitComponentsLibraryType) {
         self.rawStore = rawStore
         self.library = library
     }
 
-    func loadActive() async -> ActivePreset? {
-        let session = await loadPreset(name: Self.sessionName)
-        let saved = await loadPreset(name: Self.defaultName)
-        guard let active = session ?? saved else { return nil }
-        let isModified = session != nil && session != saved
-        return ActivePreset(preset: active, isModified: isModified)
-    }
-
-    func setCurrent(_ loaded: LoadedAudioUnit?) {
-        current = loaded
-    }
-
-    func save() async {
-        guard let current, let state = current.audioUnit.fullState else { return }
-        let preset = Preset(component: current.component, state: state)
-        await savePreset(preset, name: Self.defaultName)
-        await savePreset(preset, name: Self.sessionName)
-    }
-
-    func persistSession() async {
-        guard let current, let state = current.audioUnit.fullState else { return }
-        await savePreset(Preset(component: current.component, state: state), name: Self.sessionName)
-    }
-
-    private func loadPreset(name: String) async -> Preset? {
-        guard let raw = await rawStore.load(name: name),
+    func load() async -> Preset? {
+        guard let raw = await rawStore.load(name: Self.presetName),
               let component = resolve(raw) else { return nil }
         return Preset(component: component, state: raw.state)
     }
 
-    private func savePreset(_ preset: Preset, name: String) async {
-        await rawStore.save(raw(from: preset), name: name)
+    func save(_ loaded: LoadedAudioUnit) async {
+        guard let state = loaded.audioUnit.fullState else { return }
+        let preset = Preset(component: loaded.component, state: state)
+        await rawStore.save(raw(from: preset), name: Self.presetName)
     }
 
     private func resolve(_ raw: RawPreset) -> AudioUnitComponent? {
