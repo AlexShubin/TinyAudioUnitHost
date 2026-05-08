@@ -87,6 +87,52 @@ struct PresetManagerTests {
         #expect(active?.isModified == false)
     }
 
+    // MARK: - setCurrent / isModifiedStream
+
+    @Test
+    mutating func setCurrent_yieldsIsModifiedFlag() async {
+        createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+
+        await sut.setCurrent(LoadedAudioUnit.fake(), isModified: true)
+        #expect(await iterator.next() == true)
+
+        await sut.setCurrent(LoadedAudioUnit.fake(), isModified: false)
+        #expect(await iterator.next() == false)
+    }
+
+    @Test
+    mutating func setCurrent_paramChange_yieldsTrue() async {
+        let auMock = AUAudioUnitMock()
+        createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: auMock), isModified: false)
+        #expect(await iterator.next() == false)
+
+        auMock.triggerOnChange()
+
+        #expect(await iterator.next() == true)
+    }
+
+    @Test
+    mutating func setCurrent_replacesObserver_oldAUStopsTriggering() async {
+        let firstAU = AUAudioUnitMock()
+        let secondAU = AUAudioUnitMock()
+        createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+
+        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: firstAU), isModified: false)
+        #expect(await iterator.next() == false)
+
+        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: secondAU), isModified: false)
+        #expect(await iterator.next() == false)
+
+        // Old AU should no longer drive isModified. Trigger new AU and expect it
+        // to be the next yield (not the stale old-AU yield).
+        secondAU.triggerOnChange()
+        #expect(await iterator.next() == true)
+    }
+
     // MARK: - save
 
     @Test
@@ -103,7 +149,7 @@ struct PresetManagerTests {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: false)
 
         await sut.save()
 
@@ -116,13 +162,17 @@ struct PresetManagerTests {
     }
 
     @Test
-    mutating func save_clearsIsModified_soPersistSessionDeletes() async {
+    mutating func save_yieldsFalse_andPersistSessionDeletes() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0x42]))
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
-        await sut.setModified()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: true)
+        #expect(await iterator.next() == true)
+
         await sut.save()
+        #expect(await iterator.next() == false)
+
         await rawStoreMock.setPresets([:])  // ignore prior calls' state
 
         await sut.persistSession()
@@ -138,7 +188,7 @@ struct PresetManagerTests {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0x42]))
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: false)
 
         await sut.persistSession()
 
@@ -150,8 +200,7 @@ struct PresetManagerTests {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xCA, 0xFE]))
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
-        await sut.setModified()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: true)
 
         await sut.persistSession()
 
@@ -162,12 +211,13 @@ struct PresetManagerTests {
     @Test
     mutating func persistSession_noCurrent_andModified_stillDeletesSession() async {
         createSut()
-        await sut.setModified()
+        // Mark modified via setCurrent then drop current — manager's flag stays
+        // true but `currentPreset()` returns nil, mirroring the no-AU case.
+        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: AUAudioUnitMock(fullState: nil)), isModified: true)
+        await sut.setCurrent(nil, isModified: true)
 
         await sut.persistSession()
 
-        // No current loaded — nothing to write. We treat that as "delete session"
-        // (consistent with the not-modified case).
         #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
     }
 

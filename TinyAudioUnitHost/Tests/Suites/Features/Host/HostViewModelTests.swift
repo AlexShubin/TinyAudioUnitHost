@@ -38,14 +38,14 @@ struct HostViewModelTests {
         )
     }
 
-    private func triggerAndAwaitTitleChange(_ auMock: AUAudioUnitMock) async {
+    private func awaitTitleChange(_ trigger: @MainActor @escaping () async -> Void) async {
         await withCheckedContinuation { continuation in
             withObservationTracking {
                 _ = sut.presetTitle
             } onChange: {
                 continuation.resume()
             }
-            auMock.triggerOnChange()
+            Task { @MainActor in await trigger() }
         }
     }
 
@@ -157,8 +157,9 @@ struct HostViewModelTests {
         presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: true))
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
+        let sut = sut!
 
-        await sut.accept(action: .task)
+        await awaitTitleChange { await sut.accept(action: .task) }
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
@@ -175,7 +176,7 @@ struct HostViewModelTests {
         await sut.accept(action: .task)
 
         let calls = await presetManagerMock.calls
-        #expect(calls.contains(.setCurrent(loaded)))
+        #expect(calls.contains(.setCurrent(loaded, isModified: false)))
     }
 
     @Test
@@ -241,9 +242,11 @@ struct HostViewModelTests {
     @Test
     mutating func selected_marksTitleModified() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
+        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
+        let sut = sut!
 
-        await sut.accept(action: .selected(component))
+        await awaitTitleChange { await sut.accept(action: .selected(component)) }
 
         #expect(sut.presetTitle == "Preset: Default*")
     }
@@ -258,8 +261,7 @@ struct HostViewModelTests {
         await sut.accept(action: .selected(component))
 
         let calls = await presetManagerMock.calls
-        #expect(calls.contains(.setCurrent(loaded)))
-        #expect(calls.contains(.setModified))
+        #expect(calls.contains(.setCurrent(loaded, isModified: true)))
     }
 
     // MARK: - saveCurrentPreset
@@ -270,10 +272,12 @@ struct HostViewModelTests {
         let loaded = LoadedAudioUnit.fake(component: component)
         await engineMock.setLoadResult(loaded)
         createSut()
-        await sut.accept(action: .selected(component))
+        let sut = sut!
+
+        await awaitTitleChange { await sut.accept(action: .selected(component)) }
         #expect(sut.presetTitle == "Preset: Default*")
 
-        await sut.accept(action: .saveCurrentPreset)
+        await awaitTitleChange { await sut.accept(action: .saveCurrentPreset) }
 
         #expect(sut.presetTitle == "Preset: Default")
         #expect(await presetManagerMock.calls.contains(.save))
@@ -288,40 +292,32 @@ struct HostViewModelTests {
         #expect(await presetManagerMock.calls == [])
     }
 
-    @Test
-    mutating func task_paramChange_marksTitleModifiedAndPublishesToManager() async {
-        let component = AudioUnitComponent.fake()
-        let preset = Preset(component: component, state: Data())
-        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
-        let auMock = AUAudioUnitMock()
-        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
-        createSut()
+    // MARK: - isModifiedStream proxy
 
-        await sut.accept(action: .task)
+    @Test
+    mutating func isModifiedStream_yieldsTrue_marksTitleModified() async {
+        createSut()
+        let sut = sut!
+        let mock = presetManagerMock!
         #expect(sut.presetTitle == "Preset: Default")
 
-        await triggerAndAwaitTitleChange(auMock)
+        await awaitTitleChange { await mock.emitIsModified(true) }
 
         #expect(sut.presetTitle == "Preset: Default*")
-        // Wait briefly for the in-Task setModified call to land.
-        try? await Task.sleep(for: .milliseconds(20))
-        #expect(await presetManagerMock.calls.contains(.setModified))
     }
 
     @Test
-    mutating func saveCurrentPreset_paramChangeAfterSave_marksTitleModified() async {
-        let component = AudioUnitComponent.fake()
-        let auMock = AUAudioUnitMock(fullState: Data([0x42]))
-        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+    mutating func isModifiedStream_yieldsFalseAfterTrue_clearsTitle() async {
         createSut()
-        await sut.accept(action: .selected(component))
+        let sut = sut!
+        let mock = presetManagerMock!
+
+        await awaitTitleChange { await mock.emitIsModified(true) }
         #expect(sut.presetTitle == "Preset: Default*")
-        await sut.accept(action: .saveCurrentPreset)
+
+        await awaitTitleChange { await mock.emitIsModified(false) }
+
         #expect(sut.presetTitle == "Preset: Default")
-
-        await triggerAndAwaitTitleChange(auMock)
-
-        #expect(sut.presetTitle == "Preset: Default*")
     }
 
     // MARK: - presetTitle

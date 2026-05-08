@@ -12,8 +12,7 @@ import PresetKit
 public actor PresetManagerMock: PresetManagerType {
     public enum Calls: Equatable, Sendable {
         case load
-        case setCurrent(LoadedAudioUnit?)
-        case setModified
+        case setCurrent(LoadedAudioUnit?, isModified: Bool)
         case save
         case persistSession
     }
@@ -21,8 +20,18 @@ public actor PresetManagerMock: PresetManagerType {
     public private(set) var calls: [Calls] = []
     public var activePreset: ActivePreset?
 
+    public nonisolated let isModifiedStream: AsyncStream<Bool>
+    private let continuation: AsyncStream<Bool>.Continuation
+
     public init(activePreset: ActivePreset? = nil) {
         self.activePreset = activePreset
+        let (stream, continuation) = AsyncStream<Bool>.makeStream()
+        self.isModifiedStream = stream
+        self.continuation = continuation
+    }
+
+    deinit {
+        continuation.finish()
     }
 
     public func load() -> ActivePreset? {
@@ -30,16 +39,14 @@ public actor PresetManagerMock: PresetManagerType {
         return activePreset
     }
 
-    public func setCurrent(_ loaded: LoadedAudioUnit?) {
-        calls.append(.setCurrent(loaded))
-    }
-
-    public func setModified() {
-        calls.append(.setModified)
+    public func setCurrent(_ loaded: LoadedAudioUnit?, isModified: Bool) {
+        calls.append(.setCurrent(loaded, isModified: isModified))
+        continuation.yield(isModified)
     }
 
     public func save() {
         calls.append(.save)
+        continuation.yield(false)
     }
 
     public func persistSession() {
@@ -48,5 +55,9 @@ public actor PresetManagerMock: PresetManagerType {
 
     public func setActivePreset(_ value: ActivePreset?) {
         activePreset = value
+    }
+
+    public func emitIsModified(_ value: Bool) {
+        continuation.yield(value)
     }
 }

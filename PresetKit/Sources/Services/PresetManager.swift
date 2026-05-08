@@ -10,18 +10,20 @@ import AudioUnitsKit
 import StorageKit
 
 public protocol PresetManagerType: Sendable {
+    /// Yields the current modified flag every time it changes (preset load,
+    /// component swap, parameter change, save).
+    var isModifiedStream: AsyncStream<Bool> { get }
+
     /// Returns the preset to load on launch. If a session exists on disk, it
     /// wins (and `isModified` is `true`); otherwise the saved default is
     /// returned (with `isModified` `false`).
     func load() async -> ActivePreset?
 
-    /// Records the currently-loaded AU. The manager keeps a strong reference
-    /// so it can read `fullState` at quit time even after the VM has
-    /// deinit'd.
-    func setCurrent(_ loaded: LoadedAudioUnit?) async
-
-    /// Marks the in-memory state as modified. Doesn't touch disk.
-    func setModified() async
+    /// Records the currently-loaded AU and the modified state to start from.
+    /// The manager keeps a strong reference to the AU so it can read
+    /// `fullState` at quit time, and observes parameter changes to flip the
+    /// modified flag.
+    func setCurrent(_ loaded: LoadedAudioUnit?, isModified: Bool) async
 
     /// User-initiated save. Writes the current AU's state to the default
     /// preset, deletes any session, clears the modified flag.
@@ -37,41 +39,55 @@ final actor PresetManager: PresetManagerType {
     private static let defaultName = "default"
     private static let sessionName = "raw_session"
 
+    nonisolated let isModifiedStream: AsyncStream<Bool>
+    private let continuation: AsyncStream<Bool>.Continuation
+
     private let rawStore: RawPresetStoreType
     private let library: AudioUnitComponentsLibraryType
     private var current: LoadedAudioUnit?
     private var isModified: Bool = false
+    private var observationTask: Task<Void, Never>?
 
     init(rawStore: RawPresetStoreType, library: AudioUnitComponentsLibraryType) {
         self.rawStore = rawStore
         self.library = library
+        let (stream, continuation) = AsyncStream<Bool>.makeStream()
+        self.isModifiedStream = stream
+        self.continuation = continuation
+    }
+
+    deinit {
+        continuation.finish()
+        observationTask?.cancel()
     }
 
     func load() async -> ActivePreset? {
         if let session = await loadResolved(name: Self.sessionName) {
-            isModified = true
             return ActivePreset(preset: session, isModified: true)
         }
         if let saved = await loadResolved(name: Self.defaultName) {
-            isModified = false
             return ActivePreset(preset: saved, isModified: false)
         }
         return nil
     }
 
-    func setCurrent(_ loaded: LoadedAudioUnit?) {
+    func setCurrent(_ loaded: LoadedAudioUnit?, isModified: Bool) {
         current = loaded
-    }
-
-    func setModified() {
-        isModified = true
+        observationTask?.cancel()
+        setIsModified(isModified)
+        guard let loaded else { return }
+        observationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
+            for await _ in audioUnit.modifications {
+                await self?.setIsModified(true)
+            }
+        }
     }
 
     func save() async {
         guard let preset = currentPreset() else { return }
         await rawStore.save(raw(from: preset), name: Self.defaultName)
         await rawStore.delete(name: Self.sessionName)
-        isModified = false
+        setIsModified(false)
     }
 
     func persistSession() async {
@@ -80,6 +96,11 @@ final actor PresetManager: PresetManagerType {
         } else {
             await rawStore.delete(name: Self.sessionName)
         }
+    }
+
+    private func setIsModified(_ value: Bool) {
+        isModified = value
+        continuation.yield(value)
     }
 
     private func currentPreset() -> Preset? {

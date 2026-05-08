@@ -46,7 +46,7 @@ final class HostViewModel: HostViewModelType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let presetManager: PresetManagerType
-    @ObservationIgnored private var modificationTask: Task<Void, Never>?
+    @ObservationIgnored private var modificationListener: Task<Void, Never>?
 
     init(
         engine: EngineType,
@@ -56,6 +56,15 @@ final class HostViewModel: HostViewModelType {
         self.engine = engine
         self.library = library
         self.presetManager = presetManager
+        modificationListener = Task { [weak self, presetManager] in
+            for await flag in presetManager.isModifiedStream {
+                self?.isModified = flag
+            }
+        }
+    }
+
+    deinit {
+        modificationListener?.cancel()
     }
 
     func accept(action: HostViewModelAction) async {
@@ -68,18 +77,13 @@ final class HostViewModel: HostViewModelType {
             else { return }
             selectedComponent = active.preset.component
             content = .loaded(loaded)
-            isModified = active.isModified
-            await presetManager.setCurrent(loaded)
-            installModificationListener(for: loaded)
+            await presetManager.setCurrent(loaded, isModified: active.isModified)
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            isModified = true
             if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
-                await presetManager.setCurrent(loaded)
-                await presetManager.setModified()
-                installModificationListener(for: loaded)
+                await presetManager.setCurrent(loaded, isModified: true)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
@@ -87,17 +91,6 @@ final class HostViewModel: HostViewModelType {
         case .saveCurrentPreset:
             guard case .loaded = content else { return }
             await presetManager.save()
-            isModified = false
-        }
-    }
-
-    private func installModificationListener(for loaded: LoadedAudioUnit) {
-        modificationTask?.cancel()
-        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit, presetManager] in
-            for await _ in audioUnit.modifications {
-                self?.isModified = true
-                await presetManager.setModified()
-            }
         }
     }
 
