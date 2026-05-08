@@ -11,18 +11,11 @@ import EngineKit
 import Observation
 import PresetKit
 
-enum QuitDecision: Sendable {
-    case save
-    case discard
-    case cancel
-}
-
 enum HostViewModelAction {
     case task
     case selected(AudioUnitComponent)
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
     case saveCurrentPreset
-    case quit(QuitDecision)
 }
 
 enum HostContent: Sendable, Equatable {
@@ -32,12 +25,12 @@ enum HostContent: Sendable, Equatable {
 }
 
 @MainActor
-protocol HostViewModelType: Observable {
+protocol HostViewModelType: AnyObject, Observable {
     var groups: [ManufacturerGroup] { get }
     var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
     var presetTitle: String { get }
-    var isQuitAlertShown: Bool { get }
+    var isModified: Bool { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -47,28 +40,22 @@ final class HostViewModel: HostViewModelType {
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var content: HostContent = .empty
     private(set) var isModified: Bool = false
-    private(set) var isQuitAlertShown: Bool = false
 
     var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let presetManager: PresetManagerType
-    @ObservationIgnored private let quitCoordinator: QuitCoordinatorType
     @ObservationIgnored private var modificationTask: Task<Void, Never>?
-    @ObservationIgnored private var quitRequestTask: Task<Void, Never>?
 
     init(
         engine: EngineType,
         library: AudioUnitComponentsLibraryType,
-        presetManager: PresetManagerType,
-        quitCoordinator: QuitCoordinatorType
+        presetManager: PresetManagerType
     ) {
         self.engine = engine
         self.library = library
         self.presetManager = presetManager
-        self.quitCoordinator = quitCoordinator
-        installQuitRequestListener()
     }
 
     func accept(action: HostViewModelAction) async {
@@ -76,12 +63,13 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             guard case .empty = content else { return }
-            guard let preset = await presetManager.load(),
-                  let loaded = await engine.load(component: preset.component, state: preset.state)
+            guard let active = await presetManager.load(),
+                  let loaded = await engine.load(component: active.preset.component, state: active.preset.state)
             else { return }
-            selectedComponent = preset.component
+            selectedComponent = active.preset.component
             content = .loaded(loaded)
-            isModified = false
+            isModified = active.isModified
+            await presetManager.setCurrent(loaded)
             installModificationListener(for: loaded)
         case .selected(let component):
             selectedComponent = component
@@ -89,48 +77,26 @@ final class HostViewModel: HostViewModelType {
             isModified = true
             if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
+                await presetManager.setCurrent(loaded)
+                await presetManager.setModified()
                 installModificationListener(for: loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
-            guard case .loaded(let loaded) = content else { return }
-            await presetManager.save(loaded)
+            guard case .loaded = content else { return }
+            await presetManager.save()
             isModified = false
-        case .quit(let decision):
-            switch decision {
-            case .save:
-                await accept(action: .saveCurrentPreset)
-                await quitCoordinator.resolve(proceed: true)
-            case .discard:
-                await quitCoordinator.resolve(proceed: true)
-            case .cancel:
-                await quitCoordinator.resolve(proceed: false)
-            }
-            isQuitAlertShown = false
-        }
-    }
-
-    private func installQuitRequestListener() {
-        quitRequestTask?.cancel()
-        quitRequestTask = Task { [weak self, coordinator = quitCoordinator] in
-            for await _ in coordinator.requests {
-                guard let self else { return }
-                if isModified {
-                    isQuitAlertShown = true
-                } else {
-                    await coordinator.resolve(proceed: true)
-                }
-            }
         }
     }
 
     private func installModificationListener(for loaded: LoadedAudioUnit) {
         modificationTask?.cancel()
-        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
+        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit, presetManager] in
             for await _ in audioUnit.modifications {
                 self?.isModified = true
+                await presetManager.setModified()
             }
         }
     }

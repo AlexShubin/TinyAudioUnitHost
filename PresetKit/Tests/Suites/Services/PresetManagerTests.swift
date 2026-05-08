@@ -33,93 +33,153 @@ struct PresetManagerTests {
     // MARK: - load
 
     @Test
-    mutating func load_noRawPreset_returnsNil() async {
+    mutating func load_noPresets_returnsNil() async {
         createSut()
 
         #expect(await sut.load() == nil)
     }
 
     @Test
-    mutating func load_readsRawAtName_default() async {
-        createSut()
-
-        _ = await sut.load()
-
-        #expect(await rawStoreMock.calls == [.load(name: "default")])
-    }
-
-    @Test
-    mutating func load_rawExistsButComponentNotInstalled_returnsNil() async {
-        let raw = RawPreset.fake(componentType: 99, componentSubType: 99, componentManufacturer: 99)
-        rawStoreMock = RawPresetStoreMock(presets: ["default": raw])
-        libraryMock = AudioUnitComponentsLibraryMock(components: [.fake()])
-        createSut()
-
-        #expect(await sut.load() == nil)
-    }
-
-    @Test
-    mutating func load_rawExistsAndComponentInstalled_returnsResolvedPreset() async {
+    mutating func load_onlyDefault_returnsItUnmodified() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let desc = component.componentDescription
-        let raw = RawPreset(
-            componentType: desc.componentType,
-            componentSubType: desc.componentSubType,
-            componentManufacturer: desc.componentManufacturer,
-            state: Data([0xDE, 0xAD])
-        )
-        rawStoreMock = RawPresetStoreMock(presets: ["default": raw])
+        rawStoreMock = RawPresetStoreMock(presets: ["default": rawPreset(matching: component, state: Data([0x01]))])
         libraryMock = AudioUnitComponentsLibraryMock(components: [component])
         createSut()
 
-        let preset = await sut.load()
+        let active = await sut.load()
 
-        #expect(preset?.component == component)
-        #expect(preset?.state == Data([0xDE, 0xAD]))
+        #expect(active?.preset.component == component)
+        #expect(active?.preset.state == Data([0x01]))
+        #expect(active?.isModified == false)
+    }
+
+    @Test
+    mutating func load_sessionPresent_returnsItModified() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        rawStoreMock = RawPresetStoreMock(presets: [
+            "default": rawPreset(matching: component, state: Data([0x01])),
+            "raw_session": rawPreset(matching: component, state: Data([0x02])),
+        ])
+        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        createSut()
+
+        let active = await sut.load()
+
+        #expect(active?.preset.state == Data([0x02]))
+        #expect(active?.isModified == true)
+    }
+
+    @Test
+    mutating func load_sessionPresentButComponentMissing_fallsBackToDefault() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        // Session references a component that isn't installed.
+        let sessionRaw = RawPreset.fake(componentType: 99, componentSubType: 99, componentManufacturer: 99)
+        rawStoreMock = RawPresetStoreMock(presets: [
+            "default": rawPreset(matching: component, state: Data([0x01])),
+            "raw_session": sessionRaw,
+        ])
+        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        createSut()
+
+        let active = await sut.load()
+
+        #expect(active?.preset.state == Data([0x01]))
+        #expect(active?.isModified == false)
     }
 
     // MARK: - save
 
     @Test
-    mutating func save_fullStateNil_doesNothing() async {
-        let auMock = AUAudioUnitMock(fullState: nil)
-        let loaded = LoadedAudioUnit.fake(audioUnit: auMock)
+    mutating func save_noCurrent_doesNothing() async {
         createSut()
 
-        await sut.save(loaded)
+        await sut.save()
 
         #expect(await rawStoreMock.calls == [])
     }
 
     @Test
-    mutating func save_writesRawAtName_default() async {
+    mutating func save_writesDefaultAndDeletesSession() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
         createSut()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
 
-        await sut.save(loaded)
+        await sut.save()
 
-        let desc = component.componentDescription
-        let expected = RawPreset(
-            componentType: desc.componentType,
-            componentSubType: desc.componentSubType,
-            componentManufacturer: desc.componentManufacturer,
-            state: Data([0xBE, 0xEF])
-        )
-        #expect(await rawStoreMock.calls == [.save(expected, name: "default")])
+        let expected = rawPreset(matching: component, state: Data([0xBE, 0xEF]))
+        let calls = await rawStoreMock.calls
+        #expect(calls == [
+            .save(expected, name: "default"),
+            .delete(name: "raw_session"),
+        ])
     }
 
     @Test
-    mutating func save_thenLoad_roundTrips() async {
+    mutating func save_clearsIsModified_soPersistSessionDeletes() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0x01, 0x02]))
-        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        let auMock = AUAudioUnitMock(fullState: Data([0x42]))
         createSut()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        await sut.setModified()
+        await sut.save()
+        await rawStoreMock.setPresets([:])  // ignore prior calls' state
 
-        await sut.save(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
-        let loaded = await sut.load()
+        await sut.persistSession()
 
-        #expect(loaded == Preset(component: component, state: Data([0x01, 0x02])))
+        let calls = await rawStoreMock.calls.suffix(1)
+        #expect(calls == [.delete(name: "raw_session")])
+    }
+
+    // MARK: - persistSession
+
+    @Test
+    mutating func persistSession_notModified_deletesSession() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let auMock = AUAudioUnitMock(fullState: Data([0x42]))
+        createSut()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+
+        await sut.persistSession()
+
+        #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
+    }
+
+    @Test
+    mutating func persistSession_modified_writesSession() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let auMock = AUAudioUnitMock(fullState: Data([0xCA, 0xFE]))
+        createSut()
+        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
+        await sut.setModified()
+
+        await sut.persistSession()
+
+        let expected = rawPreset(matching: component, state: Data([0xCA, 0xFE]))
+        #expect(await rawStoreMock.calls == [.save(expected, name: "raw_session")])
+    }
+
+    @Test
+    mutating func persistSession_noCurrent_andModified_stillDeletesSession() async {
+        createSut()
+        await sut.setModified()
+
+        await sut.persistSession()
+
+        // No current loaded — nothing to write. We treat that as "delete session"
+        // (consistent with the not-modified case).
+        #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
+    }
+
+    // MARK: - Helpers
+
+    private func rawPreset(matching component: AudioUnitComponent, state: Data) -> RawPreset {
+        let desc = component.componentDescription
+        return RawPreset(
+            componentType: desc.componentType,
+            componentSubType: desc.componentSubType,
+            componentManufacturer: desc.componentManufacturer,
+            state: state
+        )
     }
 }

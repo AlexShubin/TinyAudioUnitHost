@@ -68,4 +68,24 @@ struct RawPresetStoreTests {
 
         #expect(await sut.load(name: "lead") == preset)
     }
+
+    @Test
+    mutating func delete_removesAtPresetsSlashName() async {
+        let preset = RawPreset.fake()
+        fileStorageMock.storage["presets/raw_session"] = preset
+        createSut()
+
+        await sut.delete(name: "raw_session")
+
+        #expect(fileStorageMock.storage["presets/raw_session"] == nil)
+    }
+
+    @Test
+    mutating func delete_missing_isNoop() async {
+        createSut()
+
+        await sut.delete(name: "raw_session")
+
+        #expect(fileStorageMock.storage["presets/raw_session"] == nil)
+    }
 }

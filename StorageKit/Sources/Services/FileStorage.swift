@@ -11,6 +11,7 @@ import Foundation
 protocol FileStorageType: Sendable {
     func read<T: Decodable>(_ type: T.Type, at relativePath: String) -> T?
     func write<T: Encodable>(_ value: T, at relativePath: String)
+    func delete(at relativePath: String)
 }
 
 final class FileStorage: FileStorageType {
@@ -35,6 +36,10 @@ final class FileStorage: FileStorageType {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? jsonEncoder.encode(value) else { return }
         try? data.write(to: url, options: .atomic)
+    }
+
+    func delete(at relativePath: String) {
+        try? FileManager.default.removeItem(at: url(for: relativePath))
     }
 
     private func url(for relativePath: String) -> URL {

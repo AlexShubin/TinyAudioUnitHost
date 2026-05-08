@@ -7,20 +7,24 @@
 //
 
 import AppKit
+import PresetKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var quitCoordinator: QuitCoordinatorType?
+    var presetManager: PresetManagerType?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
 
+    /// On quit (X click via `applicationShouldTerminateAfterLastWindowClosed`,
+    /// or Cmd-Q), tell the preset manager to persist the session — it writes
+    /// `raw_session.json` if the working state is dirty, or deletes it if not.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let quitCoordinator else { return .terminateNow }
+        guard let presetManager else { return .terminateNow }
         Task { @MainActor in
-            let proceed = await quitCoordinator.requestQuit()
-            NSApp.reply(toApplicationShouldTerminate: proceed)
+            await presetManager.persistSession()
+            NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
     }

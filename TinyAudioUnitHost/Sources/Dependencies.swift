@@ -17,15 +17,13 @@ struct Dependencies: Sendable {
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
-    let quitCoordinator: QuitCoordinatorType
 
     static let live: Dependencies = {
         Dependencies(
             audioSettings: .live,
             audioUnits: .live,
             engine: .live,
-            presets: .live,
-            quitCoordinator: QuitCoordinator()
+            presets: .live
         )
     }()
 
@@ -33,8 +31,7 @@ struct Dependencies: Sendable {
         HostViewModel(
             engine: engine.engine,
             library: audioUnits.audioUnitComponentsLibrary,
-            presetManager: presets.presetManager,
-            quitCoordinator: quitCoordinator
+            presetManager: presets.presetManager
         )
     }
 

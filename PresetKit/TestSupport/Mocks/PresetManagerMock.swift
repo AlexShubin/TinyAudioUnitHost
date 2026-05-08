@@ -12,26 +12,41 @@ import PresetKit
 public actor PresetManagerMock: PresetManagerType {
     public enum Calls: Equatable, Sendable {
         case load
-        case save(LoadedAudioUnit)
+        case setCurrent(LoadedAudioUnit?)
+        case setModified
+        case save
+        case persistSession
     }
 
     public private(set) var calls: [Calls] = []
-    public var preset: Preset?
+    public var activePreset: ActivePreset?
 
-    public init(preset: Preset? = nil) {
-        self.preset = preset
+    public init(activePreset: ActivePreset? = nil) {
+        self.activePreset = activePreset
     }
 
-    public func load() -> Preset? {
+    public func load() -> ActivePreset? {
         calls.append(.load)
-        return preset
+        return activePreset
     }
 
-    public func save(_ loaded: LoadedAudioUnit) {
-        calls.append(.save(loaded))
+    public func setCurrent(_ loaded: LoadedAudioUnit?) {
+        calls.append(.setCurrent(loaded))
     }
 
-    public func setPreset(_ value: Preset?) {
-        preset = value
+    public func setModified() {
+        calls.append(.setModified)
+    }
+
+    public func save() {
+        calls.append(.save)
+    }
+
+    public func persistSession() {
+        calls.append(.persistSession)
+    }
+
+    public func setActivePreset(_ value: ActivePreset?) {
+        activePreset = value
     }
 }

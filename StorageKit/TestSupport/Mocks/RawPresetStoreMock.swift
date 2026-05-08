@@ -12,6 +12,7 @@ public actor RawPresetStoreMock: RawPresetStoreType {
     public enum Calls: Equatable, Sendable {
         case load(name: String)
         case save(RawPreset, name: String)
+        case delete(name: String)
     }
 
     public private(set) var calls: [Calls] = []
@@ -29,6 +30,11 @@ public actor RawPresetStoreMock: RawPresetStoreType {
     public func save(_ preset: RawPreset, name: String) {
         presets[name] = preset
         calls.append(.save(preset, name: name))
+    }
+
+    public func delete(name: String) {
+        presets.removeValue(forKey: name)
+        calls.append(.delete(name: name))
     }
 
     public func setPresets(_ value: [String: RawPreset]) {

@@ -22,4 +22,8 @@ final class FileStorageMock: FileStorageType, @unchecked Sendable {
     func write<T: Encodable>(_ value: T, at relativePath: String) {
         storage[relativePath] = value
     }
+
+    func delete(at relativePath: String) {
+        storage.removeValue(forKey: relativePath)
+    }
 }
