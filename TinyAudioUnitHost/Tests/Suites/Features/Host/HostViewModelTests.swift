@@ -21,23 +21,20 @@ import Testing
 struct HostViewModelTests {
     var engineMock: EngineMock!
     var libraryMock: AudioUnitComponentsLibraryMock!
-    var presetProviderMock: PresetProviderMock!
-    var sessionPersisterMock: SessionPersisterMock!
+    var presetManagerMock: PresetManagerMock!
     var sut: HostViewModelType!
 
     init() {
         engineMock = EngineMock()
         libraryMock = AudioUnitComponentsLibraryMock()
-        presetProviderMock = PresetProviderMock()
-        sessionPersisterMock = SessionPersisterMock()
+        presetManagerMock = PresetManagerMock()
     }
 
     mutating func createSut() {
         sut = HostViewModel(
             engine: engineMock,
             library: libraryMock,
-            presetProvider: presetProviderMock,
-            sessionPersister: sessionPersisterMock
+            presetManager: presetManagerMock
         )
     }
 
@@ -105,7 +102,7 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_noSavedPresetOrSession_doesNotCallEngine() async {
+    mutating func task_noActivePreset_doesNotCallEngine() async {
         createSut()
 
         await sut.accept(action: .task)
@@ -114,10 +111,13 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_savedPresetExists_loadsThroughEngineWithComponentAndState() async {
+    mutating func task_activePresetExists_loadsThroughEngineWithComponentAndState() async {
         let component = AudioUnitComponent.fake()
         let state = Data([0xDE, 0xAD])
-        presetProviderMock = PresetProviderMock(presets: [.default: Preset(component: component, state: state)])
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(
+            preset: Preset(component: component, state: state),
+            isModified: false
+        ))
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
 
@@ -127,10 +127,10 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_savedPresetExists_setsLoadedContentAndSelectedComponent() async {
+    mutating func task_activePresetExists_setsLoadedContentAndSelectedComponent() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let preset = Preset(component: component, state: Data([0x01]))
-        presetProviderMock = PresetProviderMock(presets: [.default: preset])
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
         let loaded = LoadedAudioUnit.fake(component: component)
         await engineMock.setLoadResult(loaded)
         createSut()
@@ -142,10 +142,10 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_savedPresetExists_doesNotMarkModified() async {
+    mutating func task_activePresetUnmodified_doesNotMarkTitleModified() async {
         let component = AudioUnitComponent.fake()
         let preset = Preset(component: component, state: Data())
-        presetProviderMock = PresetProviderMock(presets: [.default: preset])
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
 
@@ -155,29 +155,10 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_sessionExists_prefersSessionOverPreset() async {
+    mutating func task_activePresetModified_marksTitleModified() async {
         let component = AudioUnitComponent.fake()
-        let presetState = Data([0x01])
-        let sessionState = Data([0x02])
-        presetProviderMock = PresetProviderMock(presets: [
-            .default: Preset(component: component, state: presetState),
-            .session: Preset(component: component, state: sessionState)
-        ])
-        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(await engineMock.calls == [.load(component, sessionState)])
-    }
-
-    @Test
-    mutating func task_sessionDiffersFromPreset_marksTitleModified() async {
-        let component = AudioUnitComponent.fake()
-        presetProviderMock = PresetProviderMock(presets: [
-            .default: Preset(component: component, state: Data([0x01])),
-            .session: Preset(component: component, state: Data([0x02]))
-        ])
+        let preset = Preset(component: component, state: Data([0x02]))
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: true))
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
 
@@ -187,38 +168,25 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_sessionMatchesPreset_doesNotMarkModified() async {
+    mutating func task_loadedAU_publishesToManager() async {
         let component = AudioUnitComponent.fake()
-        let preset = Preset(component: component, state: Data([0x01]))
-        presetProviderMock = PresetProviderMock(presets: [
-            .default: preset,
-            .session: preset
-        ])
-        await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.presetTitle == "Preset: Default")
-    }
-
-    @Test
-    mutating func task_loadedAU_publishesToSessionPersister() async {
-        let component = AudioUnitComponent.fake()
-        presetProviderMock = PresetProviderMock(presets: [.default: Preset(component: component, state: Data())])
+        let preset = Preset(component: component, state: Data())
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
         let loaded = LoadedAudioUnit.fake(component: component)
         await engineMock.setLoadResult(loaded)
         createSut()
 
         await sut.accept(action: .task)
 
-        #expect(await sessionPersisterMock.calls == [.setCurrent(loaded)])
+        let calls = await presetManagerMock.calls
+        #expect(calls.contains(.setCurrent(loaded)))
     }
 
     @Test
     mutating func task_calledTwice_doesNotReloadPreset() async {
         let component = AudioUnitComponent.fake()
-        presetProviderMock = PresetProviderMock(presets: [.default: Preset(component: component, state: Data())])
+        let preset = Preset(component: component, state: Data())
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component))
         createSut()
 
@@ -285,7 +253,7 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_loadedAU_publishesToSessionPersister() async {
+    mutating func selected_loadedAU_publishesToManager() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         let loaded = LoadedAudioUnit.fake(component: component)
         await engineMock.setLoadResult(loaded)
@@ -293,13 +261,14 @@ struct HostViewModelTests {
 
         await sut.accept(action: .selected(component))
 
-        #expect(await sessionPersisterMock.calls == [.setCurrent(loaded)])
+        let calls = await presetManagerMock.calls
+        #expect(calls.contains(.setCurrent(loaded)))
     }
 
     // MARK: - saveCurrentPreset
 
     @Test
-    mutating func saveCurrentPreset_loadedContent_savesToBothSlotsAndClearsTitle() async {
+    mutating func saveCurrentPreset_callsManagerSaveAndClearsTitle() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
         await engineMock.setLoadResult(loaded)
@@ -310,28 +279,15 @@ struct HostViewModelTests {
         await sut.accept(action: .saveCurrentPreset)
 
         #expect(sut.presetTitle == "Preset: Default")
-        let calls = await presetProviderMock.calls
-        let savedSlots = calls.compactMap { call -> PresetSlot? in
-            if case .save(_, let slot) = call { return slot }
-            return nil
-        }
-        #expect(savedSlots == [.default, .session])
+        let calls = await presetManagerMock.calls
+        #expect(calls.contains(.save))
     }
 
     @Test
-    mutating func saveCurrentPreset_emptyContent_doesNotCallProvider() async {
-        createSut()
-
-        await sut.accept(action: .saveCurrentPreset)
-
-        #expect(await presetProviderMock.calls == [])
-    }
-
-    @Test
-    mutating func task_savedPreset_paramChange_marksTitleModified() async {
+    mutating func task_paramChange_marksTitleModified() async {
         let component = AudioUnitComponent.fake()
         let preset = Preset(component: component, state: Data())
-        presetProviderMock = PresetProviderMock(presets: [.default: preset])
+        presetManagerMock = PresetManagerMock(activePreset: ActivePreset(preset: preset, isModified: false))
         let auMock = AUAudioUnitMock()
         await engineMock.setLoadResult(LoadedAudioUnit.fake(component: component, audioUnit: auMock))
         createSut()
