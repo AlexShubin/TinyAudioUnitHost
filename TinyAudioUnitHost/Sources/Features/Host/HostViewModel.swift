@@ -25,11 +25,12 @@ enum HostContent: Sendable, Equatable {
 }
 
 @MainActor
-protocol HostViewModelType: Observable {
+protocol HostViewModelType: AnyObject, Observable {
     var groups: [ManufacturerGroup] { get }
     var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
     var presetTitle: String { get }
+    var isModified: Bool { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -44,20 +45,17 @@ final class HostViewModel: HostViewModelType {
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
-    @ObservationIgnored private let presetProvider: PresetProviderType
-    @ObservationIgnored private let sessionPersister: SessionPersisterType
+    @ObservationIgnored private let presetManager: PresetManagerType
     @ObservationIgnored private var modificationTask: Task<Void, Never>?
 
     init(
         engine: EngineType,
         library: AudioUnitComponentsLibraryType,
-        presetProvider: PresetProviderType,
-        sessionPersister: SessionPersisterType
+        presetManager: PresetManagerType
     ) {
         self.engine = engine
         self.library = library
-        self.presetProvider = presetProvider
-        self.sessionPersister = sessionPersister
+        self.presetManager = presetManager
     }
 
     func accept(action: HostViewModelAction) async {
@@ -65,14 +63,13 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             guard case .empty = content else { return }
-            let session = await presetProvider.load(slot: .session)
-            let preset = await presetProvider.load(slot: .default)
-            guard let active = session ?? preset,
-                  let loaded = await engine.load(component: active.component, state: active.state) else { return }
-            selectedComponent = active.component
+            guard let active = await presetManager.load(),
+                  let loaded = await engine.load(component: active.preset.component, state: active.preset.state)
+            else { return }
+            selectedComponent = active.preset.component
             content = .loaded(loaded)
-            isModified = session != nil && session != preset
-            await sessionPersister.setCurrent(loaded)
+            isModified = active.isModified
+            await presetManager.setCurrent(loaded)
             installModificationListener(for: loaded)
         case .selected(let component):
             selectedComponent = component
@@ -80,27 +77,26 @@ final class HostViewModel: HostViewModelType {
             isModified = true
             if let loaded = await engine.load(component: component, state: nil) {
                 content = .loaded(loaded)
-                await sessionPersister.setCurrent(loaded)
+                await presetManager.setCurrent(loaded)
+                await presetManager.setModified()
                 installModificationListener(for: loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
-            guard case .loaded(let loaded) = content,
-                  let state = loaded.audioUnit.fullState else { return }
-            let preset = Preset(component: loaded.component, state: state)
-            await presetProvider.save(preset, slot: .default)
-            await presetProvider.save(preset, slot: .session)
+            guard case .loaded = content else { return }
+            await presetManager.save()
             isModified = false
         }
     }
 
     private func installModificationListener(for loaded: LoadedAudioUnit) {
         modificationTask?.cancel()
-        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
+        modificationTask = Task { [weak self, audioUnit = loaded.audioUnit, presetManager] in
             for await _ in audioUnit.modifications {
                 self?.isModified = true
+                await presetManager.setModified()
             }
         }
     }

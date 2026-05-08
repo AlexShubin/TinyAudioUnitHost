@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import EngineKit
+import AudioUnitsKit
 import SwiftUI
 
 struct AudioUnitView: View {

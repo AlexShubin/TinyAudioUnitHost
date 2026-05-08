@@ -10,10 +10,10 @@ import AudioUnitsKit
 import StorageKit
 
 public struct Dependencies: Sendable {
-    public let presetProvider: PresetProviderType
+    public let presetManager: PresetManagerType
 
     public static let live = Dependencies(
-        presetProvider: PresetProvider(
+        presetManager: PresetManager(
             rawStore: StorageKit.Dependencies.live.rawPresetStore,
             library: AudioUnitsKit.Dependencies.live.audioUnitComponentsLibrary
         )

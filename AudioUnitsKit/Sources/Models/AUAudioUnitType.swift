@@ -1,6 +1,6 @@
 //
 //  AUAudioUnitType.swift
-//  EngineKit
+//  AudioUnitsKit
 //
 //  Created by Alex Shubin on 06.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -17,13 +17,13 @@ public protocol AUAudioUnitType: AnyObject, Sendable {
     func requestViewController() async -> NSViewController?
 }
 
-final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
+public final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
     private let au: AUAudioUnit
     private let token: AUParameterObserverToken?
     private let continuation: AsyncStream<Void>.Continuation
-    let modifications: AsyncStream<Void>
+    public let modifications: AsyncStream<Void>
 
-    init(_ au: AUAudioUnit) {
+    public init(_ au: AUAudioUnit) {
         self.au = au
         let (stream, continuation) = AsyncStream<Void>.makeStream()
         self.modifications = stream
@@ -40,13 +40,13 @@ final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
         continuation.finish()
     }
 
-    var fullState: Data? {
+    public var fullState: Data? {
         get { au.fullState?.binaryPlist }
         set { au.fullState = newValue?.asStringAnyDictionary }
     }
 
     @MainActor
-    func requestViewController() async -> NSViewController? {
+    public func requestViewController() async -> NSViewController? {
         await withCheckedContinuation { continuation in
             au.requestViewController { continuation.resume(returning: $0) }
         }

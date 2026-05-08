@@ -49,9 +49,10 @@
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
 - `*Action` for view model action enums
 - Features organized as `Features/FeatureName/` with View, ViewModel, and optional `Subviews/`
-- **Avoid `*Manager`.** "Manager" is famously vague. Pick a name that describes the role:
+- Naming patterns we use, when they fit:
   - `*Gateway` — protocols whose job is to wrap calls into a foreign API (CoreAudio, CoreMIDI, external SDKs). Naming the FFI seam tells the reader why the protocol exists. Example: `CoreAudioGatewayType` over `CoreAudioManagerType`.
   - `*Provider` — protocols that produce/resolve domain values (`AudioSettingsProviderType`, `TargetSettingsProviderType`, `AudioDevicesProviderType`).
+  - `*Manager` — when the type actually owns lifecycle/state across operations (e.g. holds a live runtime object and persists derived state).
   - `*Store` / `*Factory` / `*Repository` — when one of those names actually fits.
 - **`*Gateway` protocols hold only C-API primitives, not domain logic.** Each gateway method should map roughly 1:1 onto an underlying C call (`setChannelMap(_ map: [Int32], element:, on:)`, `physicalChannelCount(of:) -> Int?`). Logic that *builds* the C-friendly inputs from domain types (e.g. computing a channel map from `SelectedChannel` + an offset) stays in the caller as private methods. Otherwise correctness-critical code hides behind a non-substitutable boundary and the gateway gets coupled to types that have nothing to do with the foreign API.
 - **File-backed storage keys use snake_case.** Keys that become on-disk filenames, plist keys, or other external persistent identifiers should be snake_case (`"audio_settings"` → `audio_settings.json`), not camelCase. Swift symbol naming inside the codebase still follows normal camelCase.
@@ -93,7 +94,12 @@ struct FooView: View {
 - Cross-target dependencies *within the same project* use `.target(name: "OtherTargetInSameProject")`; cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
-- Inside `Sources/`, library modules use three top-level folders: `Sources/Services/` (protocols + concrete implementations — providers, stores, gateways, factories), `Sources/Models/` (public value types — settings, devices, IDs), `Sources/Helpers/` (internal extensions and FFI helpers, e.g. `CoreAudioHelpers.swift`). `Sources/Dependencies.swift` sits at the top level. Small modules can omit a subfolder if it would be empty.
+- Inside `Sources/`, library modules use three top-level folders. The split is "what things are" (nouns) vs "things that act on the foreign world" (verbs):
+  - `Sources/Models/` — what things *are*: public value types (settings, devices, IDs), protocols that describe a domain entity's shape (`AUAudioUnitType` — "what an audio unit is in our domain"), **and** concrete representations of those entities, even when the impl is a thin wrapper around a foreign type (`AUAudioUnitWrapper` — it *is* an audio unit instance, the wrapping is incidental).
+  - `Sources/Services/` — things that *act* on the foreign world: providers, stores, factories, gateways. These perform operations — they're not domain entities themselves.
+  - `Sources/Helpers/` — internal extensions and FFI helpers, e.g. `CoreAudioHelpers.swift`.
+
+  `Sources/Dependencies.swift` sits at the top level. Small modules can omit a subfolder if it would be empty.
 - Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Mocks/` for mocks. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Engine.swift` → `Tests/Suites/Services/EngineTests.swift`). `Tests/Mocks/` stays flat.
 - Inside `TestSupport/`, two flat folders: `TestSupport/Mocks/` (mocks for `public` protocols, see [Mock pattern](#mock-pattern)) and `TestSupport/Fakes/` (`Type+Fake.swift` for public value types, see [Fake pattern](#fake-pattern)).
 

@@ -1,13 +1,13 @@
 //
 //  AUAudioUnitMock.swift
-//  EngineKitTestSupport
+//  AudioUnitsKitTestSupport
 //
 //  Created by Alex Shubin on 06.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AppKit
-import EngineKit
+import AudioUnitsKit
 import Foundation
 
 public final class AUAudioUnitMock: AUAudioUnitType, @unchecked Sendable {
