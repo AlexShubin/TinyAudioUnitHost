@@ -19,10 +19,3 @@ Install [mise](https://mise.jdx.dev/getting-started.html) if you don't have it y
 ```bash
 mise run generate     # resolves dependencies and generates the Xcode project
 ```
-
-## Work in Progress
-
-🚧 What's next:
-
-1. **Presets** — manage multiple presets.
-2. **Logging & error handling** — replace the `assert(status == noErr, ...)` calls in `CoreAudioGateway` (and similar fail-fast spots) with structured logging and graceful recovery. Currently the app crashes in debug and silently misbehaves in release on CoreAudio failures.
