@@ -68,13 +68,13 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             guard case .empty = content else { return }
-            guard let loaded = await sessionManager.load() else { return }
+            guard let loaded = await sessionManager.activate(.stored) else { return }
             selectedComponent = loaded.component
             content = .loaded(loaded)
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            if let loaded = await sessionManager.setCurrent(component) {
+            if let loaded = await sessionManager.activate(.picked(component)) {
                 content = .loaded(loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):

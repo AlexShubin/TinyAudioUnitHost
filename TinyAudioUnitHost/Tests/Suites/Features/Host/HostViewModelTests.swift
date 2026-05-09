@@ -92,21 +92,21 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_loadReturnsNil_doesNotSetContent() async {
+    mutating func task_activateReturnsNil_doesNotSetContent() async {
         createSut()
 
         await sut.accept(action: .task)
 
         #expect(sut.content == .empty)
         #expect(sut.selectedComponent == nil)
-        #expect(await sessionManagerMock.calls == [.load])
+        #expect(await sessionManagerMock.calls == [.activate(.stored)])
     }
 
     @Test
-    mutating func task_loadReturnsLoaded_setsContentAndSelectedComponent() async {
+    mutating func task_activateReturnsLoaded_setsContentAndSelectedComponent() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
-        sessionManagerMock = SessionManagerMock(loadResult: loaded)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
 
         await sut.accept(action: .task)
@@ -116,9 +116,9 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_loadReturnsLoadedUnmodified_titleHasNoAsterisk() async {
+    mutating func task_activateUnmodified_titleHasNoAsterisk() async {
         let loaded = LoadedAudioUnit.fake()
-        sessionManagerMock = SessionManagerMock(loadResult: loaded, isModifiedOnLoad: false)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded, isModifiedOnLoad: false)
         createSut()
 
         await sut.accept(action: .task)
@@ -127,9 +127,9 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_loadReturnsLoadedModified_titleHasAsterisk() async {
+    mutating func task_activateModified_titleHasAsterisk() async {
         let loaded = LoadedAudioUnit.fake()
-        sessionManagerMock = SessionManagerMock(loadResult: loaded, isModifiedOnLoad: true)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded, isModifiedOnLoad: true)
         createSut()
         let sut = sut!
 
@@ -141,13 +141,13 @@ struct HostViewModelTests {
     @Test
     mutating func task_calledTwice_doesNotReloadPreset() async {
         let loaded = LoadedAudioUnit.fake()
-        sessionManagerMock = SessionManagerMock(loadResult: loaded)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
 
         await sut.accept(action: .task)
         await sut.accept(action: .task)
 
-        #expect(await sessionManagerMock.calls == [.load])
+        #expect(await sessionManagerMock.calls == [.activate(.stored)])
     }
 
     // MARK: - selected
@@ -163,10 +163,10 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_setCurrentSucceeds_setsContentToLoaded() async {
+    mutating func selected_activateSucceeds_setsContentToLoaded() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         let loaded = LoadedAudioUnit.fake(component: component)
-        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
 
         await sut.accept(action: .selected(component))
@@ -175,7 +175,7 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_setCurrentReturnsNil_staysInLoading() async {
+    mutating func selected_activateReturnsNil_staysInLoading() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         createSut()
 
@@ -185,20 +185,20 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_callsManagerSetCurrentWithComponent() async {
+    mutating func selected_callsManagerActivateWithPickedComponent() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         createSut()
 
         await sut.accept(action: .selected(component))
 
-        #expect(await sessionManagerMock.calls == [.setCurrent(component)])
+        #expect(await sessionManagerMock.calls == [.activate(.picked(component))])
     }
 
     @Test
     mutating func selected_marksTitleModified() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         let loaded = LoadedAudioUnit.fake(component: component)
-        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
         let sut = sut!
 
@@ -213,7 +213,7 @@ struct HostViewModelTests {
     mutating func saveCurrentPreset_callsManagerSaveAndClearsTitle() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
-        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
         let sut = sut!
 

@@ -8,21 +8,26 @@
 
 import AudioUnitsKit
 import EngineKit
+import Foundation
 import PresetKit
+
+/// Where a new "current AU" comes from.
+enum ActivationSource: Sendable, Equatable {
+    /// Load whatever's on disk — session (modified) wins over saved default
+    /// (unmodified). Used by `.task`.
+    case stored
+    /// User picked this component. Always marked modified. Used by `.selected`.
+    case picked(AudioUnitComponent)
+}
 
 protocol SessionManagerType: Sendable {
     /// Yields the current modified flag every time it changes (preset load,
     /// component swap, parameter change, save).
     var isModifiedStream: AsyncStream<Bool> { get }
 
-    /// Loads the active preset on launch — session if present, otherwise the
-    /// saved default — engine-loads the AU, observes parameter changes.
-    /// Sets the modified flag accordingly. Returns the loaded AU on success.
-    func load() async -> LoadedAudioUnit?
-
-    /// Engine-loads a freshly picked component as the new current AU and
-    /// marks the state modified.
-    func setCurrent(_ component: AudioUnitComponent) async -> LoadedAudioUnit?
+    /// Engine-loads the AU for the given source, attaches the parameter
+    /// observer, and updates the modified flag. Returns the loaded AU.
+    func activate(_ source: ActivationSource) async -> LoadedAudioUnit?
 
     /// User-initiated save. Writes the current AU's state to the default
     /// preset, deletes any session, clears the modified flag.
@@ -56,21 +61,19 @@ final actor SessionManager: SessionManagerType {
         observationTask?.cancel()
     }
 
-    func load() async -> LoadedAudioUnit? {
-        if let session = await presetProvider.loadSession() {
-            return await activate(session, isModified: true)
+    func activate(_ source: ActivationSource) async -> LoadedAudioUnit? {
+        switch source {
+        case .stored:
+            if let session = await presetProvider.loadSession() {
+                return await activate(component: session.component, state: session.state, isModified: true)
+            }
+            if let saved = await presetProvider.loadDefault() {
+                return await activate(component: saved.component, state: saved.state, isModified: false)
+            }
+            return nil
+        case .picked(let component):
+            return await activate(component: component, state: nil, isModified: true)
         }
-        if let saved = await presetProvider.loadDefault() {
-            return await activate(saved, isModified: false)
-        }
-        return nil
-    }
-
-    func setCurrent(_ component: AudioUnitComponent) async -> LoadedAudioUnit? {
-        guard let loaded = await engine.load(component: component, state: nil) else { return nil }
-        attach(loaded)
-        setIsModified(true)
-        return loaded
     }
 
     func save() async {
@@ -87,8 +90,8 @@ final actor SessionManager: SessionManagerType {
         }
     }
 
-    private func activate(_ preset: Preset, isModified: Bool) async -> LoadedAudioUnit? {
-        guard let loaded = await engine.load(component: preset.component, state: preset.state) else { return nil }
+    private func activate(component: AudioUnitComponent, state: Data?, isModified: Bool) async -> LoadedAudioUnit? {
+        guard let loaded = await engine.load(component: component, state: state) else { return nil }
         attach(loaded)
         setIsModified(isModified)
         return loaded

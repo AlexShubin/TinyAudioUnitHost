@@ -31,17 +31,17 @@ struct SessionManagerTests {
         sut = SessionManager(presetProvider: presetProviderMock, engine: engineMock)
     }
 
-    // MARK: - load
+    // MARK: - activate(.stored)
 
     @Test
-    mutating func load_noPresets_returnsNil() async {
+    mutating func activateStored_noPresets_returnsNil() async {
         createSut()
 
-        #expect(await sut.load() == nil)
+        #expect(await sut.activate(.stored) == nil)
     }
 
     @Test
-    mutating func load_onlyDefault_engineLoadsItAndYieldsFalse() async {
+    mutating func activateStored_onlyDefault_engineLoadsItAndYieldsFalse() async {
         let component = AudioUnitComponent.fake()
         let preset = Preset(component: component, state: Data([0x01]))
         let loaded = LoadedAudioUnit.fake(component: component)
@@ -50,7 +50,7 @@ struct SessionManagerTests {
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        let result = await sut.load()
+        let result = await sut.activate(.stored)
 
         #expect(result == loaded)
         #expect(await engineMock.calls == [.load(component, Data([0x01]))])
@@ -58,7 +58,7 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func load_sessionPresent_engineLoadsItAndYieldsTrue() async {
+    mutating func activateStored_sessionPresent_engineLoadsItAndYieldsTrue() async {
         let component = AudioUnitComponent.fake()
         let session = Preset(component: component, state: Data([0x02]))
         let saved = Preset(component: component, state: Data([0x01]))
@@ -68,7 +68,7 @@ struct SessionManagerTests {
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        let result = await sut.load()
+        let result = await sut.activate(.stored)
 
         #expect(result == loaded)
         #expect(await engineMock.calls == [.load(component, Data([0x02]))])
@@ -76,25 +76,25 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func load_engineLoadFails_returnsNil() async {
+    mutating func activateStored_engineLoadFails_returnsNil() async {
         let component = AudioUnitComponent.fake()
         presetProviderMock = PresetProviderMock(defaultPreset: Preset(component: component, state: Data()))
         createSut()  // engineMock.loadResult is nil
 
-        #expect(await sut.load() == nil)
+        #expect(await sut.activate(.stored) == nil)
     }
 
-    // MARK: - setCurrent
+    // MARK: - activate(.picked)
 
     @Test
-    mutating func setCurrent_engineLoads_yieldsTrue_returnsLoaded() async {
+    mutating func activatePicked_engineLoads_yieldsTrue_returnsLoaded() async {
         let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit.fake(component: component)
         engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        let result = await sut.setCurrent(component)
+        let result = await sut.activate(.picked(component))
 
         #expect(result == loaded)
         #expect(await engineMock.calls == [.load(component, nil)])
@@ -102,20 +102,20 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func setCurrent_engineLoadFails_returnsNil() async {
+    mutating func activatePicked_engineLoadFails_returnsNil() async {
         createSut()  // engineMock.loadResult is nil
 
-        #expect(await sut.setCurrent(.fake()) == nil)
+        #expect(await sut.activate(.picked(.fake())) == nil)
     }
 
     @Test
-    mutating func setCurrent_paramChange_yieldsTrue() async {
+    mutating func activatePicked_paramChange_yieldsTrue() async {
         let auMock = AUAudioUnitMock()
         let loaded = LoadedAudioUnit.fake(audioUnit: auMock)
         engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
-        _ = await sut.setCurrent(.fake())
+        _ = await sut.activate(.picked(.fake()))
         #expect(await iterator.next() == true)
 
         auMock.triggerOnChange()
@@ -124,18 +124,18 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func setCurrent_replacesObserver_oldAUStopsTriggering() async {
+    mutating func activate_replacesObserver_oldAUStopsTriggering() async {
         let firstAU = AUAudioUnitMock()
         let secondAU = AUAudioUnitMock()
         engineMock = EngineMock(loadResult: LoadedAudioUnit.fake(audioUnit: firstAU))
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        _ = await sut.setCurrent(.fake())
+        _ = await sut.activate(.picked(.fake()))
         #expect(await iterator.next() == true)
 
         await engineMock.setLoadResult(LoadedAudioUnit.fake(audioUnit: secondAU))
-        _ = await sut.setCurrent(.fake())
+        _ = await sut.activate(.picked(.fake()))
         #expect(await iterator.next() == true)
 
         secondAU.triggerOnChange()
@@ -161,7 +161,7 @@ struct SessionManagerTests {
         engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
-        _ = await sut.setCurrent(component)
+        _ = await sut.activate(.picked(component))
         #expect(await iterator.next() == true)
 
         await sut.save()
@@ -182,7 +182,7 @@ struct SessionManagerTests {
         presetProviderMock = PresetProviderMock(defaultPreset: savedPreset)
         engineMock = EngineMock(loadResult: loaded)
         createSut()
-        _ = await sut.load()
+        _ = await sut.activate(.stored)
 
         await sut.persistSession()
 
@@ -196,7 +196,7 @@ struct SessionManagerTests {
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
         engineMock = EngineMock(loadResult: loaded)
         createSut()
-        _ = await sut.setCurrent(component)
+        _ = await sut.activate(.picked(component))
 
         await sut.persistSession()
 

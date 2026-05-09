@@ -11,27 +11,20 @@ import AudioUnitsKit
 
 actor SessionManagerMock: SessionManagerType {
     enum Calls: Equatable, Sendable {
-        case load
-        case setCurrent(AudioUnitComponent)
+        case activate(ActivationSource)
         case save
         case persistSession
     }
 
     private(set) var calls: [Calls] = []
-    var loadResult: LoadedAudioUnit?
-    var setCurrentResult: LoadedAudioUnit?
+    var activateResult: LoadedAudioUnit?
     var isModifiedOnLoad: Bool
 
     nonisolated let isModifiedStream: AsyncStream<Bool>
     private let continuation: AsyncStream<Bool>.Continuation
 
-    init(
-        loadResult: LoadedAudioUnit? = nil,
-        setCurrentResult: LoadedAudioUnit? = nil,
-        isModifiedOnLoad: Bool = false
-    ) {
-        self.loadResult = loadResult
-        self.setCurrentResult = setCurrentResult
+    init(activateResult: LoadedAudioUnit? = nil, isModifiedOnLoad: Bool = false) {
+        self.activateResult = activateResult
         self.isModifiedOnLoad = isModifiedOnLoad
         let (stream, continuation) = AsyncStream<Bool>.makeStream()
         self.isModifiedStream = stream
@@ -42,20 +35,15 @@ actor SessionManagerMock: SessionManagerType {
         continuation.finish()
     }
 
-    func load() -> LoadedAudioUnit? {
-        calls.append(.load)
-        if loadResult != nil {
-            continuation.yield(isModifiedOnLoad)
+    func activate(_ source: ActivationSource) -> LoadedAudioUnit? {
+        calls.append(.activate(source))
+        if activateResult != nil {
+            switch source {
+            case .stored: continuation.yield(isModifiedOnLoad)
+            case .picked: continuation.yield(true)
+            }
         }
-        return loadResult
-    }
-
-    func setCurrent(_ component: AudioUnitComponent) -> LoadedAudioUnit? {
-        calls.append(.setCurrent(component))
-        if setCurrentResult != nil {
-            continuation.yield(true)
-        }
-        return setCurrentResult
+        return activateResult
     }
 
     func save() {
