@@ -64,9 +64,13 @@ struct HostView: View {
                     AudioUnitView(audioUnit: audioUnit)
                 }
             }
-            .navigationTitle(viewModel.presetTitle)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
+                    Text(viewModel.presetTitle)
+                        .padding([.leading], 12)
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                        .help("Only one preset is supported for now — multi-preset support is on the way.")
                     Button {
                         Task { await viewModel.accept(action: .restorePreset) }
                     } label: {
