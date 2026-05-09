@@ -27,6 +27,8 @@ let project = Project(
             infoPlist: .extendingDefault(with: [
                 "NSMicrophoneUsageDescription": "Audio Unit hosting requires audio access.",
                 "CFBundleIconName": "AppIcon",
+                "CFBundleDisplayName": "Tiny Audio Unit Host",
+                "CFBundleName": "Tiny Audio Unit Host",
             ]),
             buildableFolders: [
                 "Sources",
