@@ -10,7 +10,6 @@ import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
 import PresetKit
-import PresetKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -18,18 +17,18 @@ import Testing
 @Suite
 struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
-    var presetManagerMock: PresetManagerMock!
+    var sessionManagerMock: SessionManagerMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
-        presetManagerMock = PresetManagerMock()
+        sessionManagerMock = SessionManagerMock()
     }
 
     mutating func createSut() {
         sut = HostViewModel(
             library: libraryMock,
-            presetManager: presetManagerMock
+            sessionManager: sessionManagerMock
         )
     }
 
@@ -100,14 +99,14 @@ struct HostViewModelTests {
 
         #expect(sut.content == .empty)
         #expect(sut.selectedComponent == nil)
-        #expect(await presetManagerMock.calls == [.load])
+        #expect(await sessionManagerMock.calls == [.load])
     }
 
     @Test
     mutating func task_loadReturnsLoaded_setsContentAndSelectedComponent() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
-        presetManagerMock = PresetManagerMock(loadResult: loaded)
+        sessionManagerMock = SessionManagerMock(loadResult: loaded)
         createSut()
 
         await sut.accept(action: .task)
@@ -119,7 +118,7 @@ struct HostViewModelTests {
     @Test
     mutating func task_loadReturnsLoadedUnmodified_titleHasNoAsterisk() async {
         let loaded = LoadedAudioUnit.fake()
-        presetManagerMock = PresetManagerMock(loadResult: loaded, isModifiedOnLoad: false)
+        sessionManagerMock = SessionManagerMock(loadResult: loaded, isModifiedOnLoad: false)
         createSut()
 
         await sut.accept(action: .task)
@@ -130,7 +129,7 @@ struct HostViewModelTests {
     @Test
     mutating func task_loadReturnsLoadedModified_titleHasAsterisk() async {
         let loaded = LoadedAudioUnit.fake()
-        presetManagerMock = PresetManagerMock(loadResult: loaded, isModifiedOnLoad: true)
+        sessionManagerMock = SessionManagerMock(loadResult: loaded, isModifiedOnLoad: true)
         createSut()
         let sut = sut!
 
@@ -142,13 +141,13 @@ struct HostViewModelTests {
     @Test
     mutating func task_calledTwice_doesNotReloadPreset() async {
         let loaded = LoadedAudioUnit.fake()
-        presetManagerMock = PresetManagerMock(loadResult: loaded)
+        sessionManagerMock = SessionManagerMock(loadResult: loaded)
         createSut()
 
         await sut.accept(action: .task)
         await sut.accept(action: .task)
 
-        #expect(await presetManagerMock.calls == [.load])
+        #expect(await sessionManagerMock.calls == [.load])
     }
 
     // MARK: - selected
@@ -167,7 +166,7 @@ struct HostViewModelTests {
     mutating func selected_setCurrentSucceeds_setsContentToLoaded() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         let loaded = LoadedAudioUnit.fake(component: component)
-        presetManagerMock = PresetManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
         createSut()
 
         await sut.accept(action: .selected(component))
@@ -192,14 +191,14 @@ struct HostViewModelTests {
 
         await sut.accept(action: .selected(component))
 
-        #expect(await presetManagerMock.calls == [.setCurrent(component)])
+        #expect(await sessionManagerMock.calls == [.setCurrent(component)])
     }
 
     @Test
     mutating func selected_marksTitleModified() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         let loaded = LoadedAudioUnit.fake(component: component)
-        presetManagerMock = PresetManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
         createSut()
         let sut = sut!
 
@@ -214,7 +213,7 @@ struct HostViewModelTests {
     mutating func saveCurrentPreset_callsManagerSaveAndClearsTitle() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
-        presetManagerMock = PresetManagerMock(setCurrentResult: loaded)
+        sessionManagerMock = SessionManagerMock(setCurrentResult: loaded)
         createSut()
         let sut = sut!
 
@@ -224,7 +223,7 @@ struct HostViewModelTests {
         await awaitTitleChange { await sut.accept(action: .saveCurrentPreset) }
 
         #expect(sut.presetTitle == "Preset: Default")
-        #expect(await presetManagerMock.calls.contains(.save))
+        #expect(await sessionManagerMock.calls.contains(.save))
     }
 
     @Test
@@ -233,7 +232,7 @@ struct HostViewModelTests {
 
         await sut.accept(action: .saveCurrentPreset)
 
-        #expect(await presetManagerMock.calls == [])
+        #expect(await sessionManagerMock.calls == [])
     }
 
     // MARK: - isModifiedStream proxy
@@ -242,7 +241,7 @@ struct HostViewModelTests {
     mutating func isModifiedStream_yieldsTrue_marksTitleModified() async {
         createSut()
         let sut = sut!
-        let mock = presetManagerMock!
+        let mock = sessionManagerMock!
         #expect(sut.presetTitle == "Preset: Default")
 
         await awaitTitleChange { await mock.emitIsModified(true) }
@@ -254,7 +253,7 @@ struct HostViewModelTests {
     mutating func isModifiedStream_yieldsFalseAfterTrue_clearsTitle() async {
         createSut()
         let sut = sut!
-        let mock = presetManagerMock!
+        let mock = sessionManagerMock!
 
         await awaitTitleChange { await mock.emitIsModified(true) }
         #expect(sut.presetTitle == "Preset: Default*")

@@ -7,15 +7,13 @@
 //
 
 import AudioUnitsKit
-import EngineKit
 import StorageKit
 
 public struct Dependencies: Sendable {
-    public let presetManager: PresetManagerType
+    public let presetProvider: PresetProviderType
 
     public static let live = Dependencies(
-        presetManager: PresetManager(
-            engine: EngineKit.Dependencies.live.engine,
+        presetProvider: PresetProvider(
             rawStore: StorageKit.Dependencies.live.rawPresetStore,
             library: AudioUnitsKit.Dependencies.live.audioUnitComponentsLibrary
         )

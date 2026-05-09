@@ -1,24 +1,23 @@
 //
-//  PresetManager.swift
-//  PresetKit
+//  SessionManager.swift
+//  TinyAudioUnitHost
 //
-//  Created by Alex Shubin on 08.05.26.
+//  Created by Alex Shubin on 09.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AudioUnitsKit
 import EngineKit
-import StorageKit
+import PresetKit
 
-public protocol PresetManagerType: Sendable {
+protocol SessionManagerType: Sendable {
     /// Yields the current modified flag every time it changes (preset load,
     /// component swap, parameter change, save).
     var isModifiedStream: AsyncStream<Bool> { get }
 
     /// Loads the active preset on launch — session if present, otherwise the
-    /// saved default — engine-loads the AU, and starts observing parameter
-    /// changes. Sets the modified flag accordingly (true for session, false
-    /// for default). Returns the loaded AU on success.
+    /// saved default — engine-loads the AU, observes parameter changes.
+    /// Sets the modified flag accordingly. Returns the loaded AU on success.
     func load() async -> LoadedAudioUnit?
 
     /// Engine-loads a freshly picked component as the new current AU and
@@ -30,33 +29,23 @@ public protocol PresetManagerType: Sendable {
     func save() async
 
     /// Quit-time persistence. If modified, writes the current AU's state to
-    /// the session file; otherwise deletes the session file (so next launch
-    /// loads the default).
+    /// the session file; otherwise deletes the session file.
     func persistSession() async
 }
 
-final actor PresetManager: PresetManagerType {
-    private static let defaultName = "default"
-    private static let sessionName = "raw_session"
-
+final actor SessionManager: SessionManagerType {
     nonisolated let isModifiedStream: AsyncStream<Bool>
     private let continuation: AsyncStream<Bool>.Continuation
 
+    private let presetProvider: PresetProviderType
     private let engine: EngineType
-    private let rawStore: RawPresetStoreType
-    private let library: AudioUnitComponentsLibraryType
     private var current: LoadedAudioUnit?
     private var isModified: Bool = false
     private var observationTask: Task<Void, Never>?
 
-    init(
-        engine: EngineType,
-        rawStore: RawPresetStoreType,
-        library: AudioUnitComponentsLibraryType
-    ) {
+    init(presetProvider: PresetProviderType, engine: EngineType) {
+        self.presetProvider = presetProvider
         self.engine = engine
-        self.rawStore = rawStore
-        self.library = library
         let (stream, continuation) = AsyncStream<Bool>.makeStream()
         self.isModifiedStream = stream
         self.continuation = continuation
@@ -68,10 +57,10 @@ final actor PresetManager: PresetManagerType {
     }
 
     func load() async -> LoadedAudioUnit? {
-        if let session = await loadResolved(name: Self.sessionName) {
+        if let session = await presetProvider.loadSession() {
             return await activate(session, isModified: true)
         }
-        if let saved = await loadResolved(name: Self.defaultName) {
+        if let saved = await presetProvider.loadDefault() {
             return await activate(saved, isModified: false)
         }
         return nil
@@ -86,16 +75,15 @@ final actor PresetManager: PresetManagerType {
 
     func save() async {
         guard let preset = currentPreset() else { return }
-        await rawStore.save(raw(from: preset), name: Self.defaultName)
-        await rawStore.delete(name: Self.sessionName)
+        await presetProvider.saveDefault(preset)
         setIsModified(false)
     }
 
     func persistSession() async {
         if isModified, let preset = currentPreset() {
-            await rawStore.save(raw(from: preset), name: Self.sessionName)
+            await presetProvider.saveSession(preset)
         } else {
-            await rawStore.delete(name: Self.sessionName)
+            await presetProvider.deleteSession()
         }
     }
 
@@ -124,30 +112,5 @@ final actor PresetManager: PresetManagerType {
     private func currentPreset() -> Preset? {
         guard let current, let state = current.audioUnit.fullState else { return nil }
         return Preset(component: current.component, state: state)
-    }
-
-    private func loadResolved(name: String) async -> Preset? {
-        guard let raw = await rawStore.load(name: name),
-              let component = resolve(raw) else { return nil }
-        return Preset(component: component, state: raw.state)
-    }
-
-    private func resolve(_ raw: RawPreset) -> AudioUnitComponent? {
-        library.components.first { component in
-            let desc = component.componentDescription
-            return desc.componentType == raw.componentType
-                && desc.componentSubType == raw.componentSubType
-                && desc.componentManufacturer == raw.componentManufacturer
-        }
-    }
-
-    private func raw(from preset: Preset) -> RawPreset {
-        let desc = preset.component.componentDescription
-        return RawPreset(
-            componentType: desc.componentType,
-            componentSubType: desc.componentSubType,
-            componentManufacturer: desc.componentManufacturer,
-            state: preset.state
-        )
     }
 }

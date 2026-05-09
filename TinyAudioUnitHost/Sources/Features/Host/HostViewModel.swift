@@ -43,17 +43,17 @@ final class HostViewModel: HostViewModelType {
     var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
-    @ObservationIgnored private let presetManager: PresetManagerType
+    @ObservationIgnored private let sessionManager: SessionManagerType
     @ObservationIgnored private var modificationListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
-        presetManager: PresetManagerType
+        sessionManager: SessionManagerType
     ) {
         self.library = library
-        self.presetManager = presetManager
-        modificationListener = Task { [weak self, presetManager] in
-            for await flag in presetManager.isModifiedStream {
+        self.sessionManager = sessionManager
+        modificationListener = Task { [weak self, sessionManager] in
+            for await flag in sessionManager.isModifiedStream {
                 self?.isModified = flag
             }
         }
@@ -68,13 +68,13 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             guard case .empty = content else { return }
-            guard let loaded = await presetManager.load() else { return }
+            guard let loaded = await sessionManager.load() else { return }
             selectedComponent = loaded.component
             content = .loaded(loaded)
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            if let loaded = await presetManager.setCurrent(component) {
+            if let loaded = await sessionManager.setCurrent(component) {
                 content = .loaded(loaded)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
@@ -82,7 +82,7 @@ final class HostViewModel: HostViewModelType {
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
             guard case .loaded = content else { return }
-            await presetManager.save()
+            await sessionManager.save()
         }
     }
 
