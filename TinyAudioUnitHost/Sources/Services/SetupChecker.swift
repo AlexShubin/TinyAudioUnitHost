@@ -25,24 +25,15 @@ final actor SetupChecker: SetupCheckerType {
     private let continuation: AsyncStream<Set<SetupRequirement>>.Continuation
 
     private let targetSettingsProvider: TargetSettingsProviderType
-    private let isMicrophoneAuthorized: @Sendable () -> Bool
-    private let ensureMicrophoneDecision: @Sendable () async -> Void
+    private let captureDevice: AVCaptureDeviceGatewayType
     private var unmet: Set<SetupRequirement>?
 
     init(
         targetSettingsProvider: TargetSettingsProviderType,
-        isMicrophoneAuthorized: @escaping @Sendable () -> Bool = {
-            AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        },
-        ensureMicrophoneDecision: @escaping @Sendable () async -> Void = {
-            if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
-                _ = await AVCaptureDevice.requestAccess(for: .audio)
-            }
-        }
+        captureDevice: AVCaptureDeviceGatewayType = AVCaptureDeviceGateway()
     ) {
         self.targetSettingsProvider = targetSettingsProvider
-        self.isMicrophoneAuthorized = isMicrophoneAuthorized
-        self.ensureMicrophoneDecision = ensureMicrophoneDecision
+        self.captureDevice = captureDevice
         let (stream, continuation) = AsyncStream<Set<SetupRequirement>>.makeStream()
         self.unmetStream = stream
         self.continuation = continuation
@@ -54,9 +45,11 @@ final actor SetupChecker: SetupCheckerType {
     }
 
     func refresh() async {
-        await ensureMicrophoneDecision()
+        if captureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            _ = await captureDevice.requestAccess(for: .audio)
+        }
         var next: Set<SetupRequirement> = []
-        if !isMicrophoneAuthorized() {
+        if captureDevice.authorizationStatus(for: .audio) != .authorized {
             next.insert(.microphonePermission)
         }
         if await targetSettingsProvider.resolveTarget() == nil {

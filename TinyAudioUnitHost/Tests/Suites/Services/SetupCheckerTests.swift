@@ -8,6 +8,7 @@
 
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
+import AVFoundation
 import Foundation
 import Testing
 @testable import TinyAudioUnitHost
@@ -15,26 +16,25 @@ import Testing
 @Suite
 struct SetupCheckerTests {
     var targetSettingsMock: TargetSettingsProviderMock!
+    var captureDeviceMock: AVCaptureDeviceGatewayMock!
     var sut: SetupCheckerType!
-    var isMicAuthorized = true
 
     init() {
         targetSettingsMock = TargetSettingsProviderMock()
+        captureDeviceMock = AVCaptureDeviceGatewayMock()
     }
 
     mutating func createSut() {
-        let mic = isMicAuthorized
         sut = SetupChecker(
             targetSettingsProvider: targetSettingsMock,
-            isMicrophoneAuthorized: { mic },
-            ensureMicrophoneDecision: {}
+            captureDevice: captureDeviceMock
         )
     }
 
     @Test
     mutating func refresh_micAndTargetOK_yieldsEmpty() async {
         targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: .fake())
-        isMicAuthorized = true
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
@@ -44,7 +44,7 @@ struct SetupCheckerTests {
     @Test
     mutating func refresh_micDenied_yieldsMicrophoneRequirement() async {
         targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: .fake())
-        isMicAuthorized = false
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
@@ -52,9 +52,22 @@ struct SetupCheckerTests {
     }
 
     @Test
+    mutating func refresh_micNotDetermined_requestsAccess() async {
+        targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: .fake())
+        captureDeviceMock = AVCaptureDeviceGatewayMock(
+            authorizationStatusResult: .notDetermined,
+            requestAccessResult: true
+        )
+        createSut()
+        _ = await sut.unmetStream.first { _ in true }
+
+        #expect(captureDeviceMock.calls.contains(.requestAccess))
+    }
+
+    @Test
     mutating func refresh_noTarget_yieldsOutputDeviceRequirement() async {
         targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: nil)
-        isMicAuthorized = true
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
@@ -64,7 +77,7 @@ struct SetupCheckerTests {
     @Test
     mutating func refresh_bothMissing_yieldsBoth() async {
         targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: nil)
-        isMicAuthorized = false
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
@@ -74,15 +87,13 @@ struct SetupCheckerTests {
     @Test
     mutating func refresh_calledAgainWithoutChange_doesNotYieldDuplicate() async {
         targetSettingsMock = TargetSettingsProviderMock(resolveTargetResult: .fake())
-        isMicAuthorized = true
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
         #expect(await iterator.next() == [])
 
         await sut.refresh()
 
-        // No further yield expected. Trigger a change to confirm the iterator is
-        // still alive and would receive a different value.
         await targetSettingsMock.setResolveTargetResult(nil)
         await sut.refresh()
         #expect(await iterator.next() == [.outputDevice])
