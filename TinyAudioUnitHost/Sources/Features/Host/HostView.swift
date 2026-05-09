@@ -68,6 +68,13 @@ struct HostView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
+                        Task { await viewModel.accept(action: .restorePreset) }
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .help("Restore preset")
+                    .disabled(!viewModel.isModified)
+                    Button {
                         Task { await viewModel.accept(action: .saveCurrentPreset) }
                     } label: {
                         Image(systemName: "square.and.arrow.down")

@@ -22,7 +22,7 @@ struct AudioUnitView: View {
                     Representable(controller: controller)
                 }
             }
-            .task(id: audioUnit.component.id) {
+            .task(id: ObjectIdentifier(audioUnit.audioUnit)) {
                 controller = nil
                 guard let vc = await audioUnit.audioUnit.requestViewController() else { return }
                 controller = vc

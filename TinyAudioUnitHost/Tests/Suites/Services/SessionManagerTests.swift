@@ -142,6 +142,43 @@ struct SessionManagerTests {
         #expect(await iterator.next() == true)
     }
 
+    // MARK: - activate(.savedDefault)
+
+    @Test
+    mutating func activateSavedDefault_deletesSession_engineLoadsDefault_yieldsFalse() async {
+        let component = AudioUnitComponent.fake()
+        let saved = Preset(component: component, state: Data([0xFF]))
+        let loaded = LoadedAudioUnit.fake(component: component)
+        presetProviderMock = PresetProviderMock(defaultPreset: saved, sessionPreset: Preset(component: component, state: Data([0x02])))
+        engineMock = EngineMock(loadResult: loaded)
+        createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+
+        let result = await sut.activate(.savedDefault)
+
+        #expect(result == loaded)
+        #expect(await engineMock.calls == [.load(component, Data([0xFF]))])
+        #expect(await iterator.next() == false)
+        let providerCalls = await presetProviderMock.calls
+        #expect(providerCalls.contains(.deleteSession))
+    }
+
+    @Test
+    mutating func activateSavedDefault_noDefault_clearsCurrentAndYieldsFalse() async {
+        let auMock = AUAudioUnitMock(fullState: Data())
+        let loaded = LoadedAudioUnit.fake(audioUnit: auMock)
+        engineMock = EngineMock(loadResult: loaded)
+        createSut()
+        _ = await sut.activate(.picked(.fake()))  // make current non-nil and modified
+
+        let result = await sut.activate(.savedDefault)
+
+        #expect(result == nil)
+        // After this, persistSession should delete (no current).
+        await sut.persistSession()
+        #expect(await presetProviderMock.calls.last == .deleteSession)
+    }
+
     // MARK: - save
 
     @Test

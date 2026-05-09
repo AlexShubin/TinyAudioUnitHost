@@ -37,11 +37,13 @@ actor SessionManagerMock: SessionManagerType {
 
     func activate(_ source: ActivationSource) -> LoadedAudioUnit? {
         calls.append(.activate(source))
-        if activateResult != nil {
-            switch source {
-            case .stored: continuation.yield(isModifiedOnLoad)
-            case .picked: continuation.yield(true)
-            }
+        switch source {
+        case .stored:
+            if activateResult != nil { continuation.yield(isModifiedOnLoad) }
+        case .picked:
+            if activateResult != nil { continuation.yield(true) }
+        case .savedDefault:
+            continuation.yield(false)
         }
         return activateResult
     }
@@ -57,5 +59,9 @@ actor SessionManagerMock: SessionManagerType {
 
     func emitIsModified(_ value: Bool) {
         continuation.yield(value)
+    }
+
+    func setActivateResult(_ value: LoadedAudioUnit?) {
+        activateResult = value
     }
 }

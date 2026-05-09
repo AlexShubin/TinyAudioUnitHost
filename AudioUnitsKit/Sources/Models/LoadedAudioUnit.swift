@@ -22,6 +22,6 @@ public struct LoadedAudioUnit: Sendable, Equatable {
 
 
     public static func == (lhs: LoadedAudioUnit, rhs: LoadedAudioUnit) -> Bool {
-        lhs.component == rhs.component
+        lhs.component == rhs.component && lhs.audioUnit === rhs.audioUnit
     }
 }

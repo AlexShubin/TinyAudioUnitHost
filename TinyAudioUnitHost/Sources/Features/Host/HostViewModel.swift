@@ -15,6 +15,7 @@ enum HostViewModelAction {
     case selected(AudioUnitComponent)
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
     case saveCurrentPreset
+    case restorePreset
 }
 
 enum HostContent: Sendable, Equatable {
@@ -83,6 +84,14 @@ final class HostViewModel: HostViewModelType {
         case .saveCurrentPreset:
             guard case .loaded = content else { return }
             await sessionManager.save()
+        case .restorePreset:
+            if let loaded = await sessionManager.activate(.savedDefault) {
+                selectedComponent = loaded.component
+                content = .loaded(loaded)
+            } else {
+                selectedComponent = nil
+                content = .empty
+            }
         }
     }
 

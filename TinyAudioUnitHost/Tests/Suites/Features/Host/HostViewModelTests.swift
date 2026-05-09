@@ -235,6 +235,59 @@ struct HostViewModelTests {
         #expect(await sessionManagerMock.calls == [])
     }
 
+    // MARK: - restorePreset
+
+    @Test
+    mutating func restorePreset_callsManagerActivateWithSavedDefault() async {
+        createSut()
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(await sessionManagerMock.calls == [.activate(.savedDefault)])
+    }
+
+    @Test
+    mutating func restorePreset_activateSucceeds_setsContentAndSelectedComponent() async {
+        let component = AudioUnitComponent.fake(name: "Saved")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
+        createSut()
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(sut.selectedComponent == component)
+        #expect(sut.content == .loaded(loaded))
+    }
+
+    @Test
+    mutating func restorePreset_noDefault_clearsToEmpty() async {
+        let component = AudioUnitComponent.fake()
+        let loaded = LoadedAudioUnit.fake(component: component)
+        sessionManagerMock = SessionManagerMock(activateResult: loaded)
+        createSut()
+        await sut.accept(action: .selected(component))
+        #expect(sut.content == .loaded(loaded))
+        await sessionManagerMock.setActivateResult(nil)
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(sut.selectedComponent == nil)
+        #expect(sut.content == .empty)
+    }
+
+    @Test
+    mutating func restorePreset_clearsTitleModifiedFlag() async {
+        createSut()
+        let sut = sut!
+        let mock = sessionManagerMock!
+        await awaitTitleChange { await mock.emitIsModified(true) }
+        #expect(sut.presetTitle == "Preset: Default*")
+
+        await awaitTitleChange { await sut.accept(action: .restorePreset) }
+
+        #expect(sut.presetTitle == "Preset: Default")
+    }
+
     // MARK: - isModifiedStream proxy
 
     @Test
