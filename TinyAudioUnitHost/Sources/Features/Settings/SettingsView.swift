@@ -69,6 +69,16 @@ struct SettingsView: View {
                         Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
                     }
                 )
+                Section {
+                    Label {
+                        Text("All MIDI devices are connected — more granular control of the MIDI connections is on the way.")
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
         }
