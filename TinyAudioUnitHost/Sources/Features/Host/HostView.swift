@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AppKit
 import SwiftUI
 
 struct HostView: View {
@@ -56,33 +55,22 @@ struct HostView: View {
                 if viewModel.isReady {
                     switch viewModel.content {
                     case .empty:
-                        VStack(spacing: 16) {
-                            Image(nsImage: NSApp.applicationIconImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 96, height: 96)
+                        PlaceholderView {
                             Text("Select an audio unit")
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: 480, height: 320)
                     case .loading:
-                        VStack(spacing: 16) {
-                            Image(nsImage: NSApp.applicationIconImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 96, height: 96)
+                        PlaceholderView {
                             ProgressView()
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: 480, height: 320)
                     case .loaded(let audioUnit):
                         AudioUnitView(audioUnit: audioUnit)
                     }
                 } else {
                     SetupChecklistView(unmet: viewModel.unmetRequirements)
-                        .frame(width: 480, height: 320)
                 }
             }
             .toolbar {

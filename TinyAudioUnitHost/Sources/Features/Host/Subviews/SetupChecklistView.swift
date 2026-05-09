@@ -13,11 +13,7 @@ struct SetupChecklistView: View {
     let unmet: Set<SetupRequirement>
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 96, height: 96)
+        PlaceholderView {
             Text("Set up the app to start hosting")
                 .font(.title)
                 .fontWeight(.bold)
