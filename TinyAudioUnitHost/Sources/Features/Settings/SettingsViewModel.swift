@@ -34,17 +34,20 @@ final class SettingsViewModel: SettingsViewModelType {
     @ObservationIgnored private let targetSettings: TargetSettingsProviderType
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let engine: EngineType
+    @ObservationIgnored private let setupChecker: SetupCheckerType
 
     init(
         audioSettings: AudioSettingsProviderType,
         targetSettings: TargetSettingsProviderType,
         devicesProvider: AudioDevicesProviderType,
-        engine: EngineType
+        engine: EngineType,
+        setupChecker: SetupCheckerType
     ) {
         self.audioSettings = audioSettings
         self.targetSettings = targetSettings
         self.devicesProvider = devicesProvider
         self.engine = engine
+        self.setupChecker = setupChecker
     }
 
     func accept(action: SettingsViewAction) async {
@@ -152,6 +155,7 @@ final class SettingsViewModel: SettingsViewModelType {
         let target = await targetSettings.resolveTarget()
         await refreshSampleRate(target: target)
         await refreshBufferSize(target: target)
+        await setupChecker.refresh()
     }
 
     private func refreshBufferSize(target: TargetSettings?) async {

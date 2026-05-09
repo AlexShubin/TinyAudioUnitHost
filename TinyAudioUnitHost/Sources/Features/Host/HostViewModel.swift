@@ -31,6 +31,8 @@ protocol HostViewModelType: AnyObject, Observable {
     var content: HostContent { get }
     var presetTitle: String { get }
     var isModified: Bool { get }
+    var unmetRequirements: Set<SetupRequirement> { get }
+    var isReady: Bool { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -40,28 +42,40 @@ final class HostViewModel: HostViewModelType {
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var content: HostContent = .empty
     private(set) var isModified: Bool = false
+    private(set) var unmetRequirements: Set<SetupRequirement> = []
 
     var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
+    var isReady: Bool { unmetRequirements.isEmpty }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let sessionManager: SessionManagerType
+    @ObservationIgnored private let setupChecker: SetupCheckerType
     @ObservationIgnored private var modificationListener: Task<Void, Never>?
+    @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
-        sessionManager: SessionManagerType
+        sessionManager: SessionManagerType,
+        setupChecker: SetupCheckerType
     ) {
         self.library = library
         self.sessionManager = sessionManager
+        self.setupChecker = setupChecker
         modificationListener = Task { [weak self, sessionManager] in
             for await flag in sessionManager.isModifiedStream {
                 self?.isModified = flag
+            }
+        }
+        setupListener = Task { [weak self, setupChecker] in
+            for await unmet in setupChecker.unmetStream {
+                self?.unmetRequirements = unmet
             }
         }
     }
 
     deinit {
         modificationListener?.cancel()
+        setupListener?.cancel()
     }
 
     func accept(action: HostViewModelAction) async {
@@ -73,6 +87,7 @@ final class HostViewModel: HostViewModelType {
             selectedComponent = loaded.component
             content = .loaded(loaded)
         case .selected(let component):
+            guard isReady else { return }
             selectedComponent = component
             content = .loading
             if let loaded = await sessionManager.activate(.picked(component)) {

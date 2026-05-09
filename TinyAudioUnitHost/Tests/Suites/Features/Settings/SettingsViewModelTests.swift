@@ -19,6 +19,7 @@ struct SettingsViewModelTests {
     var targetSettingsMock: TargetSettingsProviderMock!
     var devicesProviderMock: AudioDevicesProviderMock!
     var engineMock: EngineMock!
+    var setupCheckerMock: SetupCheckerMock!
     var sut: SettingsViewModelType!
 
     init() {
@@ -26,6 +27,7 @@ struct SettingsViewModelTests {
         targetSettingsMock = TargetSettingsProviderMock()
         devicesProviderMock = AudioDevicesProviderMock()
         engineMock = EngineMock()
+        setupCheckerMock = SetupCheckerMock()
     }
 
     mutating func createSut() {
@@ -33,7 +35,8 @@ struct SettingsViewModelTests {
             audioSettings: audioSettingsMock,
             targetSettings: targetSettingsMock,
             devicesProvider: devicesProviderMock,
-            engine: engineMock
+            engine: engineMock,
+            setupChecker: setupCheckerMock
         )
     }
 

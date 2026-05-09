@@ -18,17 +18,20 @@ import Testing
 struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
     var sessionManagerMock: SessionManagerMock!
+    var setupCheckerMock: SetupCheckerMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
         sessionManagerMock = SessionManagerMock()
+        setupCheckerMock = SetupCheckerMock()
     }
 
     mutating func createSut() {
         sut = HostViewModel(
             library: libraryMock,
-            sessionManager: sessionManagerMock
+            sessionManager: sessionManagerMock,
+            setupChecker: setupCheckerMock
         )
     }
 
@@ -36,6 +39,17 @@ struct HostViewModelTests {
         await withCheckedContinuation { continuation in
             withObservationTracking {
                 _ = sut.presetTitle
+            } onChange: {
+                continuation.resume()
+            }
+            Task { @MainActor in await trigger() }
+        }
+    }
+
+    private func awaitUnmetChange(_ trigger: @MainActor @escaping () async -> Void) async {
+        await withCheckedContinuation { continuation in
+            withObservationTracking {
+                _ = sut.unmetRequirements
             } onChange: {
                 continuation.resume()
             }
@@ -233,6 +247,34 @@ struct HostViewModelTests {
         await sut.accept(action: .saveCurrentPreset)
 
         #expect(await sessionManagerMock.calls == [])
+    }
+
+    // MARK: - setup gating
+
+    @Test
+    mutating func selected_notReady_doesNotCallManager() async {
+        createSut()
+        let sut = sut!
+        let mock = setupCheckerMock!
+
+        await awaitUnmetChange { await mock.emit([.microphonePermission]) }
+        #expect(!sut.isReady)
+
+        await sut.accept(action: .selected(.fake()))
+
+        #expect(await sessionManagerMock.calls == [])
+    }
+
+    @Test
+    mutating func setupChecker_yields_updatesUnmetRequirements() async {
+        createSut()
+        let sut = sut!
+        let mock = setupCheckerMock!
+
+        await awaitUnmetChange { await mock.emit([.outputDevice]) }
+
+        #expect(sut.unmetRequirements == [.outputDevice])
+        #expect(!sut.isReady)
     }
 
     // MARK: - restorePreset

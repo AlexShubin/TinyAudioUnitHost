@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AppKit
 import SwiftUI
 
 struct HostView: View {
@@ -48,20 +49,40 @@ struct HostView: View {
                 }
             }
             .listStyle(.sidebar)
-            .disabled(viewModel.content == .loading)
+            .disabled(viewModel.content == .loading || !viewModel.isReady)
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             Group {
-                switch viewModel.content {
-                case .empty:
-                    Text("Select an audio unit")
-                        .foregroundStyle(.secondary)
+                if viewModel.isReady {
+                    switch viewModel.content {
+                    case .empty:
+                        VStack(spacing: 16) {
+                            Image(nsImage: NSApp.applicationIconImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 96, height: 96)
+                            Text("Select an audio unit")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.secondary)
+                        }
                         .frame(width: 480, height: 320)
-                case .loading:
-                    ProgressView("Loading Audio Unit...")
+                    case .loading:
+                        VStack(spacing: 16) {
+                            Image(nsImage: NSApp.applicationIconImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 96, height: 96)
+                            ProgressView()
+                                .foregroundStyle(.secondary)
+                        }
                         .frame(width: 480, height: 320)
-                case .loaded(let audioUnit):
-                    AudioUnitView(audioUnit: audioUnit)
+                    case .loaded(let audioUnit):
+                        AudioUnitView(audioUnit: audioUnit)
+                    }
+                } else {
+                    SetupChecklistView(unmet: viewModel.unmetRequirements)
+                        .frame(width: 480, height: 320)
                 }
             }
             .toolbar {
