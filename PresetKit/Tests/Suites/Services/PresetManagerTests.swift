@@ -9,6 +9,8 @@
 import AudioToolbox
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
+import EngineKit
+import EngineKitTestSupport
 import Foundation
 import StorageKit
 import StorageKitTestSupport
@@ -17,17 +19,19 @@ import Testing
 
 @Suite
 struct PresetManagerTests {
+    var engineMock: EngineMock!
     var rawStoreMock: RawPresetStoreMock!
     var libraryMock: AudioUnitComponentsLibraryMock!
     var sut: PresetManagerType!
 
     init() {
+        engineMock = EngineMock()
         rawStoreMock = RawPresetStoreMock()
         libraryMock = AudioUnitComponentsLibraryMock()
     }
 
     mutating func createSut() {
-        sut = PresetManager(rawStore: rawStoreMock, library: libraryMock)
+        sut = PresetManager(engine: engineMock, rawStore: rawStoreMock, library: libraryMock)
     }
 
     // MARK: - load
@@ -40,74 +44,111 @@ struct PresetManagerTests {
     }
 
     @Test
-    mutating func load_onlyDefault_returnsItUnmodified() async {
+    mutating func load_onlyDefault_engineLoadsItAndYieldsFalse() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let loaded = LoadedAudioUnit.fake(component: component)
         rawStoreMock = RawPresetStoreMock(presets: ["default": rawPreset(matching: component, state: Data([0x01]))])
         libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        let active = await sut.load()
+        let result = await sut.load()
 
-        #expect(active?.preset.component == component)
-        #expect(active?.preset.state == Data([0x01]))
-        #expect(active?.isModified == false)
+        #expect(result == loaded)
+        #expect(await engineMock.calls == [.load(component, Data([0x01]))])
+        #expect(await iterator.next() == false)
     }
 
     @Test
-    mutating func load_sessionPresent_returnsItModified() async {
+    mutating func load_sessionPresent_engineLoadsItAndYieldsTrue() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let loaded = LoadedAudioUnit.fake(component: component)
         rawStoreMock = RawPresetStoreMock(presets: [
             "default": rawPreset(matching: component, state: Data([0x01])),
             "raw_session": rawPreset(matching: component, state: Data([0x02])),
         ])
         libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        let active = await sut.load()
+        let result = await sut.load()
 
-        #expect(active?.preset.state == Data([0x02]))
-        #expect(active?.isModified == true)
+        #expect(result == loaded)
+        #expect(await engineMock.calls == [.load(component, Data([0x02]))])
+        #expect(await iterator.next() == true)
     }
 
     @Test
     mutating func load_sessionPresentButComponentMissing_fallsBackToDefault() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        // Session references a component that isn't installed.
+        let loaded = LoadedAudioUnit.fake(component: component)
         let sessionRaw = RawPreset.fake(componentType: 99, componentSubType: 99, componentManufacturer: 99)
         rawStoreMock = RawPresetStoreMock(presets: [
             "default": rawPreset(matching: component, state: Data([0x01])),
             "raw_session": sessionRaw,
         ])
         libraryMock = AudioUnitComponentsLibraryMock(components: [component])
-        createSut()
-
-        let active = await sut.load()
-
-        #expect(active?.preset.state == Data([0x01]))
-        #expect(active?.isModified == false)
-    }
-
-    // MARK: - setCurrent / isModifiedStream
-
-    @Test
-    mutating func setCurrent_yieldsIsModifiedFlag() async {
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        await sut.setCurrent(LoadedAudioUnit.fake(), isModified: true)
-        #expect(await iterator.next() == true)
+        let result = await sut.load()
 
-        await sut.setCurrent(LoadedAudioUnit.fake(), isModified: false)
+        #expect(result == loaded)
+        #expect(await engineMock.calls == [.load(component, Data([0x01]))])
         #expect(await iterator.next() == false)
+    }
+
+    @Test
+    mutating func load_engineLoadFails_returnsNil() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        rawStoreMock = RawPresetStoreMock(presets: ["default": rawPreset(matching: component, state: Data([0x01]))])
+        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        createSut()  // engineMock.loadResult is nil
+
+        let result = await sut.load()
+
+        #expect(result == nil)
+    }
+
+    // MARK: - setCurrent
+
+    @Test
+    mutating func setCurrent_engineLoads_yieldsTrue_returnsLoaded() async {
+        let component = AudioUnitComponent.fake()
+        let loaded = LoadedAudioUnit.fake(component: component)
+        engineMock = EngineMock(loadResult: loaded)
+        createSut()
+        var iterator = sut.isModifiedStream.makeAsyncIterator()
+
+        let result = await sut.setCurrent(component)
+
+        #expect(result == loaded)
+        #expect(await engineMock.calls == [.load(component, nil)])
+        #expect(await iterator.next() == true)
+    }
+
+    @Test
+    mutating func setCurrent_engineLoadFails_returnsNil() async {
+        let component = AudioUnitComponent.fake()
+        createSut()  // engineMock.loadResult is nil
+
+        let result = await sut.setCurrent(component)
+
+        #expect(result == nil)
     }
 
     @Test
     mutating func setCurrent_paramChange_yieldsTrue() async {
         let auMock = AUAudioUnitMock()
+        let loaded = LoadedAudioUnit.fake(audioUnit: auMock)
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
-        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: auMock), isModified: false)
-        #expect(await iterator.next() == false)
+        _ = await sut.setCurrent(.fake())
+        #expect(await iterator.next() == true)
 
         auMock.triggerOnChange()
 
@@ -118,17 +159,19 @@ struct PresetManagerTests {
     mutating func setCurrent_replacesObserver_oldAUStopsTriggering() async {
         let firstAU = AUAudioUnitMock()
         let secondAU = AUAudioUnitMock()
+        let firstLoaded = LoadedAudioUnit.fake(audioUnit: firstAU)
+        let secondLoaded = LoadedAudioUnit.fake(audioUnit: secondAU)
+        engineMock = EngineMock(loadResult: firstLoaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
 
-        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: firstAU), isModified: false)
-        #expect(await iterator.next() == false)
+        _ = await sut.setCurrent(.fake())
+        #expect(await iterator.next() == true)
 
-        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: secondAU), isModified: false)
-        #expect(await iterator.next() == false)
+        await engineMock.setLoadResult(secondLoaded)
+        _ = await sut.setCurrent(.fake())
+        #expect(await iterator.next() == true)
 
-        // Old AU should no longer drive isModified. Trigger new AU and expect it
-        // to be the next yield (not the stale old-AU yield).
         secondAU.triggerOnChange()
         #expect(await iterator.next() == true)
     }
@@ -148,8 +191,10 @@ struct PresetManagerTests {
     mutating func save_writesDefaultAndDeletesSession() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: false)
+        _ = await sut.setCurrent(component)
 
         await sut.save()
 
@@ -165,15 +210,17 @@ struct PresetManagerTests {
     mutating func save_yieldsFalse_andPersistSessionDeletes() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0x42]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
         var iterator = sut.isModifiedStream.makeAsyncIterator()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: true)
+        _ = await sut.setCurrent(component)
         #expect(await iterator.next() == true)
 
         await sut.save()
         #expect(await iterator.next() == false)
 
-        await rawStoreMock.setPresets([:])  // ignore prior calls' state
+        await rawStoreMock.setPresets([:])
 
         await sut.persistSession()
 
@@ -187,38 +234,31 @@ struct PresetManagerTests {
     mutating func persistSession_notModified_deletesSession() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0x42]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        rawStoreMock = RawPresetStoreMock(presets: ["default": rawPreset(matching: component, state: Data([0xFF]))])
+        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: false)
+        _ = await sut.load()
 
         await sut.persistSession()
 
-        #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
+        #expect(await rawStoreMock.calls.last == .delete(name: "raw_session"))
     }
 
     @Test
     mutating func persistSession_modified_writesSession() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xCA, 0xFE]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        engineMock = EngineMock(loadResult: loaded)
         createSut()
-        await sut.setCurrent(LoadedAudioUnit.fake(component: component, audioUnit: auMock), isModified: true)
+        _ = await sut.setCurrent(component)
 
         await sut.persistSession()
 
         let expected = rawPreset(matching: component, state: Data([0xCA, 0xFE]))
         #expect(await rawStoreMock.calls == [.save(expected, name: "raw_session")])
-    }
-
-    @Test
-    mutating func persistSession_noCurrent_andModified_stillDeletesSession() async {
-        createSut()
-        // Mark modified via setCurrent then drop current — manager's flag stays
-        // true but `currentPreset()` returns nil, mirroring the no-AU case.
-        await sut.setCurrent(LoadedAudioUnit.fake(audioUnit: AUAudioUnitMock(fullState: nil)), isModified: true)
-        await sut.setCurrent(nil, isModified: true)
-
-        await sut.persistSession()
-
-        #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
     }
 
     // MARK: - Helpers

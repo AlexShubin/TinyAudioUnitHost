@@ -7,7 +7,6 @@
 //
 
 import AudioUnitsKit
-import EngineKit
 import Observation
 import PresetKit
 
@@ -43,17 +42,14 @@ final class HostViewModel: HostViewModelType {
 
     var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
 
-    @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let presetManager: PresetManagerType
     @ObservationIgnored private var modificationListener: Task<Void, Never>?
 
     init(
-        engine: EngineType,
         library: AudioUnitComponentsLibraryType,
         presetManager: PresetManagerType
     ) {
-        self.engine = engine
         self.library = library
         self.presetManager = presetManager
         modificationListener = Task { [weak self, presetManager] in
@@ -72,18 +68,14 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             guard case .empty = content else { return }
-            guard let active = await presetManager.load(),
-                  let loaded = await engine.load(component: active.preset.component, state: active.preset.state)
-            else { return }
-            selectedComponent = active.preset.component
+            guard let loaded = await presetManager.load() else { return }
+            selectedComponent = loaded.component
             content = .loaded(loaded)
-            await presetManager.setCurrent(loaded, isModified: active.isModified)
         case .selected(let component):
             selectedComponent = component
             content = .loading
-            if let loaded = await engine.load(component: component, state: nil) {
+            if let loaded = await presetManager.setCurrent(component) {
                 content = .loaded(loaded)
-                await presetManager.setCurrent(loaded, isModified: true)
             }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }

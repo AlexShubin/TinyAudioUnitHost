@@ -7,6 +7,7 @@
 //
 
 import AudioUnitsKit
+import EngineKit
 import StorageKit
 
 public protocol PresetManagerType: Sendable {
@@ -14,16 +15,15 @@ public protocol PresetManagerType: Sendable {
     /// component swap, parameter change, save).
     var isModifiedStream: AsyncStream<Bool> { get }
 
-    /// Returns the preset to load on launch. If a session exists on disk, it
-    /// wins (and `isModified` is `true`); otherwise the saved default is
-    /// returned (with `isModified` `false`).
-    func load() async -> ActivePreset?
+    /// Loads the active preset on launch — session if present, otherwise the
+    /// saved default — engine-loads the AU, and starts observing parameter
+    /// changes. Sets the modified flag accordingly (true for session, false
+    /// for default). Returns the loaded AU on success.
+    func load() async -> LoadedAudioUnit?
 
-    /// Records the currently-loaded AU and the modified state to start from.
-    /// The manager keeps a strong reference to the AU so it can read
-    /// `fullState` at quit time, and observes parameter changes to flip the
-    /// modified flag.
-    func setCurrent(_ loaded: LoadedAudioUnit?, isModified: Bool) async
+    /// Engine-loads a freshly picked component as the new current AU and
+    /// marks the state modified.
+    func setCurrent(_ component: AudioUnitComponent) async -> LoadedAudioUnit?
 
     /// User-initiated save. Writes the current AU's state to the default
     /// preset, deletes any session, clears the modified flag.
@@ -42,13 +42,19 @@ final actor PresetManager: PresetManagerType {
     nonisolated let isModifiedStream: AsyncStream<Bool>
     private let continuation: AsyncStream<Bool>.Continuation
 
+    private let engine: EngineType
     private let rawStore: RawPresetStoreType
     private let library: AudioUnitComponentsLibraryType
     private var current: LoadedAudioUnit?
     private var isModified: Bool = false
     private var observationTask: Task<Void, Never>?
 
-    init(rawStore: RawPresetStoreType, library: AudioUnitComponentsLibraryType) {
+    init(
+        engine: EngineType,
+        rawStore: RawPresetStoreType,
+        library: AudioUnitComponentsLibraryType
+    ) {
+        self.engine = engine
         self.rawStore = rawStore
         self.library = library
         let (stream, continuation) = AsyncStream<Bool>.makeStream()
@@ -61,26 +67,21 @@ final actor PresetManager: PresetManagerType {
         observationTask?.cancel()
     }
 
-    func load() async -> ActivePreset? {
+    func load() async -> LoadedAudioUnit? {
         if let session = await loadResolved(name: Self.sessionName) {
-            return ActivePreset(preset: session, isModified: true)
+            return await activate(session, isModified: true)
         }
         if let saved = await loadResolved(name: Self.defaultName) {
-            return ActivePreset(preset: saved, isModified: false)
+            return await activate(saved, isModified: false)
         }
         return nil
     }
 
-    func setCurrent(_ loaded: LoadedAudioUnit?, isModified: Bool) {
-        current = loaded
-        observationTask?.cancel()
-        setIsModified(isModified)
-        guard let loaded else { return }
-        observationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
-            for await _ in audioUnit.modifications {
-                await self?.setIsModified(true)
-            }
-        }
+    func setCurrent(_ component: AudioUnitComponent) async -> LoadedAudioUnit? {
+        guard let loaded = await engine.load(component: component, state: nil) else { return nil }
+        attach(loaded)
+        setIsModified(true)
+        return loaded
     }
 
     func save() async {
@@ -95,6 +96,23 @@ final actor PresetManager: PresetManagerType {
             await rawStore.save(raw(from: preset), name: Self.sessionName)
         } else {
             await rawStore.delete(name: Self.sessionName)
+        }
+    }
+
+    private func activate(_ preset: Preset, isModified: Bool) async -> LoadedAudioUnit? {
+        guard let loaded = await engine.load(component: preset.component, state: preset.state) else { return nil }
+        attach(loaded)
+        setIsModified(isModified)
+        return loaded
+    }
+
+    private func attach(_ loaded: LoadedAudioUnit) {
+        current = loaded
+        observationTask?.cancel()
+        observationTask = Task { [weak self, audioUnit = loaded.audioUnit] in
+            for await _ in audioUnit.modifications {
+                await self?.setIsModified(true)
+            }
         }
     }
 
