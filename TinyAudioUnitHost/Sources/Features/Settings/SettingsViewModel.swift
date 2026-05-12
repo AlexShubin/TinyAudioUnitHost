@@ -151,7 +151,7 @@ final class SettingsViewModel: SettingsViewModelType {
     }
 
     private func applyToEngine() async {
-        await engine.reload()
+        try? await engine.reload()
         let target = await targetSettings.resolveTarget()
         await refreshSampleRate(target: target)
         await refreshBufferSize(target: target)
