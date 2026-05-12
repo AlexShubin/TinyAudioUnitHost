@@ -52,13 +52,18 @@ struct EngineTests {
     }
 
     @Test
-    mutating func load_factoryFailure_returnsNilAndShortCircuits() async {
+    mutating func load_factoryFailure_throwsAndShortCircuits() async {
         avAudioUnitFactoryMock.instantiateResult = .failure(TestError.factoryFailed)
         createSut()
 
-        let result = await sut.load(component: Self.effectComponent, state: nil)
+        var thrown: Error?
+        do {
+            _ = try await sut.load(component: Self.effectComponent, state: nil)
+        } catch {
+            thrown = error
+        }
 
-        #expect(result == nil)
+        #expect(thrown as? EngineLoadError == .audioUnitInstantiationFailed)
         #expect(avAudioUnitFactoryMock.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
         #expect(coreMidiManagerMock.calls == [.teardownMIDI])
         #expect(!avEngineMock.calls.contains(.start))
@@ -70,9 +75,9 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        let result = await sut.load(component: Self.effectComponent, state: nil)
+        let result = try await sut.load(component: Self.effectComponent, state: nil)
 
-        #expect(result?.component == Self.effectComponent)
+        #expect(result.component == Self.effectComponent)
         #expect(avEngineMock.calls == [
             .attach(inputMixerMock),
             .stop,
@@ -98,8 +103,8 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        await Task(priority: .utility) { [sut] in
-            _ = await sut!.load(component: Self.effectComponent, state: stateAtMax)
+        try await Task(priority: .utility) { [sut] in
+            _ = try await sut!.load(component: Self.effectComponent, state: stateAtMax)
         }.value
 
         #expect(parameter.value == parameter.maxValue)
@@ -112,10 +117,10 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .success(firstAU)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
         avAudioUnitFactoryMock.instantiateResult = .success(secondAU)
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(avEngineMock.calls == [
             .attach(inputMixerMock),
@@ -158,7 +163,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(coreAudioGatewayMock.calls == [
             .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
@@ -183,7 +188,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(coreAudioGatewayMock.calls == [
             .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
@@ -204,7 +209,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(coreAudioGatewayMock.calls == [
             .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
@@ -218,7 +223,7 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .failure(TestError.factoryFailed)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try? await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(coreAudioGatewayMock.calls.isEmpty)
     }
@@ -240,7 +245,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
         #expect(coreAudioGatewayMock.calls == [.setChannelMap([0, 1], 1, inputAU)])
@@ -264,7 +269,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.mixerComponent, state: nil)
+        _ = try await sut.load(component: Self.mixerComponent, state: nil)
 
         #expect(!avEngineMock.calls.contains { if case .connectHardwareInput = $0 { true } else { false } })
         #expect(!coreAudioGatewayMock.calls.contains { if case .setChannelMap(_, let element, _) = $0 { element == 1 } else { false } })
@@ -288,7 +293,7 @@ struct EngineTests {
         await targetSettingsProviderMock.setResolveTargetResult(target)
         createSut()
 
-        _ = await sut.load(component: Self.effectComponent, state: nil)
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: 48_000,
@@ -308,7 +313,7 @@ struct EngineTests {
     mutating func reload_doesNotCallFactoryOrTouchMIDI() async {
         createSut()
 
-        await sut.reload()
+        try? await sut.reload()
 
         #expect(avAudioUnitFactoryMock.calls.isEmpty)
         #expect(coreMidiManagerMock.calls.isEmpty)
