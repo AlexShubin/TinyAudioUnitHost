@@ -38,6 +38,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [])
     }
 
@@ -47,6 +49,8 @@ struct SetupCheckerTests {
         captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
 
         #expect(await iterator.next() == [.microphonePermission])
     }
@@ -59,7 +63,8 @@ struct SetupCheckerTests {
             requestAccessResult: true
         )
         createSut()
-        _ = await sut.unmetStream.first { _ in true }
+
+        await sut.refresh()
 
         #expect(captureDeviceMock.calls.contains(.requestAccess))
     }
@@ -71,6 +76,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [.outputDevice])
     }
 
@@ -81,6 +88,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [.microphonePermission, .outputDevice])
     }
 
@@ -90,6 +99,8 @@ struct SetupCheckerTests {
         captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
         #expect(await iterator.next() == [])
 
         await sut.refresh()

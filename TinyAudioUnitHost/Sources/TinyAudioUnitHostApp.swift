@@ -15,12 +15,25 @@ struct TinyAudioUnitHostApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HostView(viewModel: dependencies.makeHostViewModel())
+            withTestsDisabled { HostView(viewModel: dependencies.makeHostViewModel()) }
         }
         .windowResizability(.contentSize)
 
         Settings {
-            SettingsView(viewModel: dependencies.makeSettingsViewModel())
+            withTestsDisabled { SettingsView(viewModel: dependencies.makeSettingsViewModel()) }
         }
+    }
+
+    @ViewBuilder
+    private func withTestsDisabled<V: View>(@ViewBuilder _ content: () -> V) -> some View {
+        if isRunningTests {
+            EmptyView()
+        } else {
+            content()
+        }
+    }
+
+    private var isRunningTests: Bool {
+        NSClassFromString("XCTestCase") != nil
     }
 }

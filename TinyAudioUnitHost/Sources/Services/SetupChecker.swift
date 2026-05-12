@@ -37,7 +37,6 @@ final actor SetupChecker: SetupCheckerType {
         let (stream, continuation) = AsyncStream<Set<SetupRequirement>>.makeStream()
         self.unmetStream = stream
         self.continuation = continuation
-        Task { await self.refresh() }
     }
 
     deinit {

@@ -82,6 +82,7 @@ final class HostViewModel: HostViewModelType {
         switch action {
         case .task:
             groups = grouped(library.components)
+            await setupChecker.refresh()
             guard case .empty = content else { return }
             guard let saved = await presetProvider.loadDefault() else { return }
             await load(component: saved.component, state: saved.state)
