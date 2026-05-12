@@ -35,17 +35,6 @@ struct HostViewModelTests {
         )
     }
 
-    private func awaitTitleChange(_ trigger: @MainActor @escaping () async -> Void) async {
-        await withCheckedContinuation { continuation in
-            withObservationTracking {
-                _ = sut.presetTitle
-            } onChange: {
-                continuation.resume()
-            }
-            Task { @MainActor in await trigger() }
-        }
-    }
-
     private func awaitUnmetChange(_ trigger: @MainActor @escaping () async -> Void) async {
         await withCheckedContinuation { continuation in
             withObservationTracking {
@@ -130,29 +119,6 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_activateUnmodified_titleHasNoAsterisk() async {
-        let loaded = LoadedAudioUnit.fake()
-        sessionManagerMock = SessionManagerMock(activateResult: loaded, isModifiedOnLoad: false)
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.presetTitle == "Preset: Default")
-    }
-
-    @Test
-    mutating func task_activateModified_titleHasAsterisk() async {
-        let loaded = LoadedAudioUnit.fake()
-        sessionManagerMock = SessionManagerMock(activateResult: loaded, isModifiedOnLoad: true)
-        createSut()
-        let sut = sut!
-
-        await awaitTitleChange { await sut.accept(action: .task) }
-
-        #expect(sut.presetTitle == "Preset: Default*")
-    }
-
-    @Test
     mutating func task_calledTwice_doesNotReloadPreset() async {
         let loaded = LoadedAudioUnit.fake()
         sessionManagerMock = SessionManagerMock(activateResult: loaded)
@@ -208,35 +174,18 @@ struct HostViewModelTests {
         #expect(await sessionManagerMock.calls == [.activate(.picked(component))])
     }
 
-    @Test
-    mutating func selected_marksTitleModified() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        let loaded = LoadedAudioUnit.fake(component: component)
-        sessionManagerMock = SessionManagerMock(activateResult: loaded)
-        createSut()
-        let sut = sut!
-
-        await awaitTitleChange { await sut.accept(action: .selected(component)) }
-
-        #expect(sut.presetTitle == "Preset: Default*")
-    }
-
     // MARK: - saveCurrentPreset
 
     @Test
-    mutating func saveCurrentPreset_callsManagerSaveAndClearsTitle() async {
+    mutating func saveCurrentPreset_loaded_callsManagerSave() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
         sessionManagerMock = SessionManagerMock(activateResult: loaded)
         createSut()
-        let sut = sut!
+        await sut.accept(action: .selected(component))
 
-        await awaitTitleChange { await sut.accept(action: .selected(component)) }
-        #expect(sut.presetTitle == "Preset: Default*")
+        await sut.accept(action: .saveCurrentPreset)
 
-        await awaitTitleChange { await sut.accept(action: .saveCurrentPreset) }
-
-        #expect(sut.presetTitle == "Preset: Default")
         #expect(await sessionManagerMock.calls.contains(.save))
     }
 
@@ -280,12 +229,12 @@ struct HostViewModelTests {
     // MARK: - restorePreset
 
     @Test
-    mutating func restorePreset_callsManagerActivateWithSavedDefault() async {
+    mutating func restorePreset_callsManagerActivateWithStored() async {
         createSut()
 
         await sut.accept(action: .restorePreset)
 
-        #expect(await sessionManagerMock.calls == [.activate(.savedDefault)])
+        #expect(await sessionManagerMock.calls == [.activate(.stored)])
     }
 
     @Test
@@ -315,56 +264,6 @@ struct HostViewModelTests {
 
         #expect(sut.selectedComponent == nil)
         #expect(sut.content == .empty)
-    }
-
-    @Test
-    mutating func restorePreset_clearsTitleModifiedFlag() async {
-        createSut()
-        let sut = sut!
-        let mock = sessionManagerMock!
-        await awaitTitleChange { await mock.emitIsModified(true) }
-        #expect(sut.presetTitle == "Preset: Default*")
-
-        await awaitTitleChange { await sut.accept(action: .restorePreset) }
-
-        #expect(sut.presetTitle == "Preset: Default")
-    }
-
-    // MARK: - isModifiedStream proxy
-
-    @Test
-    mutating func isModifiedStream_yieldsTrue_marksTitleModified() async {
-        createSut()
-        let sut = sut!
-        let mock = sessionManagerMock!
-        #expect(sut.presetTitle == "Preset: Default")
-
-        await awaitTitleChange { await mock.emitIsModified(true) }
-
-        #expect(sut.presetTitle == "Preset: Default*")
-    }
-
-    @Test
-    mutating func isModifiedStream_yieldsFalseAfterTrue_clearsTitle() async {
-        createSut()
-        let sut = sut!
-        let mock = sessionManagerMock!
-
-        await awaitTitleChange { await mock.emitIsModified(true) }
-        #expect(sut.presetTitle == "Preset: Default*")
-
-        await awaitTitleChange { await mock.emitIsModified(false) }
-
-        #expect(sut.presetTitle == "Preset: Default")
-    }
-
-    // MARK: - presetTitle
-
-    @Test
-    mutating func presetTitle_initialState_showsDefaultWithoutAsterisk() async {
-        createSut()
-
-        #expect(sut.presetTitle == "Preset: Default")
     }
 
     // MARK: - groupExpansionChanged

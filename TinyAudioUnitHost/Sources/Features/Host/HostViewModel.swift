@@ -22,6 +22,11 @@ enum HostContent: Sendable, Equatable {
     case empty
     case loading
     case loaded(LoadedAudioUnit)
+
+    var isLoaded: Bool {
+        if case .loaded = self { return true }
+        return false
+    }
 }
 
 @MainActor
@@ -29,8 +34,6 @@ protocol HostViewModelType: AnyObject, Observable {
     var groups: [ManufacturerGroup] { get }
     var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
-    var presetTitle: String { get }
-    var isModified: Bool { get }
     var unmetRequirements: Set<SetupRequirement> { get }
     var isReady: Bool { get }
     func accept(action: HostViewModelAction) async
@@ -41,16 +44,13 @@ final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var content: HostContent = .empty
-    private(set) var isModified: Bool = false
     private(set) var unmetRequirements: Set<SetupRequirement> = []
 
-    var presetTitle: String { "Preset: Default\(isModified ? "*" : "")" }
     var isReady: Bool { unmetRequirements.isEmpty }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let sessionManager: SessionManagerType
     @ObservationIgnored private let setupChecker: SetupCheckerType
-    @ObservationIgnored private var modificationListener: Task<Void, Never>?
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     init(
@@ -61,11 +61,6 @@ final class HostViewModel: HostViewModelType {
         self.library = library
         self.sessionManager = sessionManager
         self.setupChecker = setupChecker
-        modificationListener = Task { [weak self, sessionManager] in
-            for await flag in sessionManager.isModifiedStream {
-                self?.isModified = flag
-            }
-        }
         setupListener = Task { [weak self, setupChecker] in
             for await unmet in setupChecker.unmetStream {
                 self?.unmetRequirements = unmet
@@ -74,7 +69,6 @@ final class HostViewModel: HostViewModelType {
     }
 
     deinit {
-        modificationListener?.cancel()
         setupListener?.cancel()
     }
 
@@ -100,7 +94,7 @@ final class HostViewModel: HostViewModelType {
             guard case .loaded = content else { return }
             await sessionManager.save()
         case .restorePreset:
-            if let loaded = await sessionManager.activate(.savedDefault) {
+            if let loaded = await sessionManager.activate(.stored) {
                 selectedComponent = loaded.component
                 content = .loaded(loaded)
             } else {

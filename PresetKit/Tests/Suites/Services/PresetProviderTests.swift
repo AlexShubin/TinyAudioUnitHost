@@ -62,32 +62,10 @@ struct PresetProviderTests {
         #expect(await sut.loadDefault() == nil)
     }
 
-    // MARK: - loadSession
-
-    @Test
-    mutating func loadSession_present_returnsResolvedPreset() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        rawStoreMock = RawPresetStoreMock(presets: ["raw_session": rawPreset(matching: component, state: Data([0x02]))])
-        libraryMock = AudioUnitComponentsLibraryMock(components: [component])
-        createSut()
-
-        let preset = await sut.loadSession()
-
-        #expect(preset?.component == component)
-        #expect(preset?.state == Data([0x02]))
-    }
-
-    @Test
-    mutating func loadSession_absent_returnsNil() async {
-        createSut()
-
-        #expect(await sut.loadSession() == nil)
-    }
-
     // MARK: - saveDefault
 
     @Test
-    mutating func saveDefault_writesDefault_andDeletesSession() async {
+    mutating func saveDefault_writesDefault() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let preset = Preset(component: component, state: Data([0xBE, 0xEF]))
         createSut()
@@ -95,35 +73,7 @@ struct PresetProviderTests {
         await sut.saveDefault(preset)
 
         let expected = rawPreset(matching: component, state: Data([0xBE, 0xEF]))
-        #expect(await rawStoreMock.calls == [
-            .save(expected, name: "default"),
-            .delete(name: "raw_session"),
-        ])
-    }
-
-    // MARK: - saveSession
-
-    @Test
-    mutating func saveSession_writesSession() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let preset = Preset(component: component, state: Data([0xCA, 0xFE]))
-        createSut()
-
-        await sut.saveSession(preset)
-
-        let expected = rawPreset(matching: component, state: Data([0xCA, 0xFE]))
-        #expect(await rawStoreMock.calls == [.save(expected, name: "raw_session")])
-    }
-
-    // MARK: - deleteSession
-
-    @Test
-    mutating func deleteSession_callsRawStoreDelete() async {
-        createSut()
-
-        await sut.deleteSession()
-
-        #expect(await rawStoreMock.calls == [.delete(name: "raw_session")])
+        #expect(await rawStoreMock.calls == [.save(expected, name: "default")])
     }
 
     // MARK: - Helpers

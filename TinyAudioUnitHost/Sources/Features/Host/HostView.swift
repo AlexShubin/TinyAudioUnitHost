@@ -75,7 +75,7 @@ struct HostView: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Text(viewModel.presetTitle)
+                    Text("Preset: Default")
                         .padding([.leading], 12)
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
@@ -86,13 +86,14 @@ struct HostView: View {
                         Image(systemName: "arrow.uturn.backward")
                     }
                     .help("Restore preset")
-                    .disabled(!viewModel.isModified)
+                    .disabled(!viewModel.content.isLoaded)
                     Button {
                         Task { await viewModel.accept(action: .saveCurrentPreset) }
                     } label: {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .help("Save preset")
+                    .disabled(!viewModel.content.isLoaded)
                     Spacer()
                     SettingsLink {
                         Image(systemName: "gear")

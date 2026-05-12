@@ -16,9 +16,6 @@ struct TinyAudioUnitHostApp: App {
     var body: some Scene {
         WindowGroup {
             HostView(viewModel: dependencies.makeHostViewModel())
-                .task {
-                    delegate.sessionManager = dependencies.sessionManager
-                }
         }
         .windowResizability(.contentSize)
 
