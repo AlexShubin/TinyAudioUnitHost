@@ -7,30 +7,31 @@
 //
 
 import CoreMIDI
-import AVFoundation
+// AUAudioUnit's RT-safe surface (scheduleMIDIEventListBlock) is thread-safe
+// per Apple, but the type isn't Sendable. We only touch it inside a CoreMIDI
+// block; the reference doesn't escape this actor beyond that block.
+@preconcurrency import AVFoundation
 
-protocol CoreMidiManagerType {
-    func setupMIDI(for audioUnit: AUAudioUnit)
-    func teardownMIDI()
+protocol CoreMidiManagerType: Sendable {
+    func setupMIDI(for audioUnit: AUAudioUnit) async
+    func teardownMIDI() async
 }
 
-final class CoreMidiManager: CoreMidiManagerType {
-    private var midiClient = MIDIClientRef()
-    private var midiInputPort = MIDIPortRef()
-    private var midiSetUp = false
+actor CoreMidiManager: CoreMidiManagerType {
+    private var midiClient: MIDIClientRef = 0
+    private var midiInputPort: MIDIPortRef = 0
 
     func setupMIDI(for audioUnit: AUAudioUnit) {
-        guard !midiSetUp else { return }
-        midiSetUp = true
-
-        var status = MIDIClientCreateWithBlock("TinyAUHost" as CFString, &midiClient) { [weak self] notification in
-            if notification.pointee.messageID == .msgSetupChanged {
-                self?.connectAllMIDISources()
+        if midiClient == 0 {
+            let status = MIDIClientCreateWithBlock("TinyAUHost" as CFString, &midiClient) { [weak self] notification in
+                if notification.pointee.messageID == .msgSetupChanged {
+                    Task { await self?.connectAllMIDISources() }
+                }
             }
+            guard status == noErr else { return }
         }
-        guard status == noErr else { return }
 
-        status = MIDIInputPortCreateWithProtocol(
+        let status = MIDIInputPortCreateWithProtocol(
             midiClient,
             "Input" as CFString,
             ._1_0,
@@ -52,9 +53,6 @@ final class CoreMidiManager: CoreMidiManagerType {
     }
 
     func teardownMIDI() {
-        guard midiSetUp else { return }
         MIDIPortDispose(midiInputPort)
-        MIDIClientDispose(midiClient)
-        midiSetUp = false
     }
 }
