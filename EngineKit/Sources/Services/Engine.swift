@@ -38,7 +38,8 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiManager: CoreMidiManagerType,
-        targetSettingsProvider: TargetSettingsProviderType
+        targetSettingsProvider: TargetSettingsProviderType,
+        notificationCenter: NotificationCenterType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
@@ -47,6 +48,13 @@ final actor Engine: EngineType {
         self.coreMidiManager = coreMidiManager
         self.targetSettingsProvider = targetSettingsProvider
         engine.attach(inputMixer)
+
+        let stream = notificationCenter.stream(for: .AVAudioEngineConfigurationChange)
+        Task { [weak self] in
+            for await _ in stream {
+                try? await self?.reload()
+            }
+        }
     }
 
     func load(component: AudioUnitComponent, state: Data?) async throws -> LoadedAudioUnit {

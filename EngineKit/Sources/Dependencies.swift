@@ -19,7 +19,8 @@ public struct Dependencies: Sendable {
             avAudioUnitFactory: AVAudioUnitFactory(),
             coreAudioGateway: CoreAudioGateway(),
             coreMidiManager: CoreMidiManager(),
-            targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider
+            targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider,
+            notificationCenter: NotificationCenter.default
         )
     )
 }
