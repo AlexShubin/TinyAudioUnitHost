@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AppKit
 import AudioSettingsKit
 import AVFoundation
 
@@ -26,7 +27,8 @@ public struct Dependencies: Sendable {
             engine: engine,
             engineReloader: EngineReloader(
                 engine: engine,
-                notificationCenter: SystemNotificationCenter()
+                notificationCenter: NotificationCenter.default,
+                workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
             )
         )
     }()

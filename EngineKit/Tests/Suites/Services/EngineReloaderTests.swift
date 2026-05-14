@@ -16,33 +16,41 @@ import Testing
 struct EngineReloaderTests {
     var engineMock: EngineMock!
     var notificationCenterMock: NotificationCenterMock!
+    var workspaceNotificationCenterMock: NotificationCenterMock!
     var sut: EngineReloader!
 
     init() {
         engineMock = EngineMock()
         notificationCenterMock = NotificationCenterMock()
+        workspaceNotificationCenterMock = NotificationCenterMock()
     }
 
     mutating func createSut() {
-        sut = EngineReloader(engine: engineMock, notificationCenter: notificationCenterMock)
+        sut = EngineReloader(
+            engine: engineMock,
+            notificationCenter: notificationCenterMock,
+            workspaceNotificationCenter: workspaceNotificationCenterMock
+        )
     }
 
     @Test
-    mutating func startListening_audioEngineConfigurationChange_subscribesToCorrectNotification() {
+    mutating func startListening_audioEngineConfigurationChange_subscribesOnDefaultCenter() {
         createSut()
 
         sut.startListening(to: .audioEngineConfigurationChange)
 
         #expect(notificationCenterMock.calls == [.stream(.AVAudioEngineConfigurationChange)])
+        #expect(workspaceNotificationCenterMock.calls == [])
     }
 
     @Test
-    mutating func startListening_workspaceDidWake_subscribesToCorrectNotification() {
+    mutating func startListening_workspaceDidWake_subscribesOnWorkspaceCenter() {
         createSut()
 
         sut.startListening(to: .workspaceDidWake)
 
-        #expect(notificationCenterMock.calls == [.stream(NSWorkspace.didWakeNotification)])
+        #expect(workspaceNotificationCenterMock.calls == [.stream(NSWorkspace.didWakeNotification)])
+        #expect(notificationCenterMock.calls == [])
     }
 
     @Test
@@ -62,8 +70,8 @@ struct EngineReloaderTests {
         createSut()
 
         let task = sut.startListening(to: .workspaceDidWake)
-        notificationCenterMock.emit(NSWorkspace.didWakeNotification)
-        notificationCenterMock.finish(NSWorkspace.didWakeNotification)
+        workspaceNotificationCenterMock.emit(NSWorkspace.didWakeNotification)
+        workspaceNotificationCenterMock.finish(NSWorkspace.didWakeNotification)
         try? await task.value
 
         #expect(await engineMock.calls == [.reload])
