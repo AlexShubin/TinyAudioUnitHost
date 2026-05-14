@@ -28,6 +28,7 @@ let project = Project(
                 "Sources",
             ],
             dependencies: [
+                .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
                 .project(target: "AudioUnitsKit", path: .relativeToManifest("../AudioUnitsKit")),
@@ -60,6 +61,8 @@ let project = Project(
             dependencies: [
                 .target(name: "EngineKit"),
                 .target(name: "EngineKitTestSupport"),
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CommonTestSupport", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),

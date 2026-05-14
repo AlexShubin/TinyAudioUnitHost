@@ -8,6 +8,8 @@
 
 import AppKit
 import AVFoundation
+import Common
+import CommonTestSupport
 import EngineKitTestSupport
 import Testing
 @testable import EngineKit

@@ -9,6 +9,7 @@
 import AppKit
 import AudioSettingsKit
 import AVFoundation
+import Common
 
 public struct Dependencies: Sendable {
     public let engine: EngineType

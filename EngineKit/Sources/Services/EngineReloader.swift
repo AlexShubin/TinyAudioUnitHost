@@ -8,6 +8,7 @@
 
 import AppKit
 import AVFoundation
+import Common
 import Foundation
 
 public enum ReloadTrigger: Sendable {

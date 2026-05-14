@@ -1,17 +1,16 @@
 //
 //  SetupCheckerTests.swift
-//  TinyAudioUnitHostTests
+//  AudioSettingsKitTests
 //
 //  Created by Alex Shubin on 09.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioSettingsKitTestSupport
 import AVFoundation
 import Foundation
 import Testing
-@testable import TinyAudioUnitHost
+@testable import AudioSettingsKit
 
 @Suite
 struct SetupCheckerTests {

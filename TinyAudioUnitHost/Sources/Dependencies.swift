@@ -17,20 +17,13 @@ struct Dependencies: Sendable {
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
-    let setupChecker: SetupCheckerType
 
     static let live: Dependencies = {
-        let presets = PresetKit.Dependencies.live
-        let engine = EngineKit.Dependencies.live
-        let audioSettings = AudioSettingsKit.Dependencies.live
-        return Dependencies(
-            audioSettings: audioSettings,
+        Dependencies(
+            audioSettings: .live,
             audioUnits: .live,
-            engine: engine,
-            presets: presets,
-            setupChecker: SetupChecker(
-                targetSettingsProvider: audioSettings.targetSettingsProvider
-            )
+            engine: .live,
+            presets: .live
         )
     }()
 
@@ -39,7 +32,7 @@ struct Dependencies: Sendable {
             library: audioUnits.audioUnitComponentsLibrary,
             engine: engine.engine,
             presetProvider: presets.presetProvider,
-            setupChecker: setupChecker
+            setupChecker: audioSettings.setupChecker
         )
     }
 
@@ -49,7 +42,7 @@ struct Dependencies: Sendable {
             targetSettings: audioSettings.targetSettingsProvider,
             devicesProvider: audioSettings.devicesProvider,
             engine: engine.engine,
-            setupChecker: setupChecker
+            setupChecker: audioSettings.setupChecker
         )
     }
 }

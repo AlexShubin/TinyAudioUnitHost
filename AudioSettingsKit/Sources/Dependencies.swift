@@ -12,6 +12,7 @@ public struct Dependencies: Sendable {
     public let audioSettingsProvider: AudioSettingsProviderType
     public let targetSettingsProvider: TargetSettingsProviderType
     public let devicesProvider: AudioDevicesProviderType
+    public let setupChecker: SetupCheckerType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
@@ -25,7 +26,8 @@ public struct Dependencies: Sendable {
         return Dependencies(
             audioSettingsProvider: audioSettingsProvider,
             targetSettingsProvider: targetSettingsProvider,
-            devicesProvider: devicesProvider
+            devicesProvider: devicesProvider,
+            setupChecker: SetupChecker(targetSettingsProvider: targetSettingsProvider)
         )
     }()
 }
