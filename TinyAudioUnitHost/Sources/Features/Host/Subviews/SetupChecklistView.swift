@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import AudioSettingsKit
 import SwiftUI
 
 struct SetupChecklistView: View {

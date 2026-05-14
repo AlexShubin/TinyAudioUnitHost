@@ -6,12 +6,16 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
+import Foundation
 import StorageKit
 
 public struct Dependencies: Sendable {
     public let audioSettingsProvider: AudioSettingsProviderType
     public let targetSettingsProvider: TargetSettingsProviderType
     public let devicesProvider: AudioDevicesProviderType
+    public let setupChecker: SetupCheckerType
+    public let setupRefresher: SetupRefresherType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider()
@@ -22,10 +26,16 @@ public struct Dependencies: Sendable {
             devicesProvider: devicesProvider,
             factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
+        let setupChecker = SetupChecker(targetSettingsProvider: targetSettingsProvider)
         return Dependencies(
             audioSettingsProvider: audioSettingsProvider,
             targetSettingsProvider: targetSettingsProvider,
-            devicesProvider: devicesProvider
+            devicesProvider: devicesProvider,
+            setupChecker: setupChecker,
+            setupRefresher: SetupRefresher(
+                setupChecker: setupChecker,
+                notificationCenter: NotificationCenter.default
+            )
         )
     }()
 }

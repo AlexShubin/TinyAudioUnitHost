@@ -1,25 +1,25 @@
 //
 //  AVCaptureDeviceGatewayMock.swift
-//  TinyAudioUnitHostTests
+//  AudioSettingsKitTestSupport
 //
 //  Created by Alex Shubin on 09.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AVFoundation
-@testable import TinyAudioUnitHost
 
-final class AVCaptureDeviceGatewayMock: AVCaptureDeviceGatewayType, @unchecked Sendable {
-    enum Calls: Equatable, Sendable {
+public final class AVCaptureDeviceGatewayMock: AVCaptureDeviceGatewayType, @unchecked Sendable {
+    public enum Calls: Equatable, Sendable {
         case authorizationStatus
         case requestAccess
     }
 
-    private(set) var calls: [Calls] = []
-    var authorizationStatusResult: AVAuthorizationStatus = .notDetermined
-    var requestAccessResult: Bool = true
+    public private(set) var calls: [Calls] = []
+    public var authorizationStatusResult: AVAuthorizationStatus = .notDetermined
+    public var requestAccessResult: Bool = true
 
-    init(
+    public init(
         authorizationStatusResult: AVAuthorizationStatus = .notDetermined,
         requestAccessResult: Bool = true
     ) {
@@ -27,12 +27,12 @@ final class AVCaptureDeviceGatewayMock: AVCaptureDeviceGatewayType, @unchecked S
         self.requestAccessResult = requestAccessResult
     }
 
-    func authorizationStatus(for mediaType: AVMediaType) -> AVAuthorizationStatus {
+    public func authorizationStatus(for mediaType: AVMediaType) -> AVAuthorizationStatus {
         calls.append(.authorizationStatus)
         return authorizationStatusResult
     }
 
-    func requestAccess(for mediaType: AVMediaType) async -> Bool {
+    public func requestAccess(for mediaType: AVMediaType) async -> Bool {
         calls.append(.requestAccess)
         return requestAccessResult
     }

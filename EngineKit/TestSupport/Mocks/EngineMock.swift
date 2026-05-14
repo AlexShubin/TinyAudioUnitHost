@@ -17,22 +17,32 @@ public actor EngineMock: EngineType {
     }
 
     public private(set) var calls: [Calls] = []
-    public var loadResult: LoadedAudioUnit?
+    public var loadResult: Result<LoadedAudioUnit, EngineLoadError>
+    public var reloadError: EngineLoadError?
 
-    public init(loadResult: LoadedAudioUnit? = nil) {
+    public init(
+        loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed),
+        reloadError: EngineLoadError? = nil
+    ) {
         self.loadResult = loadResult
+        self.reloadError = reloadError
     }
 
-    public func load(component: AudioUnitComponent, state: Data?) async -> LoadedAudioUnit? {
+    public func load(component: AudioUnitComponent, state: Data?) async throws -> LoadedAudioUnit {
         calls.append(.load(component, state))
-        return loadResult
+        return try loadResult.get()
     }
 
-    public func reload() async {
+    public func reload() async throws {
         calls.append(.reload)
+        if let reloadError { throw reloadError }
     }
 
-    public func setLoadResult(_ value: LoadedAudioUnit?) {
+    public func setLoadResult(_ value: Result<LoadedAudioUnit, EngineLoadError>) {
         loadResult = value
+    }
+
+    public func setReloadError(_ value: EngineLoadError?) {
+        reloadError = value
     }
 }

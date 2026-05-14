@@ -68,6 +68,14 @@ struct HostView: View {
                         }
                     case .loaded(let audioUnit):
                         AudioUnitView(audioUnit: audioUnit)
+                    case .failed(let message):
+                        PlaceholderView {
+                            Text(message)
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 } else {
                     SetupChecklistView(unmet: viewModel.unmetRequirements)

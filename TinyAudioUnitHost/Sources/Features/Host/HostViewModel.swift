@@ -6,7 +6,10 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
+import EngineKit
+import Foundation
 import Observation
 import PresetKit
 
@@ -22,6 +25,7 @@ enum HostContent: Sendable, Equatable {
     case empty
     case loading
     case loaded(LoadedAudioUnit)
+    case failed(String)
 
     var isLoaded: Bool {
         if case .loaded = self { return true }
@@ -49,17 +53,20 @@ final class HostViewModel: HostViewModelType {
     var isReady: Bool { unmetRequirements.isEmpty }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
-    @ObservationIgnored private let sessionManager: SessionManagerType
+    @ObservationIgnored private let engine: EngineType
+    @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let setupChecker: SetupCheckerType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
-        sessionManager: SessionManagerType,
+        engine: EngineType,
+        presetProvider: PresetProviderType,
         setupChecker: SetupCheckerType
     ) {
         self.library = library
-        self.sessionManager = sessionManager
+        self.engine = engine
+        self.presetProvider = presetProvider
         self.setupChecker = setupChecker
         setupListener = Task { [weak self, setupChecker] in
             for await unmet in setupChecker.unmetStream {
@@ -76,31 +83,41 @@ final class HostViewModel: HostViewModelType {
         switch action {
         case .task:
             groups = grouped(library.components)
+            await setupChecker.refresh()
             guard case .empty = content else { return }
-            guard let loaded = await sessionManager.activate(.stored) else { return }
-            selectedComponent = loaded.component
-            content = .loaded(loaded)
+            guard let saved = await presetProvider.loadDefault() else { return }
+            await load(component: saved.component, state: saved.state)
         case .selected(let component):
             guard isReady else { return }
             selectedComponent = component
             content = .loading
-            if let loaded = await sessionManager.activate(.picked(component)) {
-                content = .loaded(loaded)
-            }
+            await load(component: component, state: nil)
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
-            guard case .loaded = content else { return }
-            await sessionManager.save()
+            guard case .loaded(let loaded) = content,
+                  let state = loaded.audioUnit.fullState else { return }
+            await presetProvider.saveDefault(Preset(component: loaded.component, state: state))
         case .restorePreset:
-            if let loaded = await sessionManager.activate(.stored) {
-                selectedComponent = loaded.component
-                content = .loaded(loaded)
-            } else {
+            guard let saved = await presetProvider.loadDefault() else {
                 selectedComponent = nil
                 content = .empty
+                return
             }
+            await load(component: saved.component, state: saved.state)
+        }
+    }
+
+    private func load(component: AudioUnitComponent, state: Data?) async {
+        do {
+            let loaded = try await engine.load(component: component, state: state)
+            selectedComponent = loaded.component
+            content = .loaded(loaded)
+        } catch let error as EngineLoadError {
+            content = .failed(error.message)
+        } catch {
+            content = .failed("Couldn't load this audio unit.")
         }
     }
 
@@ -117,4 +134,13 @@ struct ManufacturerGroup: Identifiable, Hashable {
     var isExpanded: Bool
 
     var id: String { manufacturer }
+}
+
+private extension EngineLoadError {
+    var message: String {
+        switch self {
+        case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."
+        case .deviceUnavailable: return "Audio device is unavailable. Check Settings."
+        }
+    }
 }

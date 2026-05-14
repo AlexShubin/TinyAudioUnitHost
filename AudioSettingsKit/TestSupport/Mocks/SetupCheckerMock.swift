@@ -1,25 +1,25 @@
 //
 //  SetupCheckerMock.swift
-//  TinyAudioUnitHostTests
+//  AudioSettingsKitTestSupport
 //
 //  Created by Alex Shubin on 09.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@testable import TinyAudioUnitHost
+import AudioSettingsKit
 
-actor SetupCheckerMock: SetupCheckerType {
-    enum Calls: Equatable, Sendable {
+public actor SetupCheckerMock: SetupCheckerType {
+    public enum Calls: Equatable, Sendable {
         case refresh
     }
 
-    private(set) var calls: [Calls] = []
-    var unmet: Set<SetupRequirement>
+    public private(set) var calls: [Calls] = []
+    public var unmet: Set<SetupRequirement>
 
-    nonisolated let unmetStream: AsyncStream<Set<SetupRequirement>>
+    public nonisolated let unmetStream: AsyncStream<Set<SetupRequirement>>
     private let continuation: AsyncStream<Set<SetupRequirement>>.Continuation
 
-    init(unmet: Set<SetupRequirement> = []) {
+    public init(unmet: Set<SetupRequirement> = []) {
         self.unmet = unmet
         let (stream, continuation) = AsyncStream<Set<SetupRequirement>>.makeStream()
         self.unmetStream = stream
@@ -30,12 +30,12 @@ actor SetupCheckerMock: SetupCheckerType {
         continuation.finish()
     }
 
-    func refresh() {
+    public func refresh() {
         calls.append(.refresh)
         continuation.yield(unmet)
     }
 
-    func emit(_ value: Set<SetupRequirement>) {
+    public func emit(_ value: Set<SetupRequirement>) {
         unmet = value
         continuation.yield(value)
     }

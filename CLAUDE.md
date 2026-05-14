@@ -42,7 +42,7 @@
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
 - Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
-- Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper init, scope it via a `private extension` in the consumer's own file. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
+- Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper, write a `private extension` on the input type in the consumer's own file so the call site reads `value.derived` rather than `derived(value)` — e.g. prefer `private extension EngineLoadError { var message: String { … } }` (used as `error.message`) over a `private func message(for: EngineLoadError) -> String` helper on the consumer. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
 
 ## Naming Conventions
 

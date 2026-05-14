@@ -6,7 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AVFoundation
+@preconcurrency import AVFoundation
 @testable import EngineKit
 
 final class CoreMidiManagerMock: CoreMidiManagerType, @unchecked Sendable {
@@ -19,11 +19,11 @@ final class CoreMidiManagerMock: CoreMidiManagerType, @unchecked Sendable {
 
     init() {}
 
-    func setupMIDI(for audioUnit: AUAudioUnit) {
+    func setupMIDI(for audioUnit: AUAudioUnit) async {
         calls.append(.setupMIDI(audioUnit))
     }
 
-    func teardownMIDI() {
+    func teardownMIDI() async {
         calls.append(.teardownMIDI)
     }
 }

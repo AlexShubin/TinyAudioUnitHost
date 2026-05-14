@@ -10,16 +10,29 @@ import AVFoundation
 import CoreAudio
 
 protocol CoreAudioGatewayType {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit)
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit)
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit)
+    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws
+    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
-    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID)
-    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID)
+    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws
+    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws
+}
+
+struct CoreAudioGatewayError: Error, Sendable, Equatable {
+    enum Operation: Sendable, Equatable {
+        case setEnableIO
+        case setCurrentDevice
+        case setChannelMap
+        case setBufferSize
+        case setSampleRate
+    }
+
+    let operation: Operation
+    let status: Int32
 }
 
 struct CoreAudioGateway: CoreAudioGatewayType {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) {
+    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws {
         var flag: UInt32 = enabled ? 1 : 0
         let status = AudioUnitSetProperty(
             audioUnit,
@@ -29,10 +42,10 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             &flag,
             UInt32(MemoryLayout<UInt32>.size)
         )
-        assert(status == noErr, "Failed to set EnableIO: \(status)")
+        try check(status, operation: .setEnableIO)
     }
 
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) {
+    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws {
         var id = deviceID
         let size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioUnitSetProperty(
@@ -43,10 +56,10 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             &id,
             size
         )
-        assert(status == noErr, "Failed to set current device: \(status)")
+        try check(status, operation: .setCurrentDevice)
     }
 
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) {
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws {
         var mutableMap = map
         let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
         let status = AudioUnitSetProperty(
@@ -57,7 +70,7 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             &mutableMap,
             size
         )
-        assert(status == noErr, "Failed to set channel map: \(status)")
+        try check(status, operation: .setChannelMap)
     }
 
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int? {
@@ -75,7 +88,7 @@ struct CoreAudioGateway: CoreAudioGatewayType {
         return Int(streamFormat.mChannelsPerFrame)
     }
 
-    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) {
+    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws {
         var size = frames
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyBufferFrameSize,
@@ -90,10 +103,10 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             UInt32(MemoryLayout<UInt32>.size),
             &size
         )
-        assert(status == noErr, "Failed to set buffer size: \(status)")
+        try check(status, operation: .setBufferSize)
     }
 
-    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) {
+    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws {
         var rate = rate
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyNominalSampleRate,
@@ -108,6 +121,12 @@ struct CoreAudioGateway: CoreAudioGatewayType {
             UInt32(MemoryLayout<Float64>.size),
             &rate
         )
-        assert(status == noErr, "Failed to set sample rate: \(status)")
+        try check(status, operation: .setSampleRate)
+    }
+
+    private func check(_ status: OSStatus, operation: CoreAudioGatewayError.Operation) throws {
+        guard status == noErr else {
+            throw CoreAudioGatewayError(operation: operation, status: status)
+        }
     }
 }

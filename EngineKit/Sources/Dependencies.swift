@@ -6,14 +6,17 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AppKit
 import AudioSettingsKit
 import AVFoundation
+import Common
 
 public struct Dependencies: Sendable {
     public let engine: EngineType
+    public let engineReloader: EngineReloaderType
 
-    public static let live = Dependencies(
-        engine: Engine(
+    public static let live: Dependencies = {
+        let engine = Engine(
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),
             avAudioUnitFactory: AVAudioUnitFactory(),
@@ -21,5 +24,13 @@ public struct Dependencies: Sendable {
             coreMidiManager: CoreMidiManager(),
             targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider
         )
-    )
+        return Dependencies(
+            engine: engine,
+            engineReloader: EngineReloader(
+                engine: engine,
+                notificationCenter: NotificationCenter.default,
+                workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
+            )
+        )
+    }()
 }

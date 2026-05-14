@@ -1,17 +1,16 @@
 //
 //  SetupCheckerTests.swift
-//  TinyAudioUnitHostTests
+//  AudioSettingsKitTests
 //
 //  Created by Alex Shubin on 09.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioSettingsKitTestSupport
 import AVFoundation
 import Foundation
 import Testing
-@testable import TinyAudioUnitHost
+@testable import AudioSettingsKit
 
 @Suite
 struct SetupCheckerTests {
@@ -38,6 +37,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [])
     }
 
@@ -47,6 +48,8 @@ struct SetupCheckerTests {
         captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
 
         #expect(await iterator.next() == [.microphonePermission])
     }
@@ -59,7 +62,8 @@ struct SetupCheckerTests {
             requestAccessResult: true
         )
         createSut()
-        _ = await sut.unmetStream.first { _ in true }
+
+        await sut.refresh()
 
         #expect(captureDeviceMock.calls.contains(.requestAccess))
     }
@@ -71,6 +75,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [.outputDevice])
     }
 
@@ -81,6 +87,8 @@ struct SetupCheckerTests {
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
 
+        await sut.refresh()
+
         #expect(await iterator.next() == [.microphonePermission, .outputDevice])
     }
 
@@ -90,6 +98,8 @@ struct SetupCheckerTests {
         captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
         var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
         #expect(await iterator.next() == [])
 
         await sut.refresh()
