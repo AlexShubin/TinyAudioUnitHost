@@ -46,7 +46,7 @@ struct DevicePickerView: View {
             }
         }
 
-        Section(channelsLabel) {
+        Section {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(channels(for: state.selectedDevice)) { channel in
@@ -66,6 +66,13 @@ struct DevicePickerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: 100)
+        } header: {
+            HStack(spacing: 4) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .help("Hardware channel names are on the way.")
+                Text(channelsLabel)
+            }
         }
     }
 
