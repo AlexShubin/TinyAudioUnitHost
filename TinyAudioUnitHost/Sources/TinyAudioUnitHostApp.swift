@@ -15,7 +15,12 @@ struct TinyAudioUnitHostApp: App {
 
     var body: some Scene {
         WindowGroup {
-            withTestsDisabled { HostView(viewModel: dependencies.makeHostViewModel()) }
+            withTestsDisabled {
+                HostView(viewModel: dependencies.makeHostViewModel())
+                    .task {
+                        dependencies.engine.engineReloader.startListening()
+                    }
+            }
         }
         .windowResizability(.contentSize)
 

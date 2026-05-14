@@ -22,7 +22,6 @@ struct EngineTests {
     var coreAudioGatewayMock: CoreAudioGatewayMock!
     var coreMidiManagerMock: CoreMidiManagerMock!
     var targetSettingsProviderMock: TargetSettingsProviderMock!
-    var notificationCenterMock: NotificationCenterMock!
     var sut: EngineType!
 
     init() {
@@ -32,7 +31,6 @@ struct EngineTests {
         coreAudioGatewayMock = CoreAudioGatewayMock()
         coreMidiManagerMock = CoreMidiManagerMock()
         targetSettingsProviderMock = TargetSettingsProviderMock()
-        notificationCenterMock = NotificationCenterMock()
     }
 
     mutating func createSut() {
@@ -42,8 +40,7 @@ struct EngineTests {
             avAudioUnitFactory: avAudioUnitFactoryMock,
             coreAudioGateway: coreAudioGatewayMock,
             coreMidiManager: coreMidiManagerMock,
-            targetSettingsProvider: targetSettingsProviderMock,
-            notificationCenter: notificationCenterMock
+            targetSettingsProvider: targetSettingsProviderMock
         )
     }
 
@@ -322,20 +319,6 @@ struct EngineTests {
         #expect(coreMidiManagerMock.calls.isEmpty)
     }
 
-    @Test
-    mutating func configurationChange_triggersReload() async {
-        createSut()
-
-        notificationCenterMock.emit(.AVAudioEngineConfigurationChange)
-
-        for _ in 0..<20 {
-            try? await Task.sleep(for: .milliseconds(10))
-            if avEngineMock.calls.contains(.stop) { break }
-        }
-
-        #expect(avEngineMock.calls.contains(.stop))
-        #expect(avEngineMock.calls.contains(.start))
-    }
 }
 
 // MARK: - Test fixtures

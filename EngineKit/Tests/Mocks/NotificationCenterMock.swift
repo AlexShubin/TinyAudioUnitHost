@@ -29,4 +29,8 @@ final class NotificationCenterMock: NotificationCenterType, @unchecked Sendable 
     func emit(_ name: Notification.Name) {
         continuations[name]?.yield()
     }
+
+    func finish(_ name: Notification.Name) {
+        continuations[name]?.finish()
+    }
 }

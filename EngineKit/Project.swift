@@ -59,6 +59,7 @@ let project = Project(
             ],
             dependencies: [
                 .target(name: "EngineKit"),
+                .target(name: "EngineKitTestSupport"),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "StorageKitTestSupport", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
