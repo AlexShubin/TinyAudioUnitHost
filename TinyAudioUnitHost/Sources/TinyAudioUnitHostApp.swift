@@ -18,7 +18,8 @@ struct TinyAudioUnitHostApp: App {
             withTestsDisabled {
                 HostView(viewModel: dependencies.makeHostViewModel())
                     .task {
-                        dependencies.engine.engineReloader.startListening()
+                        dependencies.engine.engineReloader.startListening(to: .audioEngineConfigurationChange)
+                        dependencies.engine.engineReloader.startListening(to: .workspaceDidWake)
                     }
             }
         }

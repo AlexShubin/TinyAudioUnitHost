@@ -6,12 +6,18 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AppKit
 import AVFoundation
 import Foundation
 
+public enum ReloadTrigger: Sendable {
+    case audioEngineConfigurationChange
+    case workspaceDidWake
+}
+
 public protocol EngineReloaderType: Sendable {
     @discardableResult
-    func startListening() -> Task<Void, Error>
+    func startListening(to trigger: ReloadTrigger) -> Task<Void, Error>
 }
 
 final class EngineReloader: EngineReloaderType {
@@ -23,17 +29,26 @@ final class EngineReloader: EngineReloaderType {
         self.notificationCenter = notificationCenter
     }
 
-    private func handleConfigurationChange() async {
+    private func reloadEngine() async {
         try? await engine.reload()
     }
 
     @discardableResult
-    func startListening() -> Task<Void, Error> {
-        let stream = notificationCenter.stream(for: .AVAudioEngineConfigurationChange)
+    func startListening(to trigger: ReloadTrigger) -> Task<Void, Error> {
+        let stream = notificationCenter.stream(for: trigger.notificationName)
         return Task { [self] in
             for await _ in stream {
-                await handleConfigurationChange()
+                await reloadEngine()
             }
+        }
+    }
+}
+
+private extension ReloadTrigger {
+    var notificationName: Notification.Name {
+        switch self {
+        case .audioEngineConfigurationChange: .AVAudioEngineConfigurationChange
+        case .workspaceDidWake: NSWorkspace.didWakeNotification
         }
     }
 }
