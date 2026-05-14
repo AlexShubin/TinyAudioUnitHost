@@ -13,42 +13,52 @@ struct HostView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(
-                selection: Binding(
-                    get: { viewModel.selectedComponent },
-                    set: { component in
-                        if let component {
-                            Task { await viewModel.accept(action: .selected(component)) }
-                        }
-                    }
-                )
-            ) {
-                ForEach(viewModel.groups) { group in
-                    Section(
-                        isExpanded: Binding(
-                            get: { group.isExpanded },
-                            set: { isExpanded in
-                                Task {
-                                    await viewModel.accept(
-                                        action: .groupExpansionChanged(
-                                            manufacturer: group.manufacturer,
-                                            isExpanded: isExpanded
-                                        )
-                                    )
+            Group {
+                if viewModel.groups.isEmpty {
+                    ContentUnavailableView(
+                        "No Audio Units",
+                        systemImage: "puzzlepiece.extension",
+                        description: Text("Install audio unit plug-ins to host them here.")
+                    )
+                } else {
+                    List(
+                        selection: Binding(
+                            get: { viewModel.selectedComponent },
+                            set: { component in
+                                if let component {
+                                    Task { await viewModel.accept(action: .selected(component)) }
                                 }
                             }
                         )
                     ) {
-                        ForEach(group.components) { component in
-                            Text(component.name).tag(component)
+                        ForEach(viewModel.groups) { group in
+                            Section(
+                                isExpanded: Binding(
+                                    get: { group.isExpanded },
+                                    set: { isExpanded in
+                                        Task {
+                                            await viewModel.accept(
+                                                action: .groupExpansionChanged(
+                                                    manufacturer: group.manufacturer,
+                                                    isExpanded: isExpanded
+                                                )
+                                            )
+                                        }
+                                    }
+                                )
+                            ) {
+                                ForEach(group.components) { component in
+                                    Text(component.name).tag(component)
+                                }
+                            } header: {
+                                Text(group.manufacturer)
+                            }
                         }
-                    } header: {
-                        Text(group.manufacturer)
                     }
+                    .listStyle(.sidebar)
+                    .disabled(viewModel.content == .loading || !viewModel.isReady)
                 }
             }
-            .listStyle(.sidebar)
-            .disabled(viewModel.content == .loading || !viewModel.isReady)
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             Group {
