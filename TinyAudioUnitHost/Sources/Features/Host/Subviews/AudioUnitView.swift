@@ -20,7 +20,7 @@ struct AudioUnitView: View {
             .overlay {
                 switch loadState {
                 case .loading:
-                    EmptyView()
+                    LoadingView()
                 case .loaded(let controller):
                     Representable(controller: controller)
                 case .unavailable:

@@ -72,10 +72,7 @@ struct HostView: View {
                                 .foregroundStyle(.secondary)
                         }
                     case .loading:
-                        PlaceholderView {
-                            ProgressView()
-                                .foregroundStyle(.secondary)
-                        }
+                        LoadingView()
                     case .loaded(let audioUnit):
                         AudioUnitView(audioUnit: audioUnit)
                     case .failed(let message):
