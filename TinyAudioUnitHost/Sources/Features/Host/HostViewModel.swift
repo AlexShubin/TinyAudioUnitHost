@@ -47,7 +47,7 @@ protocol HostViewModelType: AnyObject, Observable {
 final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var selectedComponent: AudioUnitComponent?
-    private(set) var content: HostContent = .empty
+    private(set) var content: HostContent = .loading
     private(set) var unmetRequirements: Set<SetupRequirement> = []
 
     var isReady: Bool { unmetRequirements.isEmpty }
@@ -84,8 +84,11 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             await setupChecker.refresh()
-            guard case .empty = content else { return }
-            guard let saved = await presetProvider.loadDefault() else { return }
+            guard case .loading = content else { return }
+            guard let saved = await presetProvider.loadDefault() else {
+                content = .empty
+                return
+            }
             await load(component: saved.component, state: saved.state)
         case .selected(let component):
             guard isReady else { return }
