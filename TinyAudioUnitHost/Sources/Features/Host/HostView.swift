@@ -89,15 +89,15 @@ struct HostView: View {
                 }
             }
             .overlay(alignment: .top) {
-                if let id = viewModel.saveFeedbackId {
-                    SaveFeedbackToast(id: id) {
-                        Task { await viewModel.accept(action: .dismissSaveFeedback) }
+                if let feedback = viewModel.feedback {
+                    FeedbackToast(state: feedback) { action in
+                        Task { await viewModel.accept(action: .feedbackToastAction(action)) }
                     }
                     .padding(.top, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .animation(.snappy, value: viewModel.saveFeedbackId != nil)
+            .animation(.snappy, value: viewModel.feedback != nil)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Text("Preset: Default")

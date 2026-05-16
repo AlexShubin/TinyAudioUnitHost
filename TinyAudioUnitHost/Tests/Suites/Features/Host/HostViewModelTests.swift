@@ -225,11 +225,11 @@ struct HostViewModelTests {
 
         #expect(await presetProviderMock.calls == [])
         #expect(await engineMock.calls == [])
-        #expect(sut.saveFeedbackId == nil)
+        #expect(sut.feedback == nil)
     }
 
     @Test
-    mutating func saveCurrentPreset_loaded_setsSaveFeedbackId() async {
+    mutating func saveCurrentPreset_loaded_setsSavedFeedback() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
         engineMock = EngineMock(loadResult: .success(loaded))
@@ -238,22 +238,22 @@ struct HostViewModelTests {
 
         await sut.accept(action: .saveCurrentPreset)
 
-        #expect(sut.saveFeedbackId != nil)
+        #expect(sut.feedback?.kind == .saved)
     }
 
     @Test
-    mutating func dismissSaveFeedback_clearsSaveFeedbackId() async {
+    mutating func feedbackToastAction_timedOut_clearsFeedback() async {
         let component = AudioUnitComponent.fake(name: "Dyn")
         let loaded = LoadedAudioUnit.fake(component: component)
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.accept(action: .selected(component))
         await sut.accept(action: .saveCurrentPreset)
-        #expect(sut.saveFeedbackId != nil)
+        #expect(sut.feedback != nil)
 
-        await sut.accept(action: .dismissSaveFeedback)
+        await sut.accept(action: .feedbackToastAction(.timedOut))
 
-        #expect(sut.saveFeedbackId == nil)
+        #expect(sut.feedback == nil)
     }
 
     // MARK: - setup gating
@@ -322,6 +322,31 @@ struct HostViewModelTests {
 
         #expect(sut.selectedComponent == nil)
         #expect(sut.content == .empty)
+    }
+
+    @Test
+    mutating func restorePreset_presetLoadsSuccessfully_setsRestoredFeedback() async {
+        let component = AudioUnitComponent.fake(name: "Saved")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        presetProviderMock = PresetProviderMock(defaultPreset: Preset(component: component, state: Data()))
+        engineMock = EngineMock(loadResult: .success(loaded))
+        createSut()
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(sut.feedback?.kind == .restored)
+    }
+
+    @Test
+    mutating func restorePreset_engineLoadFails_doesNotSetFeedback() async {
+        let component = AudioUnitComponent.fake(name: "Saved")
+        presetProviderMock = PresetProviderMock(defaultPreset: Preset(component: component, state: Data()))
+        // engineMock defaults to .failure → content becomes .failed
+        createSut()
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(sut.feedback == nil)
     }
 
     // MARK: - groupExpansionChanged
