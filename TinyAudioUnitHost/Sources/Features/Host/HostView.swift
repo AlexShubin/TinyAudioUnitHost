@@ -119,5 +119,21 @@ struct HostView: View {
         .task {
             await viewModel.accept(action: .task)
         }
+        .focusedSceneValue(
+            \.saveCurrentPresetAction,
+            viewModel.content.isLoaded
+                ? SaveCurrentPresetAction(perform: {
+                    Task { await viewModel.accept(action: .saveCurrentPreset) }
+                })
+                : nil
+        )
+        .focusedSceneValue(
+            \.restorePresetAction,
+            viewModel.content.isLoaded
+                ? RestorePresetAction(perform: {
+                    Task { await viewModel.accept(action: .restorePreset) }
+                })
+                : nil
+        )
     }
 }

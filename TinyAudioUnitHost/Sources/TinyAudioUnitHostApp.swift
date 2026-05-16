@@ -25,6 +25,9 @@ struct TinyAudioUnitHostApp: App {
             }
         }
         .windowResizability(.contentSize)
+        .commands {
+            HostCommands()
+        }
 
         Settings {
             withTestsDisabled { SettingsView(viewModel: dependencies.makeSettingsViewModel()) }
