@@ -34,6 +34,7 @@ let project = Project(
                 "Sources",
                 "Resources",
             ],
+            entitlements: .file(path: "Resources/TinyAudioUnitHost.entitlements"),
             dependencies: [
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
                 .project(target: "AudioSettingsKit", path: .relativeToManifest("../AudioSettingsKit")),
@@ -43,7 +44,7 @@ let project = Project(
             ],
             settings: .settings(
                 base: [
-                    "ENABLE_APP_SANDBOX": "NO",
+                    "ENABLE_APP_SANDBOX": "YES",
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                     "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
                 ]
