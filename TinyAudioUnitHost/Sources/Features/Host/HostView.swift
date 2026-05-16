@@ -70,6 +70,14 @@ struct HostView: View {
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundStyle(.secondary)
+                            Text(
+                                "The first time you load an audio unit, macOS will ask you to “lower security settings”. " +
+                                "This grants this app permission to host plugins — it doesn’t affect other apps or your system."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 360)
                         }
                     case .loading:
                         LoadingView()
