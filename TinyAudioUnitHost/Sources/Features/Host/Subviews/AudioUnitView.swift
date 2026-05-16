@@ -11,26 +11,41 @@ import SwiftUI
 
 struct AudioUnitView: View {
     let audioUnit: LoadedAudioUnit
-    @State private var controller: NSViewController?
+    @State private var loadState: LoadState = .loading
     @State private var size = CGSize(width: 480, height: 320)
 
     var body: some View {
         Color.clear
             .frame(width: size.width, height: size.height)
             .overlay {
-                if let controller {
+                switch loadState {
+                case .loading:
+                    LoadingView()
+                case .loaded(let controller):
                     Representable(controller: controller)
+                case .unavailable:
+                    Text("This audio unit has no custom interface.")
+                        .foregroundStyle(.secondary)
                 }
             }
             .task(id: ObjectIdentifier(audioUnit.audioUnit)) {
-                controller = nil
-                guard let vc = await audioUnit.audioUnit.requestViewController() else { return }
-                controller = vc
+                loadState = .loading
+                guard let vc = await audioUnit.audioUnit.requestViewController() else {
+                    loadState = .unavailable
+                    return
+                }
+                loadState = .loaded(vc)
 
                 for await newSize in vc.preferredContentSizeStream() {
                     size = newSize
                 }
             }
+    }
+
+    private enum LoadState {
+        case loading
+        case loaded(NSViewController)
+        case unavailable
     }
 }
 

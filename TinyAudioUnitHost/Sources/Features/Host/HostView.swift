@@ -13,42 +13,52 @@ struct HostView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(
-                selection: Binding(
-                    get: { viewModel.selectedComponent },
-                    set: { component in
-                        if let component {
-                            Task { await viewModel.accept(action: .selected(component)) }
-                        }
-                    }
-                )
-            ) {
-                ForEach(viewModel.groups) { group in
-                    Section(
-                        isExpanded: Binding(
-                            get: { group.isExpanded },
-                            set: { isExpanded in
-                                Task {
-                                    await viewModel.accept(
-                                        action: .groupExpansionChanged(
-                                            manufacturer: group.manufacturer,
-                                            isExpanded: isExpanded
-                                        )
-                                    )
+            Group {
+                if viewModel.groups.isEmpty {
+                    ContentUnavailableView(
+                        "No Audio Units",
+                        systemImage: "puzzlepiece.extension",
+                        description: Text("Install audio unit plug-ins to host them here.")
+                    )
+                } else {
+                    List(
+                        selection: Binding(
+                            get: { viewModel.selectedComponent },
+                            set: { component in
+                                if let component {
+                                    Task { await viewModel.accept(action: .selected(component)) }
                                 }
                             }
                         )
                     ) {
-                        ForEach(group.components) { component in
-                            Text(component.name).tag(component)
+                        ForEach(viewModel.groups) { group in
+                            Section(
+                                isExpanded: Binding(
+                                    get: { group.isExpanded },
+                                    set: { isExpanded in
+                                        Task {
+                                            await viewModel.accept(
+                                                action: .groupExpansionChanged(
+                                                    manufacturer: group.manufacturer,
+                                                    isExpanded: isExpanded
+                                                )
+                                            )
+                                        }
+                                    }
+                                )
+                            ) {
+                                ForEach(group.components) { component in
+                                    Text(component.name).tag(component)
+                                }
+                            } header: {
+                                Text(group.manufacturer)
+                            }
                         }
-                    } header: {
-                        Text(group.manufacturer)
                     }
+                    .listStyle(.sidebar)
+                    .disabled(viewModel.content == .loading || !viewModel.isReady)
                 }
             }
-            .listStyle(.sidebar)
-            .disabled(viewModel.content == .loading || !viewModel.isReady)
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             Group {
@@ -62,10 +72,7 @@ struct HostView: View {
                                 .foregroundStyle(.secondary)
                         }
                     case .loading:
-                        PlaceholderView {
-                            ProgressView()
-                                .foregroundStyle(.secondary)
-                        }
+                        LoadingView()
                     case .loaded(let audioUnit):
                         AudioUnitView(audioUnit: audioUnit)
                     case .failed(let message):
@@ -81,6 +88,16 @@ struct HostView: View {
                     SetupChecklistView(unmet: viewModel.unmetRequirements)
                 }
             }
+            .overlay(alignment: .top) {
+                if let feedback = viewModel.feedback {
+                    FeedbackToast(state: feedback) { action in
+                        Task { await viewModel.accept(action: .feedbackToastAction(action)) }
+                    }
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: viewModel.feedback != nil)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Text("Preset: Default")
@@ -112,5 +129,21 @@ struct HostView: View {
         .task {
             await viewModel.accept(action: .task)
         }
+        .focusedSceneValue(
+            \.saveCurrentPresetAction,
+            viewModel.content.isLoaded
+                ? SaveCurrentPresetAction(perform: {
+                    Task { await viewModel.accept(action: .saveCurrentPreset) }
+                })
+                : nil
+        )
+        .focusedSceneValue(
+            \.restorePresetAction,
+            viewModel.content.isLoaded
+                ? RestorePresetAction(perform: {
+                    Task { await viewModel.accept(action: .restorePreset) }
+                })
+                : nil
+        )
     }
 }

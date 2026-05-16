@@ -19,6 +19,7 @@ enum HostViewModelAction {
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
     case saveCurrentPreset
     case restorePreset
+    case feedbackToastAction(FeedbackToastAction)
 }
 
 enum HostContent: Sendable, Equatable {
@@ -39,6 +40,7 @@ protocol HostViewModelType: AnyObject, Observable {
     var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
     var unmetRequirements: Set<SetupRequirement> { get }
+    var feedback: FeedbackToastViewState? { get }
     var isReady: Bool { get }
     func accept(action: HostViewModelAction) async
 }
@@ -47,8 +49,9 @@ protocol HostViewModelType: AnyObject, Observable {
 final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var selectedComponent: AudioUnitComponent?
-    private(set) var content: HostContent = .empty
+    private(set) var content: HostContent = .loading
     private(set) var unmetRequirements: Set<SetupRequirement> = []
+    private(set) var feedback: FeedbackToastViewState?
 
     var isReady: Bool { unmetRequirements.isEmpty }
 
@@ -84,8 +87,11 @@ final class HostViewModel: HostViewModelType {
         case .task:
             groups = grouped(library.components)
             await setupChecker.refresh()
-            guard case .empty = content else { return }
-            guard let saved = await presetProvider.loadDefault() else { return }
+            guard case .loading = content else { return }
+            guard let saved = await presetProvider.loadDefault() else {
+                content = .empty
+                return
+            }
             await load(component: saved.component, state: saved.state)
         case .selected(let component):
             guard isReady else { return }
@@ -99,6 +105,9 @@ final class HostViewModel: HostViewModelType {
             guard case .loaded(let loaded) = content,
                   let state = loaded.audioUnit.fullState else { return }
             await presetProvider.saveDefault(Preset(component: loaded.component, state: state))
+            feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
+        case .feedbackToastAction(.timedOut):
+            feedback = nil
         case .restorePreset:
             guard let saved = await presetProvider.loadDefault() else {
                 selectedComponent = nil
@@ -106,6 +115,9 @@ final class HostViewModel: HostViewModelType {
                 return
             }
             await load(component: saved.component, state: saved.state)
+            if case .loaded = content {
+                feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
+            }
         }
     }
 
