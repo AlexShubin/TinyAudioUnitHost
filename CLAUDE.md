@@ -60,22 +60,27 @@
 
 ## Subview communication
 
-Subviews don't own a view model and don't mutate shared state. Every user-driven event bubbles up through a single `onAction: (Action) -> Void` closure to the parent feature's VM, which is the only thing that decides what to do:
+Subviews don't own a view model and don't mutate shared state. Every event bubbles up through a single `onAction: (Action) -> Void` closure to the parent feature's VM, which is the only thing that decides what to do:
 
 ```swift
-enum FooViewAction { /* every user-driven event the subview can emit */ }
+struct FooViewState: Sendable, Equatable {
+    /* the data the view renders */
+}
+
+enum FooViewAction { /* every event the subview can emit */ }
 
 struct FooView: View {
-    // inputs the view renders — pass however suits the subview
-    // (a state struct, individual lets, bindings, etc.)
+    let state: FooViewState
     let onAction: (FooViewAction) -> Void
 }
 ```
 
-- Define a dedicated `*ViewAction` enum per subview. Don't reuse the parent VM's action type — the subview shouldn't know it exists.
-- When the same subview type is used multiple times (e.g. an input and an output picker), the parent wraps each instance's actions in its own VM-action case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
+- Define a dedicated action enum per subview, named after the view (`<View>Action` — drop the trailing "View" if the view's name already ends in "View"). Don't reuse the parent VM's action type — the subview shouldn't know it exists.
+- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout`/`onDone`/etc. closures — the subview has exactly one outbound channel.
+- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(FooViewAction)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
+- When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own wrapping case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
 - If multiple instances share write logic on the VM, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
-- Shape of the *input* (single state struct vs. several `let`s vs. bindings) is a per-subview judgment call — what matters is that intent only flows out via `onAction`.
+- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct (`FooViewState`) — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
 
 ## Project Structure
 
