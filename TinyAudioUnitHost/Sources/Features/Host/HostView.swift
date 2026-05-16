@@ -88,6 +88,16 @@ struct HostView: View {
                     SetupChecklistView(unmet: viewModel.unmetRequirements)
                 }
             }
+            .overlay(alignment: .top) {
+                if let id = viewModel.saveFeedbackId {
+                    SaveFeedbackToast(id: id) {
+                        Task { await viewModel.accept(action: .dismissSaveFeedback) }
+                    }
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: viewModel.saveFeedbackId != nil)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Text("Preset: Default")

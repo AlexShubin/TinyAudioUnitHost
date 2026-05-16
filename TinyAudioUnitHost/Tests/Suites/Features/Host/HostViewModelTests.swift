@@ -225,6 +225,35 @@ struct HostViewModelTests {
 
         #expect(await presetProviderMock.calls == [])
         #expect(await engineMock.calls == [])
+        #expect(sut.saveFeedbackId == nil)
+    }
+
+    @Test
+    mutating func saveCurrentPreset_loaded_setsSaveFeedbackId() async {
+        let component = AudioUnitComponent.fake(name: "Dyn")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        engineMock = EngineMock(loadResult: .success(loaded))
+        createSut()
+        await sut.accept(action: .selected(component))
+
+        await sut.accept(action: .saveCurrentPreset)
+
+        #expect(sut.saveFeedbackId != nil)
+    }
+
+    @Test
+    mutating func dismissSaveFeedback_clearsSaveFeedbackId() async {
+        let component = AudioUnitComponent.fake(name: "Dyn")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        engineMock = EngineMock(loadResult: .success(loaded))
+        createSut()
+        await sut.accept(action: .selected(component))
+        await sut.accept(action: .saveCurrentPreset)
+        #expect(sut.saveFeedbackId != nil)
+
+        await sut.accept(action: .dismissSaveFeedback)
+
+        #expect(sut.saveFeedbackId == nil)
     }
 
     // MARK: - setup gating
