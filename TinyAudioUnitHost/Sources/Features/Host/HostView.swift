@@ -65,20 +65,7 @@ struct HostView: View {
                 if viewModel.isReady {
                     switch viewModel.content {
                     case .empty:
-                        PlaceholderView {
-                            Text("Select an audio unit")
-                                .font(.title)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.secondary)
-                            Text(
-                                "The first time you load an audio unit, macOS will ask you to “lower security settings”. " +
-                                "This grants this app permission to host plugins — it doesn’t affect other apps or your system."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 360)
-                        }
+                        EmptySelectionView()
                     case .loading:
                         LoadingView()
                     case .loaded(let audioUnit):
@@ -138,19 +125,10 @@ struct HostView: View {
             await viewModel.accept(action: .task)
         }
         .focusedSceneValue(
-            \.saveCurrentPresetAction,
+            \.savePresetActions,
             viewModel.content.isLoaded
-                ? SaveCurrentPresetAction(perform: {
-                    Task { await viewModel.accept(action: .saveCurrentPreset) }
-                })
-                : nil
-        )
-        .focusedSceneValue(
-            \.restorePresetAction,
-            viewModel.content.isLoaded
-                ? RestorePresetAction(perform: {
-                    Task { await viewModel.accept(action: .restorePreset) }
-                })
+                ? SavePresetActions(save: { Task { await viewModel.accept(action: .saveCurrentPreset) }},
+                                    restore: { Task { await viewModel.accept(action: .restorePreset) }})
                 : nil
         )
     }

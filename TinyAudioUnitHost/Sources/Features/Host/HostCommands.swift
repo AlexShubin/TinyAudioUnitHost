@@ -8,17 +8,13 @@
 
 import SwiftUI
 
-struct SaveCurrentPresetAction {
-    let perform: @MainActor () -> Void
-}
-
-struct RestorePresetAction {
-    let perform: @MainActor () -> Void
+struct SavePresetActions {
+    let save: @MainActor () -> Void?
+    let restore: @MainActor () -> Void?
 }
 
 extension FocusedValues {
-    @Entry var saveCurrentPresetAction: SaveCurrentPresetAction?
-    @Entry var restorePresetAction: RestorePresetAction?
+    @Entry var savePresetActions: SavePresetActions?
 }
 
 struct HostCommands: Commands {
@@ -30,15 +26,14 @@ struct HostCommands: Commands {
 }
 
 private struct SavePresetMenu: View {
-    @FocusedValue(\.saveCurrentPresetAction) private var saveAction
-    @FocusedValue(\.restorePresetAction) private var restoreAction
+    @FocusedValue(\.savePresetActions) private var savePresetActions
 
     var body: some View {
-        Button("Save Preset") { saveAction?.perform() }
+        Button("Save Preset") { savePresetActions?.save() }
             .keyboardShortcut("s", modifiers: .command)
-            .disabled(saveAction == nil)
-        Button("Restore Preset") { restoreAction?.perform() }
+            .disabled(savePresetActions == nil)
+        Button("Restore Preset") { savePresetActions?.restore() }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(restoreAction == nil)
+            .disabled(savePresetActions == nil)
     }
 }
