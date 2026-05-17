@@ -31,6 +31,7 @@ let project = Project(
                 "CFBundleShortVersionString": "1.0",
                 "CFBundleVersion": "1",
                 "LSApplicationCategoryType": "public.app-category.music",
+                "ITSAppUsesNonExemptEncryption": false,
             ]),
             buildableFolders: [
                 "Sources",
