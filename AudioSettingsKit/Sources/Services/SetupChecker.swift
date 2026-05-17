@@ -23,15 +23,15 @@ public final actor SetupChecker: SetupCheckerType {
     public nonisolated let unmetStream: AsyncStream<Set<SetupRequirement>>
     private let continuation: AsyncStream<Set<SetupRequirement>>.Continuation
 
-    private let targetSettingsProvider: TargetSettingsProviderType
+    private let audioSettings: AudioSettingsProviderType
     private let captureDevice: AVCaptureDeviceGatewayType
     private var unmet: Set<SetupRequirement>?
 
     public init(
-        targetSettingsProvider: TargetSettingsProviderType,
+        audioSettings: AudioSettingsProviderType,
         captureDevice: AVCaptureDeviceGatewayType = AVCaptureDeviceGateway()
     ) {
-        self.targetSettingsProvider = targetSettingsProvider
+        self.audioSettings = audioSettings
         self.captureDevice = captureDevice
         let (stream, continuation) = AsyncStream<Set<SetupRequirement>>.makeStream()
         self.unmetStream = stream
@@ -50,7 +50,7 @@ public final actor SetupChecker: SetupCheckerType {
         if captureDevice.authorizationStatus(for: .audio) != .authorized {
             next.insert(.microphonePermission)
         }
-        if await targetSettingsProvider.resolveTarget() == nil {
+        if await audioSettings.current().outputChannel == nil {
             next.insert(.outputDevice)
         }
         if let unmet, unmet == next { return }

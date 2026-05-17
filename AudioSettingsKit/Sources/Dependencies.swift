@@ -26,7 +26,7 @@ public struct Dependencies: Sendable {
             devicesProvider: devicesProvider,
             factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
         )
-        let setupChecker = SetupChecker(targetSettingsProvider: targetSettingsProvider)
+        let setupChecker = SetupChecker(audioSettings: audioSettingsProvider)
         return Dependencies(
             audioSettingsProvider: audioSettingsProvider,
             targetSettingsProvider: targetSettingsProvider,
