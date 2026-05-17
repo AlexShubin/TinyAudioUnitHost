@@ -50,6 +50,7 @@ let project = Project(
                     "ENABLE_HARDENED_RUNTIME": "YES",
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                     "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
+                    "CODE_SIGN_IDENTITY": "Apple Development",
                 ]
             )
         ),
