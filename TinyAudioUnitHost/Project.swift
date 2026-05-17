@@ -29,7 +29,7 @@ let project = Project(
                 "CFBundleDisplayName": "Tiny Audio Unit Host",
                 "CFBundleName": "Tiny Audio Unit Host",
                 "CFBundleShortVersionString": "1.0",
-                "CFBundleVersion": "1",
+                "CFBundleVersion": "2",
                 "LSApplicationCategoryType": "public.app-category.music",
                 "ITSAppUsesNonExemptEncryption": false,
             ]),
@@ -52,10 +52,11 @@ let project = Project(
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                     "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
                     "CODE_SIGN_IDENTITY": "Apple Development",
+                    "PRODUCT_NAME": "Tiny Audio Unit Host",
                     "INFOPLIST_KEY_CFBundleDisplayName": "Tiny Audio Unit Host",
                     "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.music",
                     "MARKETING_VERSION": "1.0",
-                    "CURRENT_PROJECT_VERSION": "1",
+                    "CURRENT_PROJECT_VERSION": "2",
                 ]
             )
         ),
