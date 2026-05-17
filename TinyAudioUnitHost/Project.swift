@@ -8,9 +8,8 @@ let project = Project(
             "SWIFT_VERSION": "6.0",
             "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
             "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
-            "CODE_SIGN_STYLE": "Manual",
-            "CODE_SIGN_IDENTITY": "Apple Development",
-            "DEVELOPMENT_TEAM": "",
+            "CODE_SIGN_STYLE": "Automatic",
+            "DEVELOPMENT_TEAM": "RBNKHS73S3",
         ],
         configurations: [
             .debug(name: "Debug"),
@@ -29,6 +28,9 @@ let project = Project(
                 "CFBundleIconName": "AppIcon",
                 "CFBundleDisplayName": "Tiny Audio Unit Host",
                 "CFBundleName": "Tiny Audio Unit Host",
+                "CFBundleShortVersionString": "1.0",
+                "CFBundleVersion": "1",
+                "LSApplicationCategoryType": "public.app-category.music",
             ]),
             buildableFolders: [
                 "Sources",
@@ -45,6 +47,7 @@ let project = Project(
             settings: .settings(
                 base: [
                     "ENABLE_APP_SANDBOX": "YES",
+                    "ENABLE_HARDENED_RUNTIME": "YES",
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                     "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
                 ]
