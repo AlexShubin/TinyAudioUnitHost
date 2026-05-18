@@ -5,6 +5,10 @@
 - **Never commit or push without explicit per-action permission.** Applies to every branch, especially `main`. Instructions like "reverse this commit on origin" or "make these changes" are *not* implicit authorization to commit or push — leave the work as working-tree edits and ask. Each commit and each push needs its own explicit go-ahead.
 - Force-pushes to `main` are off-limits unless the user uses the words "force push".
 
+## Working scope
+
+**WHEN A STEP IS SCOPED TO ONE FRAMEWORK / MODULE, ONLY MODIFY AND VERIFY THAT MODULE.** Do not edit other frameworks "to keep them compiling". Do not run the full-app scheme. Fix the module's own tests, build the module's own scheme (e.g. `xcodebuild -scheme StorageKit`), and stop there. Inter-module breakage during a multi-step refactor is *expected* — the next step covers the downstream module. Building the whole app to "verify" a single-module change wastes time and noisy cross-module edits muddy the diff.
+
 ## Tuist
 
 - To regenerate the Xcode project, run: `mise run generate`
