@@ -29,8 +29,8 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         return ids.compactMap(device(id:)).filter { device in
             switch filter {
             case .all: true
-            case .input: !device.inputChannels.isEmpty
-            case .output: !device.outputChannels.isEmpty
+            case .input: !device.inputChannels.isEmpty && !device.isHiddenFromPicker
+            case .output: !device.outputChannels.isEmpty && !device.isHiddenFromPicker
             }
         }
     }
@@ -83,5 +83,12 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         return Self.candidateSampleRates.filter { rate in
             ranges.contains { rate >= $0.mMinimum && rate <= $0.mMaximum }
         }
+    }
+}
+
+private extension AudioDevice {
+    var isHiddenFromPicker: Bool {
+        uid.hasPrefix("CADefaultDeviceAggregate-") ||
+            uid.hasPrefix(AggregateDeviceFactory.uidPrefix)
     }
 }
