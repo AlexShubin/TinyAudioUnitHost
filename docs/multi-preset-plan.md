@@ -39,14 +39,14 @@ Trade-offs we accept:
 
 1. **Sidebar tab style.** Recommend segmented `Picker` at the top of the sidebar (matches Mail/Calendar). Vertical icon rail is the other option; more chrome and harder to size inside `NavigationSplitView`. **Confirmed and shipped** as a placeholder.
 2. **AU selection writes back to the active slot** (recommended). Picking an AU replaces the slot's `component` + state immediately and persists. Save persists in-flight tweaks; Restore reloads from disk. Alternative is "stage until Save", but that splits engine state from disk state and surprises users.
-3. **"New Preset" starts empty.** User picks an AU after creating. Future: "Duplicate" via row context menu.
-4. **Empty-slot persistence.** A freshly-created slot is written to disk **with no content** (an empty `RawPreset`). That way the filesystem is the canonical list — no in-memory ghost slots, no merge logic between "exists on disk" and "exists in memory". The user picks an AU; the file gets filled in.
+3. **`+` is Save As.** The button on the Presets sidebar is enabled only when the engine is `.loaded` (same gating as the toolbar Save). Clicking it opens the name dialog; on commit, the current AU + state is written under the new name and becomes the active preset. No empty presets ever exist on disk. `+` and Save are siblings — both write the engine state to a file; Save targets the active preset's file, Save As writes to a new one.
+4. **`RawPreset` stays as-is.** All four content fields remain required. Since no empty preset ever reaches disk, we don't need to weaken the type.
 5. **Name validation.** Trim whitespace; reject empty after trim; reject `/`, `:`, and a leading `.`; reject duplicates (case-insensitive compare so `"Default"` and `"default"` don't collide on case-insensitive filesystems). All enforced in the provider; the dialog disables Create when the name doesn't pass.
 
 ## Resolved details
 
 - **Deleting the active preset.** Provider clears `activeName` atomically; the VM falls back to `presets.first?.name` (the new first after deletion) and calls `setActive` so the next launch matches what's on screen.
-- **AU selection with zero presets.** Auto-create an `"Untitled"` preset on the first AU pick: `provider.create(uniqueUntitledName())` → `setActive` → `save(...)`. The unique-name helper picks `"Untitled"` if available, else `"Untitled 2"`, `"Untitled 3"`, etc. — like TextEdit. Users can rename via the row context menu.
+- **AU selection with no active preset.** The engine enters "preview" — AU loads, nothing persists. `+` becomes enabled the moment content reaches `.loaded`, giving the user a clear way to save what's playing under a name. This covers both "zero presets exist" and "active was just deleted and there's no successor". No auto-create; nothing on disk until the user names it.
 - **Name validation.** `PresetNameValidatorType` (a protocol in PresetKit with an `internal` struct impl, wired in `PresetKit.Dependencies.live`) is the single source of truth. Injected into `PresetProvider` (used by `create` / `rename`) **and** into the HostViewModel (for live keystroke validation in the New Preset dialog). Mocked in `PresetKitTestSupport` so consumer tests drive validation results without re-testing the rules.
 - **Sidebar tab.** View-local `@State` (already shipped). Resets to Audio Units on view recreation; no persistence.
 
@@ -57,18 +57,7 @@ Trade-offs we accept:
 Path scheme:
 - `presets/<name>.json` — one `RawPreset` per slot. An empty preset has all content fields nil.
 
-`RawPreset` schema gains optional content (was all-required):
-
-```swift
-public struct RawPreset: Sendable, Equatable, Codable {
-    public var componentType: UInt32?
-    public var componentSubType: UInt32?
-    public var componentManufacturer: UInt32?
-    public var state: Data?
-}
-```
-
-Old `default.json` files already on disk decode fine — `Optional<UInt32>` accepts the existing concrete values. No data migration needed.
+`RawPreset` is unchanged — all four content fields stay required. Every file on disk represents a fully-formed preset (no empty marker case).
 
 **`FileStorageType` gains two methods** to support listing and renaming:
 
@@ -97,32 +86,29 @@ Test-support updates: `RawPresetStoreMock` gains `rename` + `names` in its `Call
 
 ### Domain (`PresetKit`)
 
-Two value types:
+One value type:
 
 ```swift
 public struct Preset: Sendable, Equatable {
     public let name: String
-    public let content: PresetContent
-}
-
-public enum PresetContent: Sendable, Equatable {
-    case empty
-    case loaded(component: AudioUnitComponent, state: Data)
+    public let component: AudioUnitComponent
+    public let state: Data
 }
 ```
 
-`Preset` is the single domain type — used for listing (the sidebar reads `.name`) and for loading into the engine (where `.content` determines what to do). No separate `PresetSlot`.
+Used for listing (the sidebar reads `.name`) and for loading into the engine. No separate `PresetSlot`, no `PresetContent` enum — a `Preset` is always a fully-formed AU + state pair.
 
 **`PresetProviderType` surface:**
 
 ```swift
 public protocol PresetProviderType: Sendable {
-    func presets() async -> [Preset]                                       // sorted, content included
+    func presets() async -> [Preset]                                       // sorted by name
     func activeName() async -> String?
     func setActive(_ name: String?) async
     func load(name: String) async -> Preset?
-    func create(name: String) async -> Result<Preset, PresetNameError>     // empty slot
-    func save(_ preset: Preset) async                                      // overwrite
+    func save(_ preset: Preset) async                                      // overwrite existing
+    func saveAs(name: String, component: AudioUnitComponent, state: Data)
+        async -> Result<Preset, PresetNameError>                           // new file, validated
     func rename(from: String, to: String) async -> Result<Void, PresetNameError>
     func delete(name: String) async
 }
@@ -146,21 +132,20 @@ struct PresetNameValidator: PresetNameValidatorType { ... }
 Wired through `PresetKit.Dependencies.live` and injected into both `PresetProvider` (so `create` / `rename` validate before writing) and the HostViewModel (so the New Preset dialog can disable Create live as the user types). One shared seam, one set of rules, two consumers — and tests for either can swap in a `PresetNameValidatorMock` to drive specific outcomes without re-deriving the rules.
 
 Notes:
-- `presets()` returns full `Preset` values, including content. Cheap enough — preset files are small (state Data is the only non-trivial field; not loaded into the engine until selected). If we ever store large state blobs and listing becomes hot, we can split into `names()` + `load(name:)`.
-- `create` enforces name rules; returns the new empty `Preset`.
-- `save` overwrites the file at `presets/<preset.name>.json`. Used by the VM on AU selection and on explicit Save.
-- `rename` moves the file and is a no-op if `from == to`.
+- `presets()` returns full `Preset` values. Cheap enough — preset files are small. If listing ever becomes hot we can split into `names()` + `load(name:)`.
+- `save(_:)` overwrites the file at `presets/<preset.name>.json`. Used on every AU selection (write-back to the active preset) and on toolbar Save. No validation — the name is the active preset's, already on disk.
+- `saveAs(name:component:state:)` runs name validation and writes a brand-new file. Used by the `+` dialog. Returns the resulting `Preset` so the VM can update `presets` and active state without a separate refresh.
+- `rename` moves the file and is a no-op if `from == to`. Validates the new name.
 
 **File-by-file changes in `PresetKit/Sources/`:**
-- `Models/Preset.swift` — add `name`, replace `(component, state)` with `content: PresetContent`.
-- `Models/PresetContent.swift` — new.
+- `Models/Preset.swift` — add `name` field. Stays a plain `(name, component, state)` value.
 - `Models/PresetNameError.swift` — new.
 - `Services/PresetProvider.swift` — rewrite around the new surface; takes `validator: PresetNameValidatorType` in init.
 - `Services/PresetNameValidator.swift` — new (protocol + internal struct).
 - `Sources/Dependencies.swift` — add `presetNameValidator: PresetNameValidatorType`; `live` wires it once and passes the same instance into `PresetProvider`'s init.
 
 **Test support:**
-- `Preset+Fake.swift` — `name: String = "Test"`, `content: PresetContent = .empty` by default; convenience `.loaded(...)` factory.
+- `Preset+Fake.swift` — `name: String = "Test"`, `component: AudioUnitComponent = .fake()`, `state: Data = Data()`.
 - `PresetProviderMock.swift` — `Calls` covers each method; backing map is `[String: Preset]`.
 - `PresetNameValidatorMock.swift` — `final class` (the protocol isn't actor-bound); configurable `result: PresetNameError?`; records each `validate(...)` call.
 
@@ -179,22 +164,20 @@ Actions:
 - New: `case selectedPreset(String)`, `case newPresetTapped`, `case newPresetDialogAction(NewPresetDialogAction)`, `case renamePreset(String, to: String)`, `case deletePreset(String)`.
 
 Behavior:
-- `task`: read `provider.presets()` and `provider.activeName()`; set `activeName` to that value if it still names a known preset, otherwise to `presets.first?.name` (and call `provider.setActive` to repair stale state). Load the active preset into the engine.
-- `selectedPreset(name)`: set local `activeName`; `await provider.setActive(name)`; load its content into the engine (engine empty if `.empty`).
-- `selected(component)`: load into engine. Then:
-  - If `activeName` is set: write back `Preset(name: activeName, content: .loaded(component, state))` via `provider.save`.
-  - If `activeName` is nil (i.e., `presets` is empty): auto-create a slot to hold the AU — compute `uniqueUntitledName(against: presets.map(\.name))` (`"Untitled"`, `"Untitled 2"`, …), `provider.create(name)`, set local `activeName` + `provider.setActive(name)`, then `provider.save(...)` with the loaded content.
-- `saveCurrentPreset`: same write-back, using the engine's current `fullState`.
-- `restorePreset`: re-load the active preset from disk.
-- `newPresetDialogAction(.commit(name))`: `provider.create(name)` → on success, refresh `presets`, `provider.setActive(name)`, engine to `.empty`.
+- `task`: read `provider.presets()` and `provider.activeName()`; set `activeName` to that value if it still names a known preset, otherwise to `presets.first?.name` (and call `provider.setActive` to repair stale state). Load the active preset into the engine. With zero presets, `activeName` stays nil and content is `.empty`.
+- `selectedPreset(name)`: set local `activeName`; `await provider.setActive(name)`; load its content into the engine.
+- `selected(component)`: load into engine. If `activeName` is set, write back `Preset(name: activeName, component, state)` via `provider.save`. Otherwise the engine is in "preview" — no persistence; `+` becomes the way out.
+- `saveCurrentPreset`: write the engine's current `fullState` to the active preset via `provider.save`. Disabled (gated in the toolbar) when no active preset.
+- `restorePreset`: re-load the active preset from disk. Disabled when no active preset.
+- `newPresetDialogAction(.commit(name))`: gated on `content.isLoaded`. Calls `provider.saveAs(name:, component:, state:)` with the engine's current values. On `.success(preset)`: refresh `presets`, set `activeName = preset.name`, `provider.setActive`. On `.failure(error)`: surface in the dialog.
 - `renamePreset(from:to:)`: provider keeps `presets_state.json` consistent; VM refreshes `presets` and re-reads `provider.activeName()`.
-- `deletePreset(name)`: provider clears active if it matched; VM refreshes; if `activeName` came back nil, fall back to `presets.first?.name` and call `provider.setActive`.
+- `deletePreset(name)`: provider clears active if it matched; VM refreshes; if `activeName` came back nil, fall back to `presets.first?.name` and call `provider.setActive` (nil if no presets remain — engine drops to preview-style empty).
 
 #### Sidebar
 
 Already prototyped: segmented `Picker` at the top of the `NavigationSplitView` sidebar; the AU list lives under the Audio Units tab; the Presets tab gets a real list.
 
-`PresetsSidebar` — header row "Presets" + trailing `+` button; below it a `List(selection: $activeName)` over `viewModel.presets`. Row context menu: Rename, Delete. Subview pattern: state struct + `onAction: (PresetsSidebarAction) -> Void`. The VM wraps actions as `.presetsSidebarAction(...)`.
+`PresetsSidebar` — header row "Presets" + trailing `+` button (disabled when `content.isLoaded == false`, same as toolbar Save); below it a `List(selection: $activeName)` over `viewModel.presets`. Row context menu: Rename, Delete. Subview pattern: state struct + `onAction: (PresetsSidebarAction) -> Void`. The VM wraps actions as `.presetsSidebarAction(...)`.
 
 We don't necessarily need to extract `AudioUnitsSidebar` as a subview to ship presets — the existing inline `List` works fine. Worth doing only if/when we want symmetry or the inline block grows unwieldy.
 
