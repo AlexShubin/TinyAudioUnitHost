@@ -1,5 +1,8 @@
 import ProjectDescription
 
+let appVersion = "1.0"
+let buildNumber = "3"
+
 let project = Project(
     name: "TinyAudioUnitHost",
     options: .options(automaticSchemesOptions: .enabled(codeCoverageEnabled: true)),
@@ -28,8 +31,8 @@ let project = Project(
                 "CFBundleIconName": "AppIcon",
                 "CFBundleDisplayName": "Tiny Audio Unit Host",
                 "CFBundleName": "Tiny Audio Unit Host",
-                "CFBundleShortVersionString": "1.0",
-                "CFBundleVersion": "2",
+                "CFBundleShortVersionString": .string(appVersion),
+                "CFBundleVersion": .string(buildNumber),
                 "LSApplicationCategoryType": "public.app-category.music",
                 "ITSAppUsesNonExemptEncryption": false,
             ]),
@@ -55,8 +58,8 @@ let project = Project(
                     "PRODUCT_NAME": "Tiny Audio Unit Host",
                     "INFOPLIST_KEY_CFBundleDisplayName": "Tiny Audio Unit Host",
                     "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.music",
-                    "MARKETING_VERSION": "1.0",
-                    "CURRENT_PROJECT_VERSION": "2",
+                    "MARKETING_VERSION": .string(appVersion),
+                    "CURRENT_PROJECT_VERSION": .string(buildNumber),
                 ]
             )
         ),
