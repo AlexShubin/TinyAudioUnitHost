@@ -16,7 +16,7 @@ protocol FileStorageType: Sendable {
     func move(from: String, to: String)
 }
 
-final class FileStorage: FileStorageType {
+struct FileStorage: FileStorageType {
     private let directory: URL
     private let jsonDecoder = JSONDecoder()
     private let jsonEncoder = JSONEncoder()
