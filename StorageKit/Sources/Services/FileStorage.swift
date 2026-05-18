@@ -12,6 +12,8 @@ protocol FileStorageType: Sendable {
     func read<T: Decodable>(_ type: T.Type, at relativePath: String) -> T?
     func write<T: Encodable>(_ value: T, at relativePath: String)
     func delete(at relativePath: String)
+    func list(directory relativePath: String) -> [String]
+    func move(from: String, to: String)
 }
 
 final class FileStorage: FileStorageType {
@@ -40,6 +42,29 @@ final class FileStorage: FileStorageType {
 
     func delete(at relativePath: String) {
         try? FileManager.default.removeItem(at: url(for: relativePath))
+    }
+
+    func list(directory relativePath: String) -> [String] {
+        let dirURL = directory.appending(path: relativePath)
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dirURL,
+            includingPropertiesForKeys: nil
+        ) else { return [] }
+        return entries.compactMap { entry in
+            let name = entry.lastPathComponent
+            guard name.hasSuffix(".json") else { return nil }
+            return String(name.dropLast(".json".count))
+        }
+    }
+
+    func move(from: String, to: String) {
+        let src = url(for: from)
+        let dst = url(for: to)
+        try? FileManager.default.createDirectory(
+            at: dst.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? FileManager.default.moveItem(at: src, to: dst)
     }
 
     private func url(for relativePath: String) -> URL {

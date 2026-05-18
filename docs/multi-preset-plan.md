@@ -33,7 +33,11 @@ Trade-offs we accept:
 - **Renames are I/O**, not just a metadata update. Cheap enough.
 - **Order is alphabetical**, fixed. Reordering would require an index file; deferred.
 
-**Active preset persists across launches** in a tiny dedicated file `presets_state.json` (`{ "activeName": "B" }`), managed by `RawPresetStore` alongside the preset files. On launch the VM reads it; if it's missing or names a preset that no longer exists, the VM falls back to `presets.first?.name` — so an existing single-preset user still sees `"default"` load automatically. `RawPresetStore` keeps the state file consistent on its own: renaming the active preset rewrites `activeName`; deleting it clears the field.
+**Active preset persists across launches** in a tiny dedicated file `active_preset.json` holding a public `RawActivePresetState { name: String }` value. On launch the VM reads it; if it names a known preset, that preset loads. Otherwise the app starts in **not selected** state — `activeName` is nil, content is `.empty`, and the user picks. There's no auto-fallback to "first preset". `RawPresetStore` is a thin filesystem wrapper — it doesn't reconcile rename/delete with active state on its own; `PresetProvider` owns that policy (see Architecture).
+
+Existing single-preset users (with a `presets/default.json` from the old schema) see their `default` listed but unselected on the first post-upgrade launch — one click to load. Subsequent launches restore the active.
+
+**"Not selected" is a real state, not an error.** Engine may still be loaded (the user can pick AUs, tweak parameters, etc.); they just aren't writing to any file. `+` is the way out: name what's playing.
 
 ## Decisions (with recommendations)
 
@@ -45,8 +49,8 @@ Trade-offs we accept:
 
 ## Resolved details
 
-- **Deleting the active preset.** Provider clears `activeName` atomically; the VM falls back to `presets.first?.name` (the new first after deletion) and calls `setActive` so the next launch matches what's on screen.
-- **AU selection with no active preset.** The engine enters "preview" — AU loads, nothing persists. `+` becomes enabled the moment content reaches `.loaded`, giving the user a clear way to save what's playing under a name. This covers both "zero presets exist" and "active was just deleted and there's no successor". No auto-create; nothing on disk until the user names it.
+- **Deleting the active preset.** Provider deletes the file and clears `activeName` atomically. The VM does **not** auto-pick a successor — it just drops into "not selected" state. The engine keeps whatever's currently loaded (it's no longer attached to a file); the user can click another preset, change AUs, or hit `+` to save under a new name.
+- **AU selection in "not selected" state.** When no preset is active (fresh launch with no saved active, or just after deleting the active one), picking an AU just loads it into the engine — no persistence, no auto-create. `+` becomes enabled the moment content reaches `.loaded`, giving the user a clear way to name and save what's playing.
 - **Name validation.** `PresetNameValidatorType` (a protocol in PresetKit with an `internal` struct impl, wired in `PresetKit.Dependencies.live`) is the single source of truth. Injected into `PresetProvider` (used by `create` / `rename`) **and** into the HostViewModel (for live keystroke validation in the New Preset dialog). Mocked in `PresetKitTestSupport` so consumer tests drive validation results without re-testing the rules.
 - **Sidebar tab.** View-local `@State` (already shipped). Resets to Audio Units on view recreation; no persistence.
 
@@ -70,17 +74,18 @@ func move(from: String, to: String)                     // file rename
 
 ```swift
 public protocol RawPresetStoreType: Sendable {
-    func names() async -> [String]
-    func load(name: String) async -> RawPreset?
-    func save(_ preset: RawPreset, name: String) async
-    func rename(from: String, to: String) async
-    func delete(name: String) async
-    func activeName() async -> String?
-    func setActive(_ name: String?) async
+    var names: [String] { get }
+    var activePreset: RawActivePresetState? { get }
+    func load(name: String) -> RawPreset?
+    func save(_ preset: RawPreset, name: String)
+    func rename(from: String, to: String)
+    func delete(name: String)
+    func saveActivePreset(_ state: RawActivePresetState)
+    func deleteActivePreset()
 }
 ```
 
-`names()` returns whatever's in the `presets/` directory, sorted by `localizedCaseInsensitiveCompare`. The active name is persisted in `presets_state.json` (`{ "activeName": String? }`) and accessed via `activeName / setActive`. `rename(from:to:)` and `delete(name:)` keep that file in sync atomically — renaming the active preset rewrites `activeName`, deleting it clears the field. Callers don't need to call `setActive` themselves on rename/delete.
+`RawPresetStore` is a stateless `struct` — each method is a single read or write through `FileStorage`. `names()` enumerates the `presets/` directory (sorted by `localizedCaseInsensitiveCompare`). `activeName / setActive` read and write `presets_state.json` (a `{ "activeName": String? }` shape). `rename` and `delete` only touch the preset file — they do **not** reconcile the active state. That cross-cutting policy lives in `PresetProvider`, which calls `setActive` after a rename/delete of the active preset.
 
 Test-support updates: `RawPresetStoreMock` gains `rename` + `names` in its `Calls` enum; its internal map becomes `[String: RawPreset]` — already keyed by name.
 
@@ -135,7 +140,8 @@ Notes:
 - `presets()` returns full `Preset` values. Cheap enough — preset files are small. If listing ever becomes hot we can split into `names()` + `load(name:)`.
 - `save(_:)` overwrites the file at `presets/<preset.name>.json`. Used on every AU selection (write-back to the active preset) and on toolbar Save. No validation — the name is the active preset's, already on disk.
 - `saveAs(name:component:state:)` runs name validation and writes a brand-new file. Used by the `+` dialog. Returns the resulting `Preset` so the VM can update `presets` and active state without a separate refresh.
-- `rename` moves the file and is a no-op if `from == to`. Validates the new name.
+- `rename` validates the new name and moves the file. If the active preset is the one being renamed, the provider follows up with `setActive(to)` so the state file stays consistent.
+- `delete` removes the preset file. If the active preset is the one being deleted, the provider follows up with `setActive(nil)` — the app drops to the **not selected** state.
 
 **File-by-file changes in `PresetKit/Sources/`:**
 - `Models/Preset.swift` — add `name` field. Stays a plain `(name, component, state)` value.
@@ -164,14 +170,14 @@ Actions:
 - New: `case selectedPreset(String)`, `case newPresetTapped`, `case newPresetDialogAction(NewPresetDialogAction)`, `case renamePreset(String, to: String)`, `case deletePreset(String)`.
 
 Behavior:
-- `task`: read `provider.presets()` and `provider.activeName()`; set `activeName` to that value if it still names a known preset, otherwise to `presets.first?.name` (and call `provider.setActive` to repair stale state). Load the active preset into the engine. With zero presets, `activeName` stays nil and content is `.empty`.
+- `task`: read `provider.presets()` and `provider.activeName()`. If the active name matches a known preset, load it into the engine. Otherwise — including the active-pointed-at-a-deleted-preset edge case — clear `activeName` (via `provider.setActive(nil)` to repair stale state) and leave content as `.empty`. No fall-back to first.
 - `selectedPreset(name)`: set local `activeName`; `await provider.setActive(name)`; load its content into the engine.
-- `selected(component)`: load into engine. If `activeName` is set, write back `Preset(name: activeName, component, state)` via `provider.save`. Otherwise the engine is in "preview" — no persistence; `+` becomes the way out.
+- `selected(component)`: load into engine. If `activeName` is set, write back `Preset(name: activeName, component, state)` via `provider.save`. Otherwise the engine is in "not selected" state — no persistence; `+` becomes the way out.
 - `saveCurrentPreset`: write the engine's current `fullState` to the active preset via `provider.save`. Disabled (gated in the toolbar) when no active preset.
 - `restorePreset`: re-load the active preset from disk. Disabled when no active preset.
 - `newPresetDialogAction(.commit(name))`: gated on `content.isLoaded`. Calls `provider.saveAs(name:, component:, state:)` with the engine's current values. On `.success(preset)`: refresh `presets`, set `activeName = preset.name`, `provider.setActive`. On `.failure(error)`: surface in the dialog.
 - `renamePreset(from:to:)`: provider keeps `presets_state.json` consistent; VM refreshes `presets` and re-reads `provider.activeName()`.
-- `deletePreset(name)`: provider clears active if it matched; VM refreshes; if `activeName` came back nil, fall back to `presets.first?.name` and call `provider.setActive` (nil if no presets remain — engine drops to preview-style empty).
+- `deletePreset(name)`: provider deletes the file and clears active if it matched; VM refreshes `presets` and re-reads `provider.activeName()` (which will be nil if the deleted preset was active). Engine is left as-is — the AU keeps playing in "not selected" state.
 
 #### Sidebar
 
