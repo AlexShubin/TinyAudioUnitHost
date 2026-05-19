@@ -194,7 +194,7 @@ struct HostView: View {
                 Image(systemName: "arrow.uturn.backward")
             }
             .help("Restore preset")
-            .disabled(viewModel.activeName == nil)
+            .disabled(viewModel.activeName == nil || viewModel.content == .loading)
             Button {
                 Task { await viewModel.accept(action: .saveCurrentPreset) }
             } label: {
