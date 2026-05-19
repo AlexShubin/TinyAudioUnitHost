@@ -34,7 +34,7 @@ Out:
 5. **Free user with > 2 presets on disk: hide extras at the VM.** HostViewModel reads the full list from `PresetProvider`, then exposes `presets` sliced to `prefix(2)` when not Pro. The hidden files stay on disk; upgrading reveals them again.
 6. **PresetProvider stays untouched.** No `isPro` parameter. No closure. The provider remains the honest data layer; the cap is a presentation rule that lives in the consumer (HostViewModel).
 7. **Pro window is its own scene.** `Window("Pro", id: "purchases") { PurchasesView(...) }` declared at the App level, just like `Settings`. Opened via `@Environment(\.openWindow)` on the `id`. No Done button — the user closes the window like Settings.
-8. **The window self-updates on entitlement change.** While open, if `entitlementUpdates` fires `true`, the window flips from buy-state to "You're Pro". No need for `pendingNewPresetAfterUpgrade` or any cross-window coordination.
+8. **No entitlement update stream.** Service exposes `isPro` as an async getter; consumers re-read at meaningful moments (`task`, before the `+` gate, after a `purchase()` / `restore()` returns). Out-of-band changes (refunds, App Store promos) won't propagate until the next refresh or app restart — accepted as a v1 trade-off given how rare those are.
 9. **No auto-resume on purchase.** A successful purchase leaves the user in the Pro window. To create the preset they tried to create, they close the window and tap `+` again. Simpler and removes a cross-scene coupling.
 10. **Pro button stays visible when already Pro.** Tapping it opens the same window, which renders "You're Pro" + Restore. Gives Pro users a way to check status / restore on a fresh device.
 11. **`+` gating semantics.** Even at 0 or 1 presets, the gate just checks `viewModel.presets.count >= 2 && !viewModel.isPro`. Free users *creating* their first or second preset go through the normal dialog. Free user attempting the 3rd save sees the Pro window.
@@ -49,7 +49,6 @@ Public surface:
 ```swift
 public protocol PurchasesServiceType: Sendable {
     var isPro: Bool { get async }
-    var entitlementUpdates: AsyncStream<Bool> { get }
     var productInfo: ProProductInfo? { get async }
     func purchase() async -> PurchaseResult
     func restore() async -> PurchaseResult
@@ -74,9 +73,11 @@ public enum PurchaseResult: Sendable, Equatable {
 Concrete `PurchasesService` (`internal actor`):
 - Loads the Pro product lazily on first access (`Product.products(for: [Self.proID])`).
 - `isPro`: iterates `Transaction.currentEntitlements`, returns `true` if any verified entitlement matches the Pro product ID.
-- `entitlementUpdates`: an `AsyncStream<Bool>` fed by a long-running `Task<Void, Never>` consuming `Transaction.updates`. For each update: verify, `transaction.finish()`, re-read entitlements, yield the current value.
+- Long-running `Task<Void, Never>` consuming `Transaction.updates` — it just calls `transaction.finish()` on verified updates so out-of-band transactions (promo purchases, ask-to-buy approvals) get acknowledged. No broadcast.
 - `purchase()`: fetches product, calls `product.purchase()`, maps the StoreKit result, finishes the transaction on success.
-- `restore()`: `try? await AppStore.sync()`, then re-reads entitlements.
+- `restore()`: `try? await AppStore.sync()`; callers re-read `isPro` afterwards.
+
+No reactive entitlements stream. Consumers re-read `isPro` at the moments they care about — initial `task`, just before the `+` gate decision, after a `purchase()` / `restore()` call returns. Out-of-band entitlement changes (refunds, promos) won't propagate until the next such moment or app restart, which is acceptable for v1.
 
 `PurchasesKit.Dependencies.live` wires the service. `PurchasesServiceMock` lives in `PurchasesKit/TestSupport/Mocks/`.
 
@@ -87,8 +88,7 @@ Concrete `PurchasesService` (`internal actor`):
 ### App layer — HostViewModel
 
 New state:
-- `isPro: Bool` — observed, starts false.
-- `purchasesListener: Task<Void, Never>?` — long-running, mirrors `entitlementUpdates`.
+- `isPro: Bool` — observed, starts false. Read from the service at meaningful moments (see below).
 
 `presets` becomes a sliced view of the provider's list:
 
@@ -130,34 +130,32 @@ init(
 )
 ```
 
-Listener (matches the existing setupListener shape):
-```swift
-purchasesListener = Task { [weak self, purchasesService] in
-    for await isPro in purchasesService.entitlementUpdates {
-        self?.handle(entitlementChange: isPro)
-    }
-}
+Refresh moments for `isPro`:
+- `task` action — initial async read.
+- `.newPresetTapped` action — re-read before deciding whether to gate. This is the user's primary engagement point with Pro state, so we treat it as the refresh trigger.
 
-private func handle(entitlementChange isPro: Bool) {
-    self.isPro = isPro
+```swift
+case .task:
+    // ... existing setup
+    isPro = await purchasesService.isPro
+    allPresets = presetProvider.presets
     reconcileActiveIfHidden()
-}
-```
 
-(`task` action also kicks off an initial `await purchasesService.isPro` read so the @Observable starts coherent.)
-
-Gate inside `newPresetTapped` stays the same flow — but now the View also makes the same check before dispatching, because the View is the one who actually opens the Pro window:
-
-```swift
 case .newPresetTapped:
     guard case .loaded = content else { return }
-    newPresetDialog = NewPresetDialogState(name: "", error: nil)
-    // No paywall handling here — the View intercepts before this action fires.
+    isPro = await purchasesService.isPro
+    allPresets = presetProvider.presets
+    reconcileActiveIfHidden()
+    if !isPro && presets.count >= 2 {
+        openProWindowRequest = UUID()
+    } else {
+        newPresetDialog = NewPresetDialogState(name: "", error: nil)
+    }
 ```
 
-(The VM doesn't open windows. Putting the gate in the View is honest: it's a presentation rule about which sheet/window to bring up.)
+`openProWindowRequest: UUID?` is a one-shot token: the View observes it via `onChange` and calls `openWindow(id: "purchases")` when it goes non-nil. A fresh `UUID()` per request so SwiftUI's diffing actually fires for the second tap.
 
-No new VM actions for the paywall — the Pro window is its own scene with its own VM.
+The toolbar Pro button still uses `openWindow` directly (no async refresh) — its appearance might briefly be stale until the next `task` / `+ tap`, which is fine: clicking it always shows the correct state inside the Pro window.
 
 ### App layer — PurchasesViewModel (new)
 
@@ -186,18 +184,19 @@ enum PurchasesViewModelAction: Sendable, Equatable {
 }
 ```
 
-`task`:
-- Reads initial `isPro` and `productInfo` from the service.
-- Spawns a listener consuming `entitlementUpdates` to keep `isPro` reactive while the window is open.
+`task`: reads initial `isPro` and `productInfo` from the service.
 
 `buyTapped`:
-- `phase = .purchasing`, errorMessage = nil.
+- `phase = .purchasing`, `errorMessage = nil`.
 - `let result = await purchasesService.purchase()`.
-- `.success`: nothing else to do — the entitlement listener will flip `isPro` to true and the view re-renders. `phase = .idle`.
-- `.userCancelled` or `.pending`: `phase = .idle`.
-- Other cases: `phase = .idle`, `errorMessage = humanReadableError(result)`.
+- `phase = .idle`. Re-read `isPro = await purchasesService.isPro` so the view flips to "You're Pro" on success.
+- `.success`: nothing else.
+- `.userCancelled` / `.pending`: no error message.
+- Other cases: `errorMessage = humanReadableError(result)`.
 
 `restoreTapped`: same shape with `purchasesService.restore()`.
+
+No listener. After every action that might have changed entitlement, we re-read explicitly.
 
 ### App layer — PurchasesView
 

@@ -9,6 +9,7 @@ let workspace = Workspace(
         "AudioUnitsKit",
         "EngineKit",
         "PresetKit",
+        "PurchasesKit",
         "Common",
     ],
     generationOptions: .options(
