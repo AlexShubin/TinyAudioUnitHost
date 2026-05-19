@@ -45,18 +45,20 @@ struct PresetsSidebar: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List(selection: selectionBinding) {
-                ForEach(state.presets, id: \.name) { preset in
-                    Text(preset.name)
-                        .tag(preset.name)
-                        .contextMenu {
-                            Button("Rename") {
-                                renameTarget = preset.name
-                                renameNewName = preset.name
+                Section("Presets") {
+                    ForEach(state.presets, id: \.name) { preset in
+                        Text(preset.name)
+                            .tag(preset.name)
+                            .contextMenu {
+                                Button("Rename") {
+                                    renameTarget = preset.name
+                                    renameNewName = preset.name
+                                }
+                                Button("Delete", role: .destructive) {
+                                    onAction(.delete(name: preset.name))
+                                }
                             }
-                            Button("Delete", role: .destructive) {
-                                onAction(.delete(name: preset.name))
-                            }
-                        }
+                    }
                 }
             }
             .listStyle(.sidebar)
