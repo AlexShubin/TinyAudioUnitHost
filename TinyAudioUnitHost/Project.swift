@@ -56,6 +56,7 @@ let project = Project(
                     "ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS": "YES",
                     "CODE_SIGN_IDENTITY": "Apple Development",
                     "PRODUCT_NAME": "Tiny Audio Unit Host",
+                    "PRODUCT_MODULE_NAME": "TinyAudioUnitHost",
                     "INFOPLIST_KEY_CFBundleDisplayName": "Tiny Audio Unit Host",
                     "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.music",
                     "MARKETING_VERSION": .string(appVersion),
@@ -82,7 +83,13 @@ let project = Project(
                 .project(target: "EngineKitTestSupport", path: .relativeToManifest("../EngineKit")),
                 .project(target: "PresetKit", path: .relativeToManifest("../PresetKit")),
                 .project(target: "PresetKitTestSupport", path: .relativeToManifest("../PresetKit")),
-            ]
+            ],
+            settings: .settings(
+                base: [
+                    "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/Tiny Audio Unit Host.app/Contents/MacOS/Tiny Audio Unit Host",
+                    "BUNDLE_LOADER": "$(TEST_HOST)",
+                ]
+            )
         ),
     ]
 )

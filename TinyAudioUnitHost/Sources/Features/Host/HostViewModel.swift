@@ -20,6 +20,11 @@ enum HostViewModelAction {
     case saveCurrentPreset
     case restorePreset
     case feedbackToastAction(FeedbackToastAction)
+    case selectedPreset(name: String)
+    case newPresetTapped
+    case newPresetDialogAction(NewPresetDialogAction)
+    case renamePreset(from: String, to: String)
+    case deletePreset(name: String)
 }
 
 enum HostContent: Sendable, Equatable {
@@ -42,6 +47,9 @@ protocol HostViewModelType: AnyObject, Observable {
     var unmetRequirements: Set<SetupRequirement> { get }
     var feedback: FeedbackToastViewState? { get }
     var isReady: Bool { get }
+    var presets: [Preset] { get }
+    var activeName: String? { get }
+    var newPresetDialog: NewPresetDialogState? { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -52,12 +60,16 @@ final class HostViewModel: HostViewModelType {
     private(set) var content: HostContent = .loading
     private(set) var unmetRequirements: Set<SetupRequirement> = []
     private(set) var feedback: FeedbackToastViewState?
+    private(set) var presets: [Preset] = []
+    private(set) var activeName: String?
+    private(set) var newPresetDialog: NewPresetDialogState?
 
     var isReady: Bool { unmetRequirements.isEmpty }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
+    @ObservationIgnored private let presetNameValidator: PresetNameValidatorType
     @ObservationIgnored private let setupChecker: SetupCheckerType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
@@ -65,12 +77,14 @@ final class HostViewModel: HostViewModelType {
         library: AudioUnitComponentsLibraryType,
         engine: EngineType,
         presetProvider: PresetProviderType,
-        setupChecker: SetupCheckerType
+        setupChecker: SetupCheckerType,
+        presetNameValidator: PresetNameValidatorType
     ) {
         self.library = library
         self.engine = engine
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
+        self.presetNameValidator = presetNameValidator
         setupListener = Task { [weak self, setupChecker] in
             for await unmet in setupChecker.unmetStream {
                 self?.unmetRequirements = unmet
@@ -88,36 +102,93 @@ final class HostViewModel: HostViewModelType {
             groups = grouped(library.components)
             await setupChecker.refresh()
             guard case .loading = content else { return }
-            guard let saved = await presetProvider.loadDefault() else {
+            presets = presetProvider.presets
+            let storedActive = presetProvider.activeName
+            if let storedActive, let preset = presetProvider.load(name: storedActive) {
+                activeName = storedActive
+                await load(component: preset.component, state: preset.state)
+            } else {
+                if storedActive != nil {
+                    presetProvider.setActive(nil)
+                }
+                activeName = nil
                 content = .empty
-                return
             }
-            await load(component: saved.component, state: saved.state)
         case .selected(let component):
             guard isReady else { return }
             selectedComponent = component
             content = .loading
             await load(component: component, state: nil)
+            if case .loaded(let loaded) = content,
+               let activeName,
+               let state = loaded.audioUnit.fullState {
+                let preset = Preset(name: activeName, component: loaded.component, state: state)
+                presetProvider.save(preset)
+                presets = presetProvider.presets
+            }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
         case .saveCurrentPreset:
             guard case .loaded(let loaded) = content,
+                  let activeName,
                   let state = loaded.audioUnit.fullState else { return }
-            await presetProvider.saveDefault(Preset(component: loaded.component, state: state))
+            let preset = Preset(name: activeName, component: loaded.component, state: state)
+            presetProvider.save(preset)
+            presets = presetProvider.presets
             feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
         case .feedbackToastAction(.timedOut):
             feedback = nil
         case .restorePreset:
-            guard let saved = await presetProvider.loadDefault() else {
-                selectedComponent = nil
-                content = .empty
-                return
-            }
+            guard let activeName,
+                  let saved = presetProvider.load(name: activeName) else { return }
             await load(component: saved.component, state: saved.state)
             if case .loaded = content {
                 feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
             }
+        case .selectedPreset(let name):
+            guard isReady else { return }
+            presetProvider.setActive(name)
+            activeName = name
+            if let preset = presetProvider.load(name: name) {
+                content = .loading
+                await load(component: preset.component, state: preset.state)
+            } else {
+                selectedComponent = nil
+                content = .empty
+            }
+        case .newPresetTapped:
+            newPresetDialog = NewPresetDialogState(name: "", error: nil)
+        case .newPresetDialogAction(.nameChanged(let name)):
+            guard newPresetDialog != nil else { return }
+            let error = presetNameValidator.validate(name: name, for: .saveAs)
+            newPresetDialog = NewPresetDialogState(name: name, error: error)
+        case .newPresetDialogAction(.cancel):
+            newPresetDialog = nil
+        case .newPresetDialogAction(.commit):
+            guard case .loaded(let loaded) = content,
+                  let dialog = newPresetDialog,
+                  let state = loaded.audioUnit.fullState else { return }
+            let preset = Preset(name: dialog.name, component: loaded.component, state: state)
+            switch presetProvider.saveAs(preset) {
+            case .success(let saved):
+                presetProvider.setActive(saved.name)
+                activeName = saved.name
+                presets = presetProvider.presets
+                newPresetDialog = nil
+                feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
+            case .failure(let error):
+                newPresetDialog = NewPresetDialogState(name: dialog.name, error: error)
+            }
+        case .renamePreset(let from, let to):
+            if case .success = presetProvider.rename(from: from, to: to) {
+                presets = presetProvider.presets
+                activeName = presetProvider.activeName
+            }
+        case .deletePreset(let name):
+            presetProvider.delete(name: name)
+            presets = presetProvider.presets
+            activeName = presetProvider.activeName
         }
     }
 

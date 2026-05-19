@@ -32,7 +32,8 @@ struct Dependencies: Sendable {
             library: audioUnits.audioUnitComponentsLibrary,
             engine: engine.engine,
             presetProvider: presets.presetProvider,
-            setupChecker: audioSettings.setupChecker
+            setupChecker: audioSettings.setupChecker,
+            presetNameValidator: presets.presetNameValidator
         )
     }
 
