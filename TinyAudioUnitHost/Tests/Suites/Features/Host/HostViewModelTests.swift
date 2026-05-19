@@ -409,7 +409,7 @@ struct HostViewModelTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
 
-        await sut.accept(action: .selectedPreset(name: "foo"))
+        await sut.accept(action: .presetsSidebarAction(.selected(name: "foo")))
 
         #expect(sut.activeName == "foo")
         #expect(presetProviderMock.currentActiveName == "foo")
@@ -425,7 +425,7 @@ struct HostViewModelTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
 
-        await sut.accept(action: .selectedPreset(name: "foo"))
+        await sut.accept(action: .presetsSidebarAction(.selected(name: "foo")))
 
         #expect(sut.content == .loaded(loaded))
         #expect(await engineMock.calls == [.load(component, Data([0x07]))])
@@ -435,7 +435,7 @@ struct HostViewModelTests {
     mutating func selectedPreset_missingPreset_setsContentToEmpty() async {
         createSut()
 
-        await sut.accept(action: .selectedPreset(name: "ghost"))
+        await sut.accept(action: .presetsSidebarAction(.selected(name: "ghost")))
 
         #expect(sut.content == .empty)
         #expect(sut.selectedComponent == nil)
@@ -449,7 +449,7 @@ struct HostViewModelTests {
         let mock = setupCheckerMock!
         await awaitUnmetChange { await mock.emit([.microphonePermission]) }
 
-        await sut.accept(action: .selectedPreset(name: "foo"))
+        await sut.accept(action: .presetsSidebarAction(.selected(name: "foo")))
 
         #expect(await engineMock.calls == [])
     }
@@ -460,7 +460,7 @@ struct HostViewModelTests {
     mutating func newPresetTapped_opensEmptyDialog() async {
         createSut()
 
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
 
         #expect(sut.newPresetDialog == NewPresetDialogState(name: "", error: nil))
     }
@@ -479,7 +479,7 @@ struct HostViewModelTests {
     @Test
     mutating func nameChanged_validName_updatesNameAndClearsError() async {
         createSut()
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
 
         await sut.accept(action: .newPresetDialogAction(.nameChanged("MyPreset")))
 
@@ -490,7 +490,7 @@ struct HostViewModelTests {
     mutating func nameChanged_invalidName_setsError() async {
         presetNameValidatorMock.result = .duplicate
         createSut()
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
 
         await sut.accept(action: .newPresetDialogAction(.nameChanged("dupe")))
 
@@ -500,7 +500,7 @@ struct HostViewModelTests {
     @Test
     mutating func nameChanged_callsValidatorWithSaveAsMode() async {
         createSut()
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
 
         await sut.accept(action: .newPresetDialogAction(.nameChanged("anything")))
 
@@ -510,7 +510,7 @@ struct HostViewModelTests {
     @Test
     mutating func cancel_closesDialog() async {
         createSut()
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
 
         await sut.accept(action: .newPresetDialogAction(.cancel))
 
@@ -529,7 +529,7 @@ struct HostViewModelTests {
     @Test
     mutating func commit_emptyContent_isNoOp() async {
         createSut()
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
         await sut.accept(action: .newPresetDialogAction(.nameChanged("foo")))
 
         await sut.accept(action: .newPresetDialogAction(.commit))
@@ -545,7 +545,7 @@ struct HostViewModelTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.accept(action: .selected(component))
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
         await sut.accept(action: .newPresetDialogAction(.nameChanged("MyNew")))
 
         await sut.accept(action: .newPresetDialogAction(.commit))
@@ -565,7 +565,7 @@ struct HostViewModelTests {
         presetProviderMock.saveAsResult = .failure(.duplicate)
         createSut()
         await sut.accept(action: .selected(component))
-        await sut.accept(action: .newPresetTapped)
+        await sut.accept(action: .presetsSidebarAction(.addTapped))
         await sut.accept(action: .newPresetDialogAction(.nameChanged("dupe")))
 
         await sut.accept(action: .newPresetDialogAction(.commit))
@@ -586,7 +586,7 @@ struct HostViewModelTests {
         )
         createSut()
 
-        await sut.accept(action: .renamePreset(from: "old", to: "new"))
+        await sut.accept(action: .presetsSidebarAction(.rename(from: "old", to: "new")))
 
         #expect(sut.activeName == "new")
         #expect(sut.presets.contains { $0.name == "new" })
@@ -602,7 +602,7 @@ struct HostViewModelTests {
         )
         createSut()
 
-        await sut.accept(action: .deletePreset(name: "target"))
+        await sut.accept(action: .presetsSidebarAction(.delete(name: "target")))
 
         #expect(sut.presets.isEmpty)
         #expect(presetProviderMock.calls.contains(.delete(name: "target")))
@@ -617,7 +617,7 @@ struct HostViewModelTests {
         )
         createSut()
 
-        await sut.accept(action: .deletePreset(name: "target"))
+        await sut.accept(action: .presetsSidebarAction(.delete(name: "target")))
 
         #expect(sut.activeName == nil)
     }

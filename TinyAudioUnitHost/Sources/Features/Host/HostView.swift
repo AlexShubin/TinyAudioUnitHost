@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import PresetKit
 import SwiftUI
 
 private enum SidebarTab: Hashable {
@@ -104,17 +105,18 @@ struct HostView: View {
 
     @ViewBuilder
     private var presetsSidebar: some View {
-        ScrollView {
-            VStack {
-                Spacer()
-                ContentUnavailableView(
-                    "No Presets Yet",
-                    systemImage: "rectangle.stack",
-                    description: Text("Preset management is on the way.")
-                )
-                Spacer()
-            }
-        }
+        PresetsSidebar(
+            state: PresetsSidebarViewState(
+                presets: viewModel.presets,
+                activeName: viewModel.activeName,
+                canAdd: viewModel.content.isLoaded
+            ),
+            onAction: handlePresetsSidebarAction
+        )
+    }
+
+    private func handlePresetsSidebarAction(_ action: PresetsSidebarAction) {
+        Task { await viewModel.accept(action: .presetsSidebarAction(action)) }
     }
 
     // MARK: - Detail

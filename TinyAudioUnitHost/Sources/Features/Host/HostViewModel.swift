@@ -20,11 +20,8 @@ enum HostViewModelAction {
     case saveCurrentPreset
     case restorePreset
     case feedbackToastAction(FeedbackToastAction)
-    case selectedPreset(name: String)
-    case newPresetTapped
+    case presetsSidebarAction(PresetsSidebarAction)
     case newPresetDialogAction(NewPresetDialogAction)
-    case renamePreset(from: String, to: String)
-    case deletePreset(name: String)
 }
 
 enum HostContent: Sendable, Equatable {
@@ -146,7 +143,7 @@ final class HostViewModel: HostViewModelType {
             if case .loaded = content {
                 feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
             }
-        case .selectedPreset(let name):
+        case .presetsSidebarAction(.selected(let name)):
             guard isReady else { return }
             presetProvider.setActive(name)
             activeName = name
@@ -157,8 +154,17 @@ final class HostViewModel: HostViewModelType {
                 selectedComponent = nil
                 content = .empty
             }
-        case .newPresetTapped:
+        case .presetsSidebarAction(.addTapped):
             newPresetDialog = NewPresetDialogState(name: "", error: nil)
+        case .presetsSidebarAction(.rename(let from, let to)):
+            if case .success = presetProvider.rename(from: from, to: to) {
+                presets = presetProvider.presets
+                activeName = presetProvider.activeName
+            }
+        case .presetsSidebarAction(.delete(let name)):
+            presetProvider.delete(name: name)
+            presets = presetProvider.presets
+            activeName = presetProvider.activeName
         case .newPresetDialogAction(.nameChanged(let name)):
             guard newPresetDialog != nil else { return }
             let error = presetNameValidator.validate(name: name, for: .saveAs)
@@ -180,15 +186,6 @@ final class HostViewModel: HostViewModelType {
             case .failure(let error):
                 newPresetDialog = NewPresetDialogState(name: dialog.name, error: error)
             }
-        case .renamePreset(let from, let to):
-            if case .success = presetProvider.rename(from: from, to: to) {
-                presets = presetProvider.presets
-                activeName = presetProvider.activeName
-            }
-        case .deletePreset(let name):
-            presetProvider.delete(name: name)
-            presets = presetProvider.presets
-            activeName = presetProvider.activeName
         }
     }
 
