@@ -222,7 +222,7 @@ struct HostView: View {
                 Image(systemName: viewModel.isPro ? "star.fill" : "star")
                     .foregroundStyle(viewModel.isPro ? .yellow : .secondary)
             }
-            .help(viewModel.isPro ? "Pro features" : "Upgrade to Pro")
+            .help("Pro features")
             Spacer()
             SettingsLink {
                 Image(systemName: "gear")
