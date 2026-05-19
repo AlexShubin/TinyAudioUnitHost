@@ -17,44 +17,21 @@ struct PresetsSidebar: View {
     @State private var renameNewName: String = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            list
-        }
-        .alert(
-            "Rename Preset",
-            isPresented: renameAlertPresented,
-            presenting: renameTarget
-        ) { _ in
-            TextField("Name", text: $renameNewName)
-            Button("Cancel", role: .cancel) { renameTarget = nil }
-            Button("Rename") {
-                if let target = renameTarget {
-                    onAction(.rename(from: target, to: renameNewName))
+        list
+            .alert(
+                "Rename Preset",
+                isPresented: renameAlertPresented,
+                presenting: renameTarget
+            ) { _ in
+                TextField("Name", text: $renameNewName)
+                Button("Cancel", role: .cancel) { renameTarget = nil }
+                Button("Rename") {
+                    if let target = renameTarget {
+                        onAction(.rename(from: target, to: renameNewName))
+                    }
+                    renameTarget = nil
                 }
-                renameTarget = nil
             }
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            Text("Presets")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Button {
-                onAction(.addTapped)
-            } label: {
-                Image(systemName: "plus")
-            }
-            .buttonStyle(.borderless)
-            .disabled(!state.canAdd)
-            .help("New Preset")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 
     @ViewBuilder
@@ -63,8 +40,9 @@ struct PresetsSidebar: View {
             ContentUnavailableView(
                 "No Presets Yet",
                 systemImage: "rectangle.stack",
-                description: Text("Tap + to save the current sound as a preset.")
+                description: Text("Use + in the toolbar to save the current sound as a preset.")
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List(selection: selectionBinding) {
                 ForEach(state.presets, id: \.name) { preset in
@@ -106,7 +84,6 @@ struct PresetsSidebar: View {
 
 enum PresetsSidebarAction: Sendable, Equatable {
     case selected(name: String)
-    case addTapped
     case rename(from: String, to: String)
     case delete(name: String)
 }
@@ -114,5 +91,4 @@ enum PresetsSidebarAction: Sendable, Equatable {
 struct PresetsSidebarViewState: Sendable, Equatable {
     let presets: [Preset]
     let activeName: String?
-    let canAdd: Bool
 }

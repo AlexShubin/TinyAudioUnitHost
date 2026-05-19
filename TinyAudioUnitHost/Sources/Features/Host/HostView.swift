@@ -83,6 +83,7 @@ struct HostView: View {
                 systemImage: "puzzlepiece.extension",
                 description: Text("Install audio unit plug-ins to host them here.")
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List(
                 selection: Binding(
@@ -128,8 +129,7 @@ struct HostView: View {
         PresetsSidebar(
             state: PresetsSidebarViewState(
                 presets: viewModel.presets,
-                activeName: viewModel.activeName,
-                canAdd: viewModel.content.isLoaded
+                activeName: viewModel.activeName
             ),
             onAction: handlePresetsSidebarAction
         )
@@ -202,6 +202,13 @@ struct HostView: View {
             }
             .help("Save preset")
             .disabled(viewModel.activeName == nil || !viewModel.content.isLoaded)
+            Button {
+                Task { await viewModel.accept(action: .newPresetTapped) }
+            } label: {
+                Image(systemName: "plus")
+            }
+            .help("Save as new preset")
+            .disabled(!viewModel.content.isLoaded)
             Spacer()
             SettingsLink {
                 Image(systemName: "gear")

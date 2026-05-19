@@ -19,6 +19,7 @@ enum HostViewModelAction {
     case groupExpansionChanged(manufacturer: String, isExpanded: Bool)
     case saveCurrentPreset
     case restorePreset
+    case newPresetTapped
     case feedbackToastAction(FeedbackToastAction)
     case presetsSidebarAction(PresetsSidebarAction)
     case newPresetDialogAction(NewPresetDialogAction)
@@ -147,7 +148,7 @@ final class HostViewModel: HostViewModelType {
                 selectedComponent = nil
                 content = .empty
             }
-        case .presetsSidebarAction(.addTapped):
+        case .newPresetTapped:
             newPresetDialog = NewPresetDialogState(name: "", error: nil)
         case .presetsSidebarAction(.rename(let from, let to)):
             if case .success = presetProvider.rename(from: from, to: to) {
