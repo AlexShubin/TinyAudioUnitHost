@@ -18,7 +18,8 @@ struct HostView: View {
             PresetsSidebar(
                 state: PresetsSidebarViewState(
                     presets: viewModel.presets,
-                    activeName: viewModel.activeName
+                    activeName: viewModel.activeName,
+                    isInteractionDisabled: viewModel.content == .loading
                 ),
                 onAction: handlePresetsSidebarAction
             )

@@ -62,6 +62,7 @@ struct PresetsSidebar: View {
                 }
             }
             .listStyle(.sidebar)
+            .disabled(state.isInteractionDisabled)
         }
     }
 
@@ -93,4 +94,5 @@ enum PresetsSidebarAction: Sendable, Equatable {
 struct PresetsSidebarViewState: Sendable, Equatable {
     let presets: [Preset]
     let activeName: String?
+    let isInteractionDisabled: Bool
 }
