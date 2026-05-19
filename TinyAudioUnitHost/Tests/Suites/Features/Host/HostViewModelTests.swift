@@ -227,22 +227,24 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func selected_withActiveName_writesBackToActivePreset() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+    mutating func selected_withActiveName_doesNotWriteBack() async {
+        let original = Preset.fake(name: "active", state: Data([0x01]))
+        let differentComponent = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        let loaded = LoadedAudioUnit.fake(component: differentComponent, audioUnit: auMock)
         engineMock = EngineMock(loadResult: .success(loaded))
         presetProviderMock = PresetProviderMock(
-            presets: ["active": Preset(name: "active", component: component, state: Data())],
+            presets: ["active": original],
             activeName: "active"
         )
         createSut()
         await sut.accept(action: .task)
 
-        await sut.accept(action: .selected(component))
+        await sut.accept(action: .selected(differentComponent))
 
-        let expected = Preset(name: "active", component: component, state: Data([0xBE, 0xEF]))
-        #expect(presetProviderMock.storedPresets["active"] == expected)
+        // Picking an AU only loads it into the engine; the active preset's file
+        // stays untouched until the user explicitly saves.
+        #expect(presetProviderMock.storedPresets["active"] == original)
     }
 
     @Test

@@ -116,13 +116,6 @@ final class HostViewModel: HostViewModelType {
             selectedComponent = component
             content = .loading
             await load(component: component, state: nil)
-            if case .loaded(let loaded) = content,
-               let activeName,
-               let state = loaded.audioUnit.fullState {
-                let preset = Preset(name: activeName, component: loaded.component, state: state)
-                presetProvider.save(preset)
-                presets = presetProvider.presets
-            }
         case .groupExpansionChanged(let manufacturer, let isExpanded):
             guard let index = groups.firstIndex(where: { $0.manufacturer == manufacturer }) else { return }
             groups[index].isExpanded = isExpanded
