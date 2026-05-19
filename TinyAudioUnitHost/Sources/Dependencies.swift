@@ -10,6 +10,7 @@ import AudioSettingsKit
 import AudioUnitsKit
 import EngineKit
 import PresetKit
+import PurchasesKit
 import SwiftUI
 
 struct Dependencies: Sendable {
@@ -17,13 +18,15 @@ struct Dependencies: Sendable {
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
+    let purchases: PurchasesKit.Dependencies
 
     static let live: Dependencies = {
         Dependencies(
             audioSettings: .live,
             audioUnits: .live,
             engine: .live,
-            presets: .live
+            presets: .live,
+            purchases: .live
         )
     }()
 
@@ -45,6 +48,10 @@ struct Dependencies: Sendable {
             engine: engine.engine,
             setupChecker: audioSettings.setupChecker
         )
+    }
+
+    @MainActor func makePurchasesViewModel() -> PurchasesViewModelType {
+        PurchasesViewModel(purchasesService: purchases.purchasesService)
     }
 }
 

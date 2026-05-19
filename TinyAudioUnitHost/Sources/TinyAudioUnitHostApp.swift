@@ -32,6 +32,11 @@ struct TinyAudioUnitHostApp: App {
         Settings {
             withTestsDisabled { SettingsView(viewModel: dependencies.makeSettingsViewModel()) }
         }
+
+        Window("Tiny Audio Unit Host Pro", id: "purchases") {
+            withTestsDisabled { PurchasesView(viewModel: dependencies.makePurchasesViewModel()) }
+        }
+        .windowResizability(.contentSize)
     }
 
     @ViewBuilder

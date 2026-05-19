@@ -63,29 +63,56 @@
 - **`*Gateway` protocols hold only foreign-API primitives, not domain logic.** Each gateway method should map roughly 1:1 onto an underlying foreign call (`setChannelMap(_ map: [Int32], element:, on:)`, `physicalChannelCount(of:) -> Int?`, `authorizationStatus(for:)`). Logic that *builds* the call's inputs from domain types (e.g. computing a channel map from `SelectedChannel` + an offset) stays in the caller as private methods. Otherwise correctness-critical code hides behind a non-substitutable boundary and the gateway gets coupled to types that have nothing to do with the foreign API.
 - **File-backed storage keys use snake_case.** Keys that become on-disk filenames, plist keys, or other external persistent identifiers should be snake_case (`"audio_settings"` → `audio_settings.json`), not camelCase. Swift symbol naming inside the codebase still follows normal camelCase.
 
-## Subview communication
+## View state and actions
 
-Subviews don't own a view model and don't mutate shared state. Every event bubbles up through a single `onAction: (Action) -> Void` closure to the parent feature's VM, which is the only thing that decides what to do:
+Every view — top-level feature view or subview — gets a dedicated state struct (`<View>ViewState`) and action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view are nested inside the state struct (e.g. `<View>ViewState.Phase`).
+
+### Top-level feature views (own a VM)
+
+The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes exactly two things: `var state: <View>ViewState { get }` and `func accept(action: <View>Action) async`. The view reads `viewModel.state.foo` and dispatches `viewModel.accept(action: .bar)`.
 
 ```swift
-struct FooViewState: Sendable, Equatable {
-    /* the data the view renders */
+// PurchasesView.swift
+struct PurchasesView: View {
+    @State var viewModel: PurchasesViewModelType
+
+    var body: some View {
+        Text(viewModel.state.headline)
+        Button("Buy") { Task { await viewModel.accept(action: .buyTapped) } }
+    }
 }
 
-enum FooViewAction { /* every event the subview can emit */ }
+struct PurchasesViewState: Sendable, Equatable {
+    var isPro: Bool
+    var phase: Phase
 
-struct FooView: View {
-    let state: FooViewState
-    let onAction: (FooViewAction) -> Void
+    enum Phase: Sendable, Equatable { case idle, purchasing, restoring }
+}
+
+enum PurchasesViewAction: Sendable, Equatable {
+    case task
+    case buyTapped
 }
 ```
 
-- Define a dedicated action enum per subview, named after the view (`<View>Action` — drop the trailing "View" if the view's name already ends in "View"). Don't reuse the parent VM's action type — the subview shouldn't know it exists.
-- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout`/`onDone`/etc. closures — the subview has exactly one outbound channel.
-- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(FooViewAction)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
+The VM stores one `state` property and mutates its fields. SwiftUI tracks the property via `@Observable` and re-renders on each mutation.
+
+### Subviews (no VM)
+
+Subviews don't own a view model and don't mutate shared state. The view takes `let state: <View>ViewState` and `let onAction: (<View>Action) -> Void`; every event bubbles up through `onAction` to the parent feature's VM, which is the only thing that decides what to do.
+
+```swift
+struct FeedbackToast: View {
+    let state: FeedbackToastViewState
+    let onAction: (FeedbackToastAction) -> Void
+}
+```
+
+- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout` / `onDone` / etc. closures — the subview has exactly one outbound channel.
+- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(<View>Action)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
 - When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own wrapping case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
 - If multiple instances share write logic on the VM, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
-- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct (`FooViewState`) — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
+- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
 
 ## Project Structure
 
