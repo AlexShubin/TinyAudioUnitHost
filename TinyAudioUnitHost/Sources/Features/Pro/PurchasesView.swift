@@ -14,7 +14,7 @@ struct PurchasesView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "crown.fill")
+            Image(systemName: "star.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.yellow.gradient)
                 .padding(.top, 32)

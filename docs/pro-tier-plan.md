@@ -38,7 +38,7 @@ Out:
 9. **No auto-resume on purchase.** A successful purchase leaves the user in the Pro window. To create the preset they tried to create, they close the window and tap `+` again. Simpler and removes a cross-scene coupling.
 10. **Pro button stays visible when already Pro.** Tapping it opens the same window, which renders "You're Pro" + Restore. Gives Pro users a way to check status / restore on a fresh device.
 11. **`+` gating semantics.** Even at 0 or 1 presets, the gate just checks `viewModel.presets.count >= 2 && !viewModel.isPro`. Free users *creating* their first or second preset go through the normal dialog. Free user attempting the 3rd save sees the Pro window.
-12. **Active preset reconciliation on downgrade.** When the entitlement listener flips to false and the active preset name no longer appears in the (newly sliced) visible list, the VM clears active via `setActive(nil)` — same code path that already handles a stale active name. Engine state is left as-is (consistent with the earlier "not selected" decision).
+12. **No active-preset reconciliation.** We assume "a free user cannot have more than 2 presets on disk" is invariant (enforced by the gate in `.newPresetTapped`). If the invariant somehow breaks — out-of-band entitlement loss (Apple refund) or manual file edits — the active name may point at a hidden preset and the engine will keep playing it; we don't auto-clear. Trade-off accepted alongside the earlier "no entitlement stream" decision.
 
 ## Architecture
 
@@ -90,7 +90,14 @@ No reactive entitlements stream. Consumers re-read `isPro` at the moments they c
 New state:
 - `isPro: Bool` — observed, starts false. Read from the service at meaningful moments (see below).
 
-`presets` becomes a sliced view of the provider's list:
+`presets` becomes a computed property that slices on read:
+
+```swift
+private(set) var allPresets: [Preset] = []
+var presets: [Preset] { isPro ? allPresets : Array(allPresets.prefix(2)) }
+```
+
+`allPresets` is the raw cache from the provider; `presets` (the public surface) slices to `prefix(2)` whenever the user isn't Pro. Slicing on read means any reader always sees the current `isPro` without manual re-slicing. We assume the invariant *"a free user cannot have more than 2 presets on disk"* holds (enforced by the gate in `.newPresetTapped`), so we don't reconcile active when the slice changes — a free user with > 2 on disk is treated as out of scope.
 
 ```swift
 private(set) var allPresets: [Preset] = []
@@ -99,23 +106,7 @@ var presets: [Preset] { isPro ? allPresets : Array(allPresets.prefix(2)) }
 
 (`presets` stays a `var` so existing consumers and tests keep working unchanged; `allPresets` is the raw cache.)
 
-Every place that used to write `presets = presetProvider.presets` becomes:
-
-```swift
-allPresets = presetProvider.presets
-reconcileActiveIfHidden()
-```
-
-`reconcileActiveIfHidden()` is the one-stop "active name should still be in the visible list" check:
-
-```swift
-private func reconcileActiveIfHidden() {
-    guard let activeName, !presets.contains(where: { $0.name == activeName }) else { return }
-    presetProvider.setActive(nil)
-    self.activeName = nil
-    // Engine state is intentionally left untouched (drift is fine; user re-saves or upgrades).
-}
-```
+Every place that used to write `presets = presetProvider.presets` becomes `allPresets = presetProvider.presets`. No reconciliation — see decision #12.
 
 Init takes the new dependency:
 
@@ -139,13 +130,10 @@ case .task:
     // ... existing setup
     isPro = await purchasesService.isPro
     allPresets = presetProvider.presets
-    reconcileActiveIfHidden()
 
 case .newPresetTapped:
-    guard case .loaded = content else { return }
     isPro = await purchasesService.isPro
     allPresets = presetProvider.presets
-    reconcileActiveIfHidden()
     if !isPro && presets.count >= 2 {
         openProWindowRequest = UUID()
     } else {
@@ -238,7 +226,7 @@ Toolbar gains the Pro button right of `+`, before the existing `Spacer()`. The b
 Button {
     openWindow(id: "purchases")
 } label: {
-    Image(systemName: viewModel.isPro ? "crown.fill" : "crown")
+    Image(systemName: viewModel.isPro ? "star.fill" : "star")
 }
 .help(viewModel.isPro ? "Pro features" : "Upgrade to Pro")
 ```
@@ -274,7 +262,7 @@ Sandbox testing (TestFlight + sandbox testers): leave the scheme without the fil
 ## Steps
 
 1. **PurchasesKit module.** New project, `Sources/`, `TestSupport/`, `Tests/`. Add to `Workspace.swift`. Protocol + concrete service + mock. Unit tests using `SKTestSession`. (`mise run generate` runs here.)
-2. **HostViewModel**: add `isPro`, `allPresets`, the listener, `reconcileActiveIfHidden`, the `task` initial read. Update existing call sites that write to `presets` to write to `allPresets` and follow up with the reconcile call. Update HostViewModelTests.
+2. **HostViewModel**: add `isPro`, `allPresets`, the `task` initial read of `isPro`, the `.newPresetTapped` async refresh + gate via `openProWindowRequest`. Update existing call sites that write to `presets` to write to `allPresets`. Update HostViewModelTests.
 3. **PurchasesViewModel + PurchasesView**: new files under `Features/Pro/`.
 4. **Window scene**: declare in `TinyAudioUnitHostApp`. Composition root adds `makePurchasesViewModel`.
 5. **HostView**: toolbar Pro button + View-side `+` gate, both using `openWindow(id: "purchases")`.
@@ -287,12 +275,12 @@ Sandbox testing (TestFlight + sandbox testers): leave the scheme without the fil
 
 - `PurchasesServiceTests` with `SKTestSession`: purchase happy path, cancel, restore, verification failure, entitlement-stream basic behavior.
 - `PurchasesViewModelTests`: each phase transition; phase resets after success / cancel / error; error mapped from `PurchaseResult`.
-- `HostViewModelTests`: extend `task` and the "+ gate is no longer in VM" coverage; add `isPro` listener tests (initial read, stream-driven changes); reconcile-active-on-downgrade test; `presets` cap (free vs Pro).
+- `HostViewModelTests`: extend `task` to cover `isPro` initial read; `presets` slice (free vs Pro); `.newPresetTapped` gate at the cap; below the cap; Pro above the cap; repeated taps generating fresh `openProWindowRequest` tokens.
 
 ## Open questions (decide later, low-stakes)
 
 - Pricing in App Store Connect — you pick, the code just reads `displayPrice`.
-- Toolbar Pro icon — `crown` / `crown.fill` is the default; `star.fill` / `lock.open.fill` are alternatives.
+- Toolbar Pro icon — `star` / `star.fill` (yellow when Pro).
 - Copy in the Pro window — placeholder strings for now; tune before App Review.
 - Whether the Pro window should be resizable or fixed-size. Defaulting to `.windowResizability(.contentSize)` (fixed to content) to match Settings.
 

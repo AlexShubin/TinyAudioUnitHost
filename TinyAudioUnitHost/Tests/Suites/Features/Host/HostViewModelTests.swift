@@ -15,6 +15,8 @@ import EngineKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport
+import PurchasesKit
+import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -26,6 +28,7 @@ struct HostViewModelTests {
     var presetProviderMock: PresetProviderMock!
     var presetNameValidatorMock: PresetNameValidatorMock!
     var setupCheckerMock: SetupCheckerMock!
+    var purchasesServiceMock: PurchasesServiceMock!
     var sut: HostViewModelType!
 
     init() {
@@ -34,6 +37,7 @@ struct HostViewModelTests {
         presetProviderMock = PresetProviderMock()
         presetNameValidatorMock = PresetNameValidatorMock()
         setupCheckerMock = SetupCheckerMock()
+        purchasesServiceMock = PurchasesServiceMock()
     }
 
     mutating func createSut() {
@@ -42,7 +46,8 @@ struct HostViewModelTests {
             engine: engineMock,
             presetProvider: presetProviderMock,
             setupChecker: setupCheckerMock,
-            presetNameValidator: presetNameValidatorMock
+            presetNameValidator: presetNameValidatorMock,
+            purchasesService: purchasesServiceMock
         )
     }
 
@@ -657,5 +662,111 @@ struct HostViewModelTests {
 
         #expect(sut.unmetRequirements == [.outputDevice])
         #expect(!sut.isReady)
+    }
+
+    // MARK: - free-tier cap on presets
+
+    @Test
+    mutating func presets_freeUserWithMoreThanTwo_seesOnlyFirstTwo() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+            "beta": Preset(name: "beta", component: component, state: Data()),
+            "gamma": Preset(name: "gamma", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(sut.presets.map(\.name) == ["alpha", "beta"])
+    }
+
+    @Test
+    mutating func presets_proUserWithMoreThanTwo_seesAll() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+            "beta": Preset(name: "beta", component: component, state: Data()),
+            "gamma": Preset(name: "gamma", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(sut.presets.map(\.name) == ["alpha", "beta", "gamma"])
+    }
+
+    // MARK: - newPresetTapped gate
+
+    @Test
+    mutating func newPresetTapped_freeUserAtCap_setsOpenProWindowRequest() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+            "beta": Preset(name: "beta", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+        await sut.accept(action: .task)
+
+        await sut.accept(action: .newPresetTapped)
+
+        #expect(sut.openProWindowRequest != nil)
+        #expect(sut.newPresetDialog == nil)
+    }
+
+    @Test
+    mutating func newPresetTapped_freeUserBelowCap_opensDialog() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+
+        await sut.accept(action: .newPresetTapped)
+
+        #expect(sut.newPresetDialog != nil)
+        #expect(sut.openProWindowRequest == nil)
+    }
+
+    @Test
+    mutating func newPresetTapped_proUserAboveCap_opensDialog() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+            "beta": Preset(name: "beta", component: component, state: Data()),
+            "gamma": Preset(name: "gamma", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        createSut()
+
+        await sut.accept(action: .newPresetTapped)
+
+        #expect(sut.newPresetDialog != nil)
+        #expect(sut.openProWindowRequest == nil)
+    }
+
+    @Test
+    mutating func newPresetTapped_freeUserAtCap_repeatedTap_changesRequestToken() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderMock = PresetProviderMock(presets: [
+            "alpha": Preset(name: "alpha", component: component, state: Data()),
+            "beta": Preset(name: "beta", component: component, state: Data()),
+        ])
+        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+        await sut.accept(action: .task)
+
+        await sut.accept(action: .newPresetTapped)
+        let first = sut.openProWindowRequest
+        await sut.accept(action: .newPresetTapped)
+        let second = sut.openProWindowRequest
+
+        #expect(first != nil)
+        #expect(second != nil)
+        #expect(first != second)
     }
 }

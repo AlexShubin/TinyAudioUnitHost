@@ -12,6 +12,7 @@ import EngineKit
 import Foundation
 import Observation
 import PresetKit
+import PurchasesKit
 
 enum HostViewModelAction {
     case task
@@ -45,9 +46,11 @@ protocol HostViewModelType: AnyObject, Observable {
     var unmetRequirements: Set<SetupRequirement> { get }
     var feedback: FeedbackToastViewState? { get }
     var isReady: Bool { get }
+    var isPro: Bool { get }
     var presets: [Preset] { get }
     var activeName: String? { get }
     var newPresetDialog: NewPresetDialogState? { get }
+    var openProWindowRequest: UUID? { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -58,17 +61,24 @@ final class HostViewModel: HostViewModelType {
     private(set) var content: HostContent = .loading
     private(set) var unmetRequirements: Set<SetupRequirement> = []
     private(set) var feedback: FeedbackToastViewState?
-    private(set) var presets: [Preset] = []
+    private(set) var isPro: Bool = false
+    private(set) var allPresets: [Preset] = []
     private(set) var activeName: String?
     private(set) var newPresetDialog: NewPresetDialogState?
+    private(set) var openProWindowRequest: UUID?
 
     var isReady: Bool { unmetRequirements.isEmpty }
+
+    var presets: [Preset] {
+        isPro ? allPresets : Array(allPresets.prefix(2))
+    }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let presetNameValidator: PresetNameValidatorType
     @ObservationIgnored private let setupChecker: SetupCheckerType
+    @ObservationIgnored private let purchasesService: PurchasesServiceType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     init(
@@ -76,13 +86,15 @@ final class HostViewModel: HostViewModelType {
         engine: EngineType,
         presetProvider: PresetProviderType,
         setupChecker: SetupCheckerType,
-        presetNameValidator: PresetNameValidatorType
+        presetNameValidator: PresetNameValidatorType,
+        purchasesService: PurchasesServiceType
     ) {
         self.library = library
         self.engine = engine
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
         self.presetNameValidator = presetNameValidator
+        self.purchasesService = purchasesService
         setupListener = Task { [weak self, setupChecker] in
             for await unmet in setupChecker.unmetStream {
                 self?.unmetRequirements = unmet
@@ -100,7 +112,8 @@ final class HostViewModel: HostViewModelType {
             groups = grouped(library.components)
             await setupChecker.refresh()
             guard case .loading = content else { return }
-            presets = presetProvider.presets
+            isPro = await purchasesService.isPro
+            allPresets = presetProvider.presets
             let storedActive = presetProvider.activeName
             if let storedActive, let preset = presetProvider.load(name: storedActive) {
                 activeName = storedActive
@@ -126,7 +139,7 @@ final class HostViewModel: HostViewModelType {
                   let state = loaded.audioUnit.fullState else { return }
             let preset = Preset(name: activeName, component: loaded.component, state: state)
             presetProvider.save(preset)
-            presets = presetProvider.presets
+            allPresets = presetProvider.presets
             feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
         case .feedbackToastAction(.timedOut):
             feedback = nil
@@ -149,15 +162,21 @@ final class HostViewModel: HostViewModelType {
                 content = .empty
             }
         case .newPresetTapped:
-            newPresetDialog = NewPresetDialogState(name: "", error: nil)
+            isPro = await purchasesService.isPro
+            allPresets = presetProvider.presets
+            if !isPro && presets.count >= 2 {
+                openProWindowRequest = UUID()
+            } else {
+                newPresetDialog = NewPresetDialogState(name: "", error: nil)
+            }
         case .presetsSidebarAction(.rename(let from, let to)):
             if case .success = presetProvider.rename(from: from, to: to) {
-                presets = presetProvider.presets
+                allPresets = presetProvider.presets
                 activeName = presetProvider.activeName
             }
         case .presetsSidebarAction(.delete(let name)):
             presetProvider.delete(name: name)
-            presets = presetProvider.presets
+            allPresets = presetProvider.presets
             activeName = presetProvider.activeName
         case .newPresetDialogAction(.nameChanged(let name)):
             guard newPresetDialog != nil else { return }
@@ -174,7 +193,7 @@ final class HostViewModel: HostViewModelType {
             case .success(let saved):
                 presetProvider.setActive(saved.name)
                 activeName = saved.name
-                presets = presetProvider.presets
+                allPresets = presetProvider.presets
                 newPresetDialog = nil
                 feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
             case .failure(let error):

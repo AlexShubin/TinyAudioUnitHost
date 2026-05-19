@@ -17,6 +17,7 @@ private enum SidebarTab: Hashable {
 struct HostView: View {
     @State var viewModel: HostViewModelType
     @State private var sidebarTab: SidebarTab = .audioUnits
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView {
@@ -32,6 +33,11 @@ struct HostView: View {
         .sheet(isPresented: newPresetDialogPresented) {
             if let dialog = viewModel.newPresetDialog {
                 NewPresetDialog(state: dialog, onAction: handleNewPresetDialogAction)
+            }
+        }
+        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
+            if newValue != nil {
+                openWindow(id: "purchases")
             }
         }
     }
@@ -209,6 +215,14 @@ struct HostView: View {
             }
             .help("Save as new preset")
             .disabled(!viewModel.content.isLoaded)
+            Spacer()
+            Button {
+                openWindow(id: "purchases")
+            } label: {
+                Image(systemName: viewModel.isPro ? "star.fill" : "star")
+                    .foregroundStyle(viewModel.isPro ? .yellow : .secondary)
+            }
+            .help(viewModel.isPro ? "Pro features" : "Upgrade to Pro")
             Spacer()
             SettingsLink {
                 Image(systemName: "gear")
