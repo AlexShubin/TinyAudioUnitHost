@@ -94,5 +94,18 @@ let project = Project(
                 ]
             )
         ),
+    ],
+    schemes: [
+        .scheme(
+            name: "TinyAudioUnitHost",
+            shared: true,
+            buildAction: .buildAction(targets: ["TinyAudioUnitHost"]),
+            testAction: .targets(["TinyAudioUnitHostTests"]),
+            runAction: .runAction(
+                options: .options(
+                    storeKitConfigurationPath: .relativeToManifest("../PurchasesKit/Products.storekit")
+                )
+            )
+        ),
     ]
 )

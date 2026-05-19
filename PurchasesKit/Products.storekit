@@ -1,0 +1,27 @@
+{
+  "identifier" : "A1B2C3D4-E5F6-7890-1234-567890ABCDEF",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "F0E1D2C3-B4A5-9687-5432-FEDCBA098765",
+      "localizations" : [
+        {
+          "description" : "Save and manage unlimited presets.",
+          "displayName" : "Tiny Audio Unit Host Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.alexshubin.TinyAudioUnitHost.pro",
+      "referenceName" : "Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {},
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
