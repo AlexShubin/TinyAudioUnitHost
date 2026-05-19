@@ -146,6 +146,7 @@ final class HostViewModel: HostViewModelType {
         case .restorePreset:
             guard let activeName,
                   let saved = presetProvider.load(name: activeName) else { return }
+            content = .loading
             await load(component: saved.component, state: saved.state)
             if case .loaded = content {
                 feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
