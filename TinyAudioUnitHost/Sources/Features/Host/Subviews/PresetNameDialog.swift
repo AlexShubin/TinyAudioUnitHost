@@ -1,5 +1,5 @@
 //
-//  NewPresetDialog.swift
+//  PresetNameDialog.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 19.05.26.
@@ -9,9 +9,9 @@
 import PresetKit
 import SwiftUI
 
-struct NewPresetDialog: View {
-    let state: NewPresetDialogState
-    let onAction: (NewPresetDialogAction) -> Void
+struct PresetNameDialog: View {
+    let state: PresetNameDialogState
+    let onAction: (PresetNameDialogAction) -> Void
 
     var body: some View {
         VStack(spacing: 20) {
@@ -39,7 +39,7 @@ struct NewPresetDialog: View {
                 Button("Cancel", role: .cancel) { onAction(.cancel) }
                     .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button("Create") { onAction(.commit) }
+                Button(commitLabel) { onAction(.commit) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canCommit)
             }
@@ -56,21 +56,34 @@ struct NewPresetDialog: View {
         )
     }
 
+    private var commitLabel: String {
+        switch state.mode {
+        case .create: return "Create"
+        case .rename: return "Rename"
+        }
+    }
+
     private var canCommit: Bool {
         state.error == nil
             && !state.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
-enum NewPresetDialogAction: Sendable, Equatable {
+enum PresetNameDialogAction: Sendable, Equatable {
     case nameChanged(String)
     case cancel
     case commit
 }
 
-struct NewPresetDialogState: Sendable, Equatable {
+struct PresetNameDialogState: Sendable, Equatable {
     var name: String
     var error: PresetNameError?
+    let mode: Mode
+
+    enum Mode: Sendable, Equatable {
+        case create
+        case rename(currentName: String)
+    }
 }
 
 private extension PresetNameError {

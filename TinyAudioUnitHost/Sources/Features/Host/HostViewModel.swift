@@ -21,9 +21,11 @@ enum HostViewModelAction {
     case saveCurrentPreset
     case restorePreset
     case newPresetTapped
+    case presetSelected(name: String)
+    case presetRenameTapped(name: String)
+    case presetDeleteTapped(name: String)
     case feedbackToastAction(FeedbackToastAction)
-    case presetsSidebarAction(PresetsSidebarAction)
-    case newPresetDialogAction(NewPresetDialogAction)
+    case presetNameDialogAction(PresetNameDialogAction)
 }
 
 enum HostContent: Sendable, Equatable {
@@ -49,7 +51,7 @@ protocol HostViewModelType: AnyObject, Observable {
     var isPro: Bool { get }
     var presets: [Preset] { get }
     var activeName: String? { get }
-    var newPresetDialog: NewPresetDialogState? { get }
+    var presetNameDialog: PresetNameDialogState? { get }
     var openProWindowRequest: UUID? { get }
     func accept(action: HostViewModelAction) async
 }
@@ -64,7 +66,7 @@ final class HostViewModel: HostViewModelType {
     private(set) var isPro: Bool = false
     private(set) var allPresets: [Preset] = []
     private(set) var activeName: String?
-    private(set) var newPresetDialog: NewPresetDialogState?
+    private(set) var presetNameDialog: PresetNameDialogState?
     private(set) var openProWindowRequest: UUID?
 
     var isReady: Bool { unmetRequirements.isEmpty }
@@ -151,7 +153,7 @@ final class HostViewModel: HostViewModelType {
             if case .loaded = content {
                 feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
             }
-        case .presetsSidebarAction(.selected(let name)):
+        case .presetSelected(let name):
             guard isReady else { return }
             presetProvider.setActive(name)
             activeName = name
@@ -162,43 +164,56 @@ final class HostViewModel: HostViewModelType {
                 selectedComponent = nil
                 content = .empty
             }
+        case .presetRenameTapped(let name):
+            presetNameDialog = PresetNameDialogState(
+                name: name,
+                error: nil,
+                mode: .rename(currentName: name)
+            )
+        case .presetDeleteTapped(let name):
+            presetProvider.delete(name: name)
+            allPresets = presetProvider.presets
+            activeName = presetProvider.activeName
         case .newPresetTapped:
             isPro = await purchasesService.isPro
             allPresets = presetProvider.presets
             if !isPro && presets.count >= 2 {
                 openProWindowRequest = UUID()
             } else {
-                newPresetDialog = NewPresetDialogState(name: "", error: nil)
+                presetNameDialog = PresetNameDialogState(name: "", error: nil, mode: .create)
             }
-        case .presetsSidebarAction(.rename(let from, let to)):
-            if case .success = presetProvider.rename(from: from, to: to) {
-                allPresets = presetProvider.presets
-                activeName = presetProvider.activeName
-            }
-        case .presetsSidebarAction(.delete(let name)):
-            presetProvider.delete(name: name)
-            allPresets = presetProvider.presets
-            activeName = presetProvider.activeName
-        case .newPresetDialogAction(.nameChanged(let name)):
-            guard newPresetDialog != nil else { return }
-            let error = presetNameValidator.validate(name: name, for: .saveAs)
-            newPresetDialog = NewPresetDialogState(name: name, error: error)
-        case .newPresetDialogAction(.cancel):
-            newPresetDialog = nil
-        case .newPresetDialogAction(.commit):
-            guard case .loaded(let loaded) = content,
-                  let dialog = newPresetDialog,
-                  let state = loaded.audioUnit.fullState else { return }
-            let preset = Preset(name: dialog.name, component: loaded.component, state: state)
-            switch presetProvider.saveAs(preset) {
-            case .success(let saved):
-                presetProvider.setActive(saved.name)
-                activeName = saved.name
-                allPresets = presetProvider.presets
-                newPresetDialog = nil
-                feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
-            case .failure(let error):
-                newPresetDialog = NewPresetDialogState(name: dialog.name, error: error)
+        case .presetNameDialogAction(.nameChanged(let name)):
+            guard let current = presetNameDialog else { return }
+            let error = presetNameValidator.validate(name: name, for: current.mode.validationMode)
+            presetNameDialog = PresetNameDialogState(name: name, error: error, mode: current.mode)
+        case .presetNameDialogAction(.cancel):
+            presetNameDialog = nil
+        case .presetNameDialogAction(.commit):
+            guard let dialog = presetNameDialog else { return }
+            switch dialog.mode {
+            case .create:
+                guard case .loaded(let loaded) = content,
+                      let state = loaded.audioUnit.fullState else { return }
+                let preset = Preset(name: dialog.name, component: loaded.component, state: state)
+                switch presetProvider.saveAs(preset) {
+                case .success(let saved):
+                    presetProvider.setActive(saved.name)
+                    activeName = saved.name
+                    allPresets = presetProvider.presets
+                    presetNameDialog = nil
+                    feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
+                case .failure(let error):
+                    presetNameDialog = PresetNameDialogState(name: dialog.name, error: error, mode: dialog.mode)
+                }
+            case .rename(let currentName):
+                switch presetProvider.rename(from: currentName, to: dialog.name) {
+                case .success:
+                    allPresets = presetProvider.presets
+                    activeName = presetProvider.activeName
+                    presetNameDialog = nil
+                case .failure(let error):
+                    presetNameDialog = PresetNameDialogState(name: dialog.name, error: error, mode: dialog.mode)
+                }
             }
         }
     }
@@ -235,6 +250,15 @@ private extension EngineLoadError {
         switch self {
         case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."
         case .deviceUnavailable: return "Audio device is unavailable. Check Settings."
+        }
+    }
+}
+
+private extension PresetNameDialogState.Mode {
+    var validationMode: ValidationMode {
+        switch self {
+        case .create: return .saveAs
+        case .rename(let currentName): return .rename(currentName: currentName)
         }
     }
 }

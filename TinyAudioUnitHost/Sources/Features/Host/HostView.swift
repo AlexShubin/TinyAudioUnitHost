@@ -15,15 +15,8 @@ struct HostView: View {
 
     var body: some View {
         NavigationSplitView {
-            PresetsSidebar(
-                state: PresetsSidebarViewState(
-                    presets: viewModel.presets,
-                    activeName: viewModel.activeName,
-                    isInteractionDisabled: viewModel.content == .loading
-                ),
-                onAction: handlePresetsSidebarAction
-            )
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             detail
         }
@@ -31,9 +24,9 @@ struct HostView: View {
             await viewModel.accept(action: .task)
         }
         .focusedSceneValue(\.savePresetActions, savePresetActions)
-        .sheet(isPresented: newPresetDialogPresented) {
-            if let dialog = viewModel.newPresetDialog {
-                NewPresetDialog(state: dialog, onAction: handleNewPresetDialogAction)
+        .sheet(isPresented: presetNameDialogPresented) {
+            if let dialog = viewModel.presetNameDialog {
+                PresetNameDialog(state: dialog, onAction: handlePresetNameDialogAction)
             }
         }
         .onChange(of: viewModel.openProWindowRequest) { _, newValue in
@@ -43,8 +36,48 @@ struct HostView: View {
         }
     }
 
-    private func handlePresetsSidebarAction(_ action: PresetsSidebarAction) {
-        Task { await viewModel.accept(action: .presetsSidebarAction(action)) }
+    // MARK: - Sidebar (presets)
+
+    @ViewBuilder
+    private var sidebar: some View {
+        if viewModel.presets.isEmpty {
+            ContentUnavailableView(
+                "No Presets Yet",
+                systemImage: "rectangle.stack",
+                description: Text("Use + in the toolbar to save the current sound as a preset.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            List(selection: presetSelectionBinding) {
+                Section("Presets") {
+                    ForEach(viewModel.presets, id: \.name) { preset in
+                        Text(preset.name)
+                            .tag(preset.name)
+                            .contextMenu {
+                                Button("Rename") {
+                                    Task { await viewModel.accept(action: .presetRenameTapped(name: preset.name)) }
+                                }
+                                Button("Delete", role: .destructive) {
+                                    Task { await viewModel.accept(action: .presetDeleteTapped(name: preset.name)) }
+                                }
+                            }
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .disabled(viewModel.content == .loading)
+        }
+    }
+
+    private var presetSelectionBinding: Binding<String?> {
+        Binding(
+            get: { viewModel.activeName },
+            set: { newSelection in
+                if let newSelection {
+                    Task { await viewModel.accept(action: .presetSelected(name: newSelection)) }
+                }
+            }
+        )
     }
 
     // MARK: - Detail
@@ -190,21 +223,21 @@ struct HostView: View {
         }
     }
 
-    // MARK: - New preset dialog
+    // MARK: - Preset name dialog
 
-    private var newPresetDialogPresented: Binding<Bool> {
+    private var presetNameDialogPresented: Binding<Bool> {
         Binding(
-            get: { viewModel.newPresetDialog != nil },
+            get: { viewModel.presetNameDialog != nil },
             set: { isPresented in
                 if !isPresented {
-                    Task { await viewModel.accept(action: .newPresetDialogAction(.cancel)) }
+                    Task { await viewModel.accept(action: .presetNameDialogAction(.cancel)) }
                 }
             }
         )
     }
 
-    private func handleNewPresetDialogAction(_ action: NewPresetDialogAction) {
-        Task { await viewModel.accept(action: .newPresetDialogAction(action)) }
+    private func handlePresetNameDialogAction(_ action: PresetNameDialogAction) {
+        Task { await viewModel.accept(action: .presetNameDialogAction(action)) }
     }
 
     // MARK: - Focused values
