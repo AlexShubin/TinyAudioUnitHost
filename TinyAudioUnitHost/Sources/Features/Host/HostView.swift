@@ -29,6 +29,26 @@ struct HostView: View {
             await viewModel.accept(action: .task)
         }
         .focusedSceneValue(\.savePresetActions, savePresetActions)
+        .sheet(isPresented: newPresetDialogPresented) {
+            if let dialog = viewModel.newPresetDialog {
+                NewPresetDialog(state: dialog, onAction: handleNewPresetDialogAction)
+            }
+        }
+    }
+
+    private var newPresetDialogPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.newPresetDialog != nil },
+            set: { isPresented in
+                if !isPresented {
+                    Task { await viewModel.accept(action: .newPresetDialogAction(.cancel)) }
+                }
+            }
+        )
+    }
+
+    private func handleNewPresetDialogAction(_ action: NewPresetDialogAction) {
+        Task { await viewModel.accept(action: .newPresetDialogAction(action)) }
     }
 
     // MARK: - Sidebar
@@ -166,25 +186,22 @@ struct HostView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Text("Preset: Default")
+            Text("Preset: \(viewModel.activeName ?? "—")")
                 .padding([.leading], 12)
-            Image(systemName: "info.circle")
-                .foregroundStyle(.secondary)
-                .help("Only one preset is supported for now — multi-preset support is on the way.")
             Button {
                 Task { await viewModel.accept(action: .restorePreset) }
             } label: {
                 Image(systemName: "arrow.uturn.backward")
             }
             .help("Restore preset")
-            .disabled(!viewModel.content.isLoaded)
+            .disabled(viewModel.activeName == nil)
             Button {
                 Task { await viewModel.accept(action: .saveCurrentPreset) }
             } label: {
                 Image(systemName: "square.and.arrow.down")
             }
             .help("Save preset")
-            .disabled(!viewModel.content.isLoaded)
+            .disabled(viewModel.activeName == nil || !viewModel.content.isLoaded)
             Spacer()
             SettingsLink {
                 Image(systemName: "gear")
@@ -195,7 +212,7 @@ struct HostView: View {
     // MARK: - Focused values
 
     private var savePresetActions: SavePresetActions? {
-        guard viewModel.content.isLoaded else { return nil }
+        guard viewModel.activeName != nil else { return nil }
         return SavePresetActions(
             save: { Task { await viewModel.accept(action: .saveCurrentPreset) } },
             restore: { Task { await viewModel.accept(action: .restorePreset) } }
