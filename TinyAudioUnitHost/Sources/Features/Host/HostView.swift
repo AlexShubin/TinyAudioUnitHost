@@ -9,20 +9,20 @@
 import PresetKit
 import SwiftUI
 
-private enum SidebarTab: Hashable {
-    case audioUnits
-    case presets
-}
-
 struct HostView: View {
     @State var viewModel: HostViewModelType
-    @State private var sidebarTab: SidebarTab = .audioUnits
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView {
-            sidebar
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+            PresetsSidebar(
+                state: PresetsSidebarViewState(
+                    presets: viewModel.presets,
+                    activeName: viewModel.activeName
+                ),
+                onAction: handlePresetsSidebarAction
+            )
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             detail
         }
@@ -42,105 +42,6 @@ struct HostView: View {
         }
     }
 
-    private var newPresetDialogPresented: Binding<Bool> {
-        Binding(
-            get: { viewModel.newPresetDialog != nil },
-            set: { isPresented in
-                if !isPresented {
-                    Task { await viewModel.accept(action: .newPresetDialogAction(.cancel)) }
-                }
-            }
-        )
-    }
-
-    private func handleNewPresetDialogAction(_ action: NewPresetDialogAction) {
-        Task { await viewModel.accept(action: .newPresetDialogAction(action)) }
-    }
-
-    // MARK: - Sidebar
-
-    @ViewBuilder
-    private var sidebar: some View {
-        VStack {
-            Picker("", selection: $sidebarTab) {
-                Text("Audio Units").tag(SidebarTab.audioUnits)
-                Text("Presets").tag(SidebarTab.presets)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
-
-            switch sidebarTab {
-            case .audioUnits:
-                audioUnitsSidebar
-            case .presets:
-                presetsSidebar
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var audioUnitsSidebar: some View {
-        if viewModel.groups.isEmpty {
-            ContentUnavailableView(
-                "No Audio Units",
-                systemImage: "puzzlepiece.extension",
-                description: Text("Install audio unit plug-ins to host them here.")
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            List(
-                selection: Binding(
-                    get: { viewModel.selectedComponent },
-                    set: { component in
-                        if let component {
-                            Task { await viewModel.accept(action: .selected(component)) }
-                        }
-                    }
-                )
-            ) {
-                ForEach(viewModel.groups) { group in
-                    Section(
-                        isExpanded: Binding(
-                            get: { group.isExpanded },
-                            set: { isExpanded in
-                                Task {
-                                    await viewModel.accept(
-                                        action: .groupExpansionChanged(
-                                            manufacturer: group.manufacturer,
-                                            isExpanded: isExpanded
-                                        )
-                                    )
-                                }
-                            }
-                        )
-                    ) {
-                        ForEach(group.components) { component in
-                            Text(component.name).tag(component)
-                        }
-                    } header: {
-                        Text(group.manufacturer)
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .disabled(viewModel.content == .loading || !viewModel.isReady)
-        }
-    }
-
-    @ViewBuilder
-    private var presetsSidebar: some View {
-        PresetsSidebar(
-            state: PresetsSidebarViewState(
-                presets: viewModel.presets,
-                activeName: viewModel.activeName
-            ),
-            onAction: handlePresetsSidebarAction
-        )
-    }
-
     private func handlePresetsSidebarAction(_ action: PresetsSidebarAction) {
         Task { await viewModel.accept(action: .presetsSidebarAction(action)) }
     }
@@ -149,31 +50,41 @@ struct HostView: View {
 
     @ViewBuilder
     private var detail: some View {
-        Group {
-            if viewModel.isReady {
-                switch viewModel.content {
-                case .empty:
-                    EmptySelectionView()
-                case .loading:
-                    LoadingView()
-                case .loaded(let audioUnit):
-                    AudioUnitView(audioUnit: audioUnit)
-                case .failed(let message):
-                    PlaceholderView {
-                        Text(message)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-            } else {
-                SetupChecklistView(unmet: viewModel.unmetRequirements)
-            }
+        VStack(alignment: .leading, spacing: .zero) {
+            audioUnitHeader
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            Divider()
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .overlay(alignment: .top) { feedbackOverlay }
         .animation(.snappy, value: viewModel.feedback != nil)
         .toolbar { toolbarContent }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.isReady {
+            switch viewModel.content {
+            case .empty:
+                EmptySelectionView()
+            case .loading:
+                LoadingView()
+            case .loaded(let audioUnit):
+                AudioUnitView(audioUnit: audioUnit)
+            case .failed(let message):
+                PlaceholderView {
+                    Text(message)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+        } else {
+            SetupChecklistView(unmet: viewModel.unmetRequirements)
+        }
     }
 
     @ViewBuilder
@@ -185,6 +96,55 @@ struct HostView: View {
             .padding(.top, 12)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    // MARK: - Audio Unit header (Logic-style dropdown)
+
+    @ViewBuilder
+    private var audioUnitHeader: some View {
+        Menu {
+            audioUnitMenuItems
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "puzzlepiece.extension")
+                    .foregroundStyle(.secondary)
+                Text(audioUnitHeaderTitle)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .disabled(viewModel.content == .loading || !viewModel.isReady)
+    }
+
+    @ViewBuilder
+    private var audioUnitMenuItems: some View {
+        if viewModel.groups.isEmpty {
+            Text("No Audio Units installed")
+        } else {
+            ForEach(viewModel.groups) { group in
+                Menu(group.manufacturer) {
+                    ForEach(group.components) { component in
+                        Button(component.name) {
+                            Task { await viewModel.accept(action: .selected(component)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var audioUnitHeaderTitle: String {
+        if case .loaded(let loaded) = viewModel.content {
+            return loaded.component.name
+        }
+        return "Choose Audio Unit"
     }
 
     // MARK: - Toolbar
@@ -223,11 +183,27 @@ struct HostView: View {
                     .foregroundStyle(viewModel.isPro ? .yellow : .secondary)
             }
             .help("Pro features")
-            Spacer()
             SettingsLink {
                 Image(systemName: "gear")
             }
         }
+    }
+
+    // MARK: - New preset dialog
+
+    private var newPresetDialogPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.newPresetDialog != nil },
+            set: { isPresented in
+                if !isPresented {
+                    Task { await viewModel.accept(action: .newPresetDialogAction(.cancel)) }
+                }
+            }
+        )
+    }
+
+    private func handleNewPresetDialogAction(_ action: NewPresetDialogAction) {
+        Task { await viewModel.accept(action: .newPresetDialogAction(action)) }
     }
 
     // MARK: - Focused values
