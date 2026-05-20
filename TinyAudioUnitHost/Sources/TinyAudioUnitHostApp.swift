@@ -16,17 +16,22 @@ struct TinyAudioUnitHostApp: App {
     var body: some Scene {
         Window("Tiny Audio Unit Host", id: "host") {
             withTestsDisabled {
-                HostView(viewModel: dependencies.makeHostViewModel())
-                    .task {
-                        dependencies.engine.engineReloader.startListening(to: .audioEngineConfigurationChange)
-                        dependencies.engine.engineReloader.startListening(to: .workspaceDidWake)
-                        dependencies.audioSettings.setupRefresher.startListening()
-                    }
+                NavigationSplitView {
+                    PresetsSidebarView(viewModel: dependencies.makePresetsSidebarViewModel())
+                        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+                } detail: {
+                    HostView(viewModel: dependencies.makeHostViewModel())
+                }
+                .task {
+                    dependencies.engine.engineReloader.startListening(to: .audioEngineConfigurationChange)
+                    dependencies.engine.engineReloader.startListening(to: .workspaceDidWake)
+                    dependencies.audioSettings.setupRefresher.startListening()
+                }
             }
         }
         .windowResizability(.contentSize)
         .commands {
-            HostCommands()
+            HostCommands(viewModel: dependencies.makeHostCommandsViewModel())
         }
 
         Settings {

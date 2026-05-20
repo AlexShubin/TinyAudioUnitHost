@@ -1,5 +1,5 @@
 //
-//  PresetNameDialog.swift
+//  PresetNameDialogView.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 19.05.26.
@@ -9,9 +9,9 @@
 import PresetKit
 import SwiftUI
 
-struct PresetNameDialog: View {
-    let state: PresetNameDialogState
-    let onAction: (PresetNameDialogAction) -> Void
+struct PresetNameDialogView: View {
+    @State var viewModel: PresetNameDialogViewModelType
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 20) {
@@ -26,8 +26,8 @@ struct PresetNameDialog: View {
                 TextField("Preset Name", text: nameBinding)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
-                    .onSubmit { onAction(.commit) }
-                if let message = state.error?.displayMessage {
+                    .onSubmit { Task { await viewModel.accept(action: .commit) } }
+                if let message = viewModel.state.error?.displayMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -36,53 +36,45 @@ struct PresetNameDialog: View {
             .padding(.horizontal, 24)
 
             HStack {
-                Button("Cancel", role: .cancel) { onAction(.cancel) }
-                    .keyboardShortcut(.cancelAction)
+                Button("Cancel", role: .cancel) {
+                    Task { await viewModel.accept(action: .cancel) }
+                }
+                .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(commitLabel) { onAction(.commit) }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canCommit)
+                Button(commitLabel) {
+                    Task { await viewModel.accept(action: .commit) }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canCommit)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
         .frame(width: 440)
+        .onChange(of: viewModel.outcome) { _, outcome in
+            if outcome != nil { dismiss() }
+        }
     }
 
     private var nameBinding: Binding<String> {
         Binding(
-            get: { state.name },
-            set: { onAction(.nameChanged($0)) }
+            get: { viewModel.state.name },
+            set: { newValue in
+                Task { await viewModel.accept(action: .nameChanged(newValue)) }
+            }
         )
     }
 
     private var commitLabel: String {
-        switch state.mode {
+        switch viewModel.state.mode {
         case .create: return "Create"
         case .rename: return "Rename"
         }
     }
 
     private var canCommit: Bool {
-        state.error == nil
-            && !state.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-}
-
-enum PresetNameDialogAction: Sendable, Equatable {
-    case nameChanged(String)
-    case cancel
-    case commit
-}
-
-struct PresetNameDialogState: Sendable, Equatable {
-    var name: String
-    var error: PresetNameError?
-    let mode: Mode
-
-    enum Mode: Sendable, Equatable {
-        case create
-        case rename(currentName: String)
+        viewModel.state.error == nil
+            && !viewModel.state.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 

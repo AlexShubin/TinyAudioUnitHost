@@ -6,83 +6,15 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import PresetKit
 import SwiftUI
 
 struct HostView: View {
     @State var viewModel: HostViewModelType
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dependencies) private var dependencies
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } detail: {
-            detail
-        }
-        .task {
-            await viewModel.accept(action: .task)
-        }
-        .focusedSceneValue(\.savePresetActions, savePresetActions)
-        .sheet(isPresented: presetNameDialogPresented) {
-            if let dialog = viewModel.presetNameDialog {
-                PresetNameDialog(state: dialog, onAction: handlePresetNameDialogAction)
-            }
-        }
-        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
-            if newValue != nil {
-                openWindow(id: "purchases")
-            }
-        }
-    }
-
-    // MARK: - Sidebar (presets)
-
-    @ViewBuilder
-    private var sidebar: some View {
-        if viewModel.presets.isEmpty {
-            ContentUnavailableView(
-                "No Presets Yet",
-                systemImage: "rectangle.stack",
-                description: Text("Use + in the toolbar to save the current sound as a preset.")
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            List(selection: presetSelectionBinding) {
-                Section("Presets") {
-                    ForEach(viewModel.presets, id: \.name) { preset in
-                        Text(preset.name)
-                            .tag(preset.name)
-                            .contextMenu {
-                                Button("Rename") {
-                                    Task { await viewModel.accept(action: .presetRenameTapped(name: preset.name)) }
-                                }
-                                Button("Delete", role: .destructive) {
-                                    Task { await viewModel.accept(action: .presetDeleteTapped(name: preset.name)) }
-                                }
-                            }
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .disabled(viewModel.content == .loading)
-        }
-    }
-
-    private var presetSelectionBinding: Binding<String?> {
-        Binding(
-            get: { viewModel.activeName },
-            set: { newSelection in
-                if let newSelection {
-                    Task { await viewModel.accept(action: .presetSelected(name: newSelection)) }
-                }
-            }
-        )
-    }
-
-    // MARK: - Detail
-
-    @ViewBuilder
-    private var detail: some View {
         VStack(alignment: .leading, spacing: .zero) {
             audioUnitHeader
                 .padding(.horizontal, 12)
@@ -94,6 +26,30 @@ struct HostView: View {
         .overlay(alignment: .top) { feedbackOverlay }
         .animation(.snappy, value: viewModel.feedback != nil)
         .toolbar { toolbarContent }
+        .task {
+            await viewModel.accept(action: .task)
+        }
+        .sheet(isPresented: createDialogPresented) {
+            PresetNameDialogView(
+                viewModel: dependencies.makePresetNameDialogViewModel(mode: .create, initialName: "")
+            )
+        }
+        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
+            if newValue != nil {
+                openWindow(id: "purchases")
+            }
+        }
+    }
+
+    private var createDialogPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.isCreateDialogPresented },
+            set: { isPresented in
+                if !isPresented {
+                    Task { await viewModel.accept(action: .dismissCreateDialog) }
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -220,32 +176,5 @@ struct HostView: View {
                 Image(systemName: "gear")
             }
         }
-    }
-
-    // MARK: - Preset name dialog
-
-    private var presetNameDialogPresented: Binding<Bool> {
-        Binding(
-            get: { viewModel.presetNameDialog != nil },
-            set: { isPresented in
-                if !isPresented {
-                    Task { await viewModel.accept(action: .presetNameDialogAction(.cancel)) }
-                }
-            }
-        )
-    }
-
-    private func handlePresetNameDialogAction(_ action: PresetNameDialogAction) {
-        Task { await viewModel.accept(action: .presetNameDialogAction(action)) }
-    }
-
-    // MARK: - Focused values
-
-    private var savePresetActions: SavePresetActions? {
-        guard viewModel.activeName != nil else { return nil }
-        return SavePresetActions(
-            save: { Task { await viewModel.accept(action: .saveCurrentPreset) } },
-            restore: { Task { await viewModel.accept(action: .restorePreset) } }
-        )
     }
 }
