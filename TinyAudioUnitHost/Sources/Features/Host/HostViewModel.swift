@@ -78,6 +78,10 @@ final class HostViewModel: HostViewModelType {
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
                 case .restored:
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
+                case .requestNewPresetDialog:
+                    self.isCreateDialogPresented = true
+                case .requestProUpgrade:
+                    self.openProWindowRequest = UUID()
                 }
             }
         }
@@ -104,12 +108,7 @@ final class HostViewModel: HostViewModelType {
         case .feedbackToastAction(.timedOut):
             feedback = nil
         case .newPresetTapped:
-            await session.refreshIsPro()
-            if !session.isPro && session.presets.count >= 2 {
-                openProWindowRequest = UUID()
-            } else {
-                isCreateDialogPresented = true
-            }
+            await session.requestNewPreset()
         case .dismissCreateDialog:
             isCreateDialogPresented = false
         }

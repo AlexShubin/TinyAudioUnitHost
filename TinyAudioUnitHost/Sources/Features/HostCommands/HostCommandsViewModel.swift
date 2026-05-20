@@ -12,12 +12,14 @@ import Observation
 enum HostCommandsAction: Sendable, Equatable {
     case save
     case restore
+    case create
 }
 
 @MainActor
 protocol HostCommandsViewModelType: AnyObject, Observable {
     var canSave: Bool { get }
     var canRestore: Bool { get }
+    var canCreate: Bool { get }
     func accept(action: HostCommandsAction) async
 }
 
@@ -25,6 +27,7 @@ protocol HostCommandsViewModelType: AnyObject, Observable {
 final class HostCommandsViewModel: HostCommandsViewModelType {
     var canSave: Bool { session.activeName != nil && session.content.isLoaded }
     var canRestore: Bool { session.activeName != nil && session.content != .loading }
+    var canCreate: Bool { session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
 
@@ -38,6 +41,8 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
             _ = session.saveCurrentPreset()
         case .restore:
             _ = await session.restoreActivePreset()
+        case .create:
+            await session.requestNewPreset()
         }
     }
 }

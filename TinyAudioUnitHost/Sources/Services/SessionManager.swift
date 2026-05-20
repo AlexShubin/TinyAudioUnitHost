@@ -28,6 +28,8 @@ enum HostContent: Sendable, Equatable {
 enum SessionEvent: Sendable, Equatable {
     case saved
     case restored
+    case requestNewPresetDialog
+    case requestProUpgrade
 }
 
 @MainActor
@@ -41,6 +43,7 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
 
     func start() async
     func refreshIsPro() async
+    func requestNewPreset() async
     func loadComponent(_ component: AudioUnitComponent) async
     func selectPreset(name: String) async
     func saveCurrentPreset() -> Bool
@@ -99,6 +102,15 @@ final class SessionManager: SessionManagerType {
 
     func refreshIsPro() async {
         isPro = await purchasesService.isPro
+    }
+
+    func requestNewPreset() async {
+        await refreshIsPro()
+        if isPro || allPresets.count < 2 {
+            eventsContinuation.yield(.requestNewPresetDialog)
+        } else {
+            eventsContinuation.yield(.requestProUpgrade)
+        }
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
