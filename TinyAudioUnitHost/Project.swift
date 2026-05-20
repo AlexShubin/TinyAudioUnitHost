@@ -1,7 +1,7 @@
 import ProjectDescription
 
-let appVersion = "1.0"
-let buildNumber = "3"
+let appVersion = "1.1"
+let buildNumber = "1"
 
 let project = Project(
     name: "TinyAudioUnitHost",
