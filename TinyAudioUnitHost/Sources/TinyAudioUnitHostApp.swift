@@ -14,7 +14,7 @@ struct TinyAudioUnitHostApp: App {
     @Environment(\.dependencies) private var dependencies
 
     var body: some Scene {
-        WindowGroup {
+        Window("Tiny Audio Unit Host", id: "host") {
             withTestsDisabled {
                 HostView(viewModel: dependencies.makeHostViewModel())
                     .task {

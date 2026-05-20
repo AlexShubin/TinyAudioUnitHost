@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import PresetKit
 import SwiftUI
 
 struct HostView: View {
