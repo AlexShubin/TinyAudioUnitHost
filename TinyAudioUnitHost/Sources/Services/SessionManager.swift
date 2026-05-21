@@ -236,10 +236,8 @@ final class SessionManager: SessionManagerType {
         do {
             let loaded = try await engine.load(component: component, state: state)
             content = .loaded(loaded)
-        } catch let error as EngineLoadError {
-            content = .failed(error.message)
         } catch {
-            content = .failed("Couldn't load this audio unit.")
+            content = .failed(error.message)
         }
     }
 }
