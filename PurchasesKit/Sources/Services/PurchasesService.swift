@@ -10,8 +10,8 @@ import Foundation
 import StoreKit
 
 public protocol PurchasesServiceType: Sendable {
-    var isPro: Bool { get async }
     var productInfo: ProProductInfo? { get async }
+    func makeIsProStream() async -> AsyncStream<Bool>
     func purchase() async -> PurchaseResult
     func restore() async -> PurchaseResult
 }
@@ -21,14 +21,13 @@ final actor PurchasesService: PurchasesServiceType {
 
     private var cachedProduct: Product?
     private var updatesTask: Task<Void, Never>?
+    private var currentIsPro: Bool?
+    private var subscribers: [UUID: AsyncStream<Bool>.Continuation] = [:]
 
     init() {
-        Task { await self.startListeningForUpdates() }
-    }
-
-    var isPro: Bool {
-        get async {
-            await checkEntitlements()
+        Task {
+            await self.startListeningForUpdates()
+            await self.refreshIsPro()
         }
     }
 
@@ -43,6 +42,21 @@ final actor PurchasesService: PurchasesServiceType {
         }
     }
 
+    func makeIsProStream() -> AsyncStream<Bool> {
+        let (stream, continuation) = AsyncStream<Bool>.makeStream()
+        let id = UUID()
+        subscribers[id] = continuation
+        if let currentIsPro {
+            continuation.yield(currentIsPro)
+        }
+        continuation.onTermination = { [weak self] _ in
+            Task { [weak self] in
+                await self?.removeSubscriber(id: id)
+            }
+        }
+        return stream
+    }
+
     func purchase() async -> PurchaseResult {
         guard let product = await fetchProduct() else { return .productUnavailable }
         do {
@@ -52,6 +66,7 @@ final actor PurchasesService: PurchasesServiceType {
                 switch verification {
                 case .verified(let transaction):
                     await transaction.finish()
+                    await refreshIsPro()
                     return .success
                 case .unverified:
                     return .verificationFailed
@@ -71,6 +86,7 @@ final actor PurchasesService: PurchasesServiceType {
     func restore() async -> PurchaseResult {
         do {
             try await AppStore.sync()
+            await refreshIsPro()
             return .success
         } catch {
             return .unknownError(error.localizedDescription)
@@ -78,6 +94,10 @@ final actor PurchasesService: PurchasesServiceType {
     }
 
     // MARK: - Private
+
+    private func removeSubscriber(id: UUID) {
+        subscribers.removeValue(forKey: id)
+    }
 
     private func fetchProduct() async -> Product? {
         if let cachedProduct { return cachedProduct }
@@ -100,14 +120,24 @@ final actor PurchasesService: PurchasesServiceType {
         return false
     }
 
+    private func refreshIsPro() async {
+        let next = await checkEntitlements()
+        guard next != currentIsPro else { return }
+        currentIsPro = next
+        for continuation in subscribers.values {
+            continuation.yield(next)
+        }
+    }
+
     /// Consume Transaction.updates so out-of-band transactions (promo purchases,
-    /// ask-to-buy approvals, etc.) get acknowledged. We don't broadcast — callers
-    /// read `isPro` on demand.
+    /// ask-to-buy approvals, etc.) get acknowledged, and refresh pro status so
+    /// subscribers see the new entitlement.
     private func startListeningForUpdates() {
-        updatesTask = Task {
+        updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
                 if case .verified(let transaction) = result {
                     await transaction.finish()
+                    await self?.refreshIsPro()
                 }
             }
         }
