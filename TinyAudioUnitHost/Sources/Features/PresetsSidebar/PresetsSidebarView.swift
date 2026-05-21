@@ -12,37 +12,40 @@ import SwiftUI
 struct PresetsSidebarView: View {
     @State var viewModel: PresetsSidebarViewModelType
     @Environment(\.dependencies) private var dependencies
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Group {
-            if viewModel.presets.isEmpty {
-                ContentUnavailableView(
-                    "No Presets Yet",
-                    systemImage: "rectangle.stack",
-                    description: Text("Use + in the toolbar to save the current sound as a preset.")
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List(selection: selectionBinding) {
-                    Section("Presets") {
-                        ForEach(viewModel.presets, id: \.name) { preset in
-                            Text(preset.name)
-                                .tag(preset.name)
-                                .contextMenu {
-                                    Button("Rename") {
-                                        Task { await viewModel.accept(action: .renameTapped(name: preset.name)) }
-                                    }
-                                    Button("Delete", role: .destructive) {
-                                        Task { await viewModel.accept(action: .deleteTapped(name: preset.name)) }
-                                    }
-                                }
+        List(selection: selectionBinding) {
+            Section {
+                ForEach(viewModel.presets, id: \.name) { preset in
+                    Text(preset.name)
+                        .tag(preset.name)
+                        .contextMenu {
+                            Button("Rename") {
+                                Task { await viewModel.accept(action: .renameTapped(name: preset.name)) }
+                            }
+                            Button("Delete", role: .destructive) {
+                                Task { await viewModel.accept(action: .deleteTapped(name: preset.name)) }
+                            }
                         }
-                    }
                 }
-                .listStyle(.sidebar)
-                .disabled(viewModel.isInteractionDisabled)
+            } header: {
+                HStack {
+                    Text("Presets")
+                    Spacer()
+                    Button {
+                        Task { await viewModel.accept(action: .createTapped) }
+                    } label: {
+                        Image(systemName: "plus.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!viewModel.canCreate)
+                    .help("Save current sound as a new preset")
+                }
             }
         }
+        .listStyle(.sidebar)
+        .disabled(viewModel.isInteractionDisabled)
         .sheet(isPresented: renameDialogPresented) {
             if let target = viewModel.renameTarget {
                 PresetNameDialogView(
@@ -51,6 +54,16 @@ struct PresetsSidebarView: View {
                         initialName: target
                     )
                 )
+            }
+        }
+        .sheet(isPresented: createDialogPresented) {
+            PresetNameDialogView(
+                viewModel: dependencies.makePresetNameDialogViewModel(mode: .create, initialName: "")
+            )
+        }
+        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
+            if newValue != nil {
+                openWindow(id: "purchases")
             }
         }
     }
@@ -72,6 +85,17 @@ struct PresetsSidebarView: View {
             set: { isPresented in
                 if !isPresented {
                     Task { await viewModel.accept(action: .dismissRenameDialog) }
+                }
+            }
+        )
+    }
+
+    private var createDialogPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.isCreateDialogPresented },
+            set: { isPresented in
+                if !isPresented {
+                    Task { await viewModel.accept(action: .dismissCreateDialog) }
                 }
             }
         )

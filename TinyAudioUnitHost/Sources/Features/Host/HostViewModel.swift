@@ -17,8 +17,6 @@ enum HostViewModelAction {
     case selected(AudioUnitComponent)
     case saveCurrentPreset
     case restorePreset
-    case newPresetTapped
-    case dismissCreateDialog
     case feedbackToastAction(FeedbackToastAction)
 }
 
@@ -30,10 +28,7 @@ protocol HostViewModelType: AnyObject, Observable {
     var unmetRequirements: Set<SetupRequirement> { get }
     var feedback: FeedbackToastViewState? { get }
     var isReady: Bool { get }
-    var isPro: Bool { get }
     var activeName: String? { get }
-    var isCreateDialogPresented: Bool { get }
-    var openProWindowRequest: UUID? { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -42,13 +37,10 @@ final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var unmetRequirements: Set<SetupRequirement> = []
     private(set) var feedback: FeedbackToastViewState?
-    private(set) var isCreateDialogPresented: Bool = false
-    private(set) var openProWindowRequest: UUID?
 
     var content: HostContent { session.content }
     var activeName: String? { session.activeName }
     var selectedComponent: AudioUnitComponent? { session.selectedComponent }
-    var isPro: Bool { session.isPro }
     var isReady: Bool { unmetRequirements.isEmpty }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
@@ -71,17 +63,15 @@ final class HostViewModel: HostViewModelType {
             }
         }
         sessionEventsListener = Task { @MainActor [weak self, session] in
-            for await event in session.events {
+            for await event in session.makeEventStream() {
                 guard let self else { return }
                 switch event {
                 case .saved:
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
                 case .restored:
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
-                case .requestNewPresetDialog:
-                    self.isCreateDialogPresented = true
-                case .requestProUpgrade:
-                    self.openProWindowRequest = UUID()
+                case .requestNewPresetDialog, .requestProUpgrade:
+                    break  // owned by PresetsSidebar feature
                 }
             }
         }
@@ -107,10 +97,6 @@ final class HostViewModel: HostViewModelType {
             _ = await session.restoreActivePreset()
         case .feedbackToastAction(.timedOut):
             feedback = nil
-        case .newPresetTapped:
-            await session.requestNewPreset()
-        case .dismissCreateDialog:
-            isCreateDialogPresented = false
         }
     }
 

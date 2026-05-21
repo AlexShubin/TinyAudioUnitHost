@@ -39,10 +39,10 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     var selectedComponent: AudioUnitComponent? { get }
     var presets: [Preset] { get }    // already free-tier capped
     var isPro: Bool { get }
-    nonisolated var events: AsyncStream<SessionEvent> { get }
+
+    func makeEventStream() -> AsyncStream<SessionEvent>
 
     func start() async
-    func refreshIsPro() async
     func requestNewPreset() async
     func loadComponent(_ component: AudioUnitComponent) async
     func selectPreset(name: String) async
@@ -61,8 +61,7 @@ final class SessionManager: SessionManagerType {
     private(set) var allPresets: [Preset] = []
     private(set) var isPro: Bool = false
 
-    nonisolated let events: AsyncStream<SessionEvent>
-    @ObservationIgnored private nonisolated let eventsContinuation: AsyncStream<SessionEvent>.Continuation
+    @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
 
     var presets: [Preset] {
         isPro ? allPresets : Array(allPresets.prefix(2))
@@ -80,14 +79,29 @@ final class SessionManager: SessionManagerType {
         self.engine = engine
         self.presetProvider = presetProvider
         self.purchasesService = purchasesService
-        let (stream, continuation) = AsyncStream.makeStream(of: SessionEvent.self)
-        self.events = stream
-        self.eventsContinuation = continuation
+    }
+
+    func makeEventStream() -> AsyncStream<SessionEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            self.continuations[id] = continuation
+            continuation.onTermination = { _ in
+                Task { @MainActor in
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
+    }
+
+    private func emit(_ event: SessionEvent) {
+        for continuation in continuations.values {
+            continuation.yield(event)
+        }
     }
 
     func start() async {
         guard case .loading = content else { return }
-        await refreshIsPro()
+        isPro = await purchasesService.isPro
         allPresets = presetProvider.presets
         let storedActive = presetProvider.activeName
         if let storedActive, let preset = presetProvider.load(name: storedActive) {
@@ -100,16 +114,12 @@ final class SessionManager: SessionManagerType {
         }
     }
 
-    func refreshIsPro() async {
-        isPro = await purchasesService.isPro
-    }
-
     func requestNewPreset() async {
-        await refreshIsPro()
+        isPro = await purchasesService.isPro
         if isPro || allPresets.count < 2 {
-            eventsContinuation.yield(.requestNewPresetDialog)
+            emit(.requestNewPresetDialog)
         } else {
-            eventsContinuation.yield(.requestProUpgrade)
+            emit(.requestProUpgrade)
         }
     }
 
@@ -138,7 +148,7 @@ final class SessionManager: SessionManagerType {
         let preset = Preset(name: activeName, component: loaded.component, state: state)
         presetProvider.save(preset)
         allPresets = presetProvider.presets
-        eventsContinuation.yield(.saved)
+        emit(.saved)
         return true
     }
 
@@ -148,7 +158,7 @@ final class SessionManager: SessionManagerType {
         content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
-            eventsContinuation.yield(.restored)
+            emit(.restored)
             return true
         }
         return false
@@ -163,7 +173,7 @@ final class SessionManager: SessionManagerType {
             presetProvider.setActive(saved.name)
             activeName = saved.name
             allPresets = presetProvider.presets
-            eventsContinuation.yield(.saved)
+            emit(.saved)
             return .success(saved)
         case .failure(let error):
             return .failure(error)

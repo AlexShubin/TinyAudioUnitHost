@@ -12,7 +12,6 @@ import SwiftUI
 struct HostView: View {
     @State var viewModel: HostViewModelType
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.dependencies) private var dependencies
 
     var body: some View {
         VStack(alignment: .leading, spacing: .zero) {
@@ -29,27 +28,6 @@ struct HostView: View {
         .task {
             await viewModel.accept(action: .task)
         }
-        .sheet(isPresented: createDialogPresented) {
-            PresetNameDialogView(
-                viewModel: dependencies.makePresetNameDialogViewModel(mode: .create, initialName: "")
-            )
-        }
-        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
-            if newValue != nil {
-                openWindow(id: "purchases")
-            }
-        }
-    }
-
-    private var createDialogPresented: Binding<Bool> {
-        Binding(
-            get: { viewModel.isCreateDialogPresented },
-            set: { isPresented in
-                if !isPresented {
-                    Task { await viewModel.accept(action: .dismissCreateDialog) }
-                }
-            }
-        )
     }
 
     @ViewBuilder
@@ -157,19 +135,12 @@ struct HostView: View {
             }
             .help("Save preset")
             .disabled(viewModel.activeName == nil || !viewModel.content.isLoaded)
-            Button {
-                Task { await viewModel.accept(action: .newPresetTapped) }
-            } label: {
-                Image(systemName: "plus")
-            }
-            .help("Save as new preset")
-            .disabled(!viewModel.content.isLoaded)
             Spacer()
             Button {
                 openWindow(id: "purchases")
             } label: {
-                Image(systemName: viewModel.isPro ? "star.fill" : "star")
-                    .foregroundStyle(viewModel.isPro ? .yellow : .secondary)
+                Image(systemName: "star.fill")
+                    .foregroundStyle(.yellow)
             }
             .help("Pro features")
             SettingsLink {
