@@ -269,6 +269,16 @@ struct FooTests {
 - Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
 - For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
 - Read the test's name to identify which mock(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary mocks with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental mocks, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those mocks, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-mock orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named mock.
+- **Order of declarations inside a `@Suite`:**
+  1. Mock / sut fields (`var someMock: SomeMock!`, `var sut: FooType!`).
+  2. `init()`.
+  3. `deinit` (if any).
+  4. `createSut()`.
+  5. All `@Test` methods, grouped by `// MARK: -` sections.
+  6. Private helpers (`awaitChange`, fixture builders, etc.).
+  7. Private extensions on test-imported types, if any.
+
+  Tests stay near the top so the file reads as "what this suite verifies." Helpers live below — they're scaffolding, not subject matter.
 
 ## Testing through DI seams
 

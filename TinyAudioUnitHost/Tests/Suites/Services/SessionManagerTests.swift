@@ -46,20 +46,6 @@ struct SessionManagerTests {
         )
     }
 
-    /// Loops through observation-tracking waits until the predicate is true.
-    /// The tracker is single-shot, so re-register after each fire.
-    private func awaitChange(_ predicate: () -> Bool) async {
-        while !predicate() {
-            await withCheckedContinuation { continuation in
-                withObservationTracking {
-                    _ = predicate()
-                } onChange: {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-
     // MARK: - start: setup gate
 
     @Test
@@ -414,5 +400,21 @@ struct SessionManagerTests {
         await awaitChange { sut.content == .empty }
 
         #expect(sut.presets.map(\.name) == ["a", "b", "c"])
+    }
+
+    // MARK: - Helpers
+
+    /// Loops through observation-tracking waits until the predicate is true.
+    /// The tracker is single-shot, so re-register after each fire.
+    private func awaitChange(_ predicate: () -> Bool) async {
+        while !predicate() {
+            await withCheckedContinuation { continuation in
+                withObservationTracking {
+                    _ = predicate()
+                } onChange: {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }

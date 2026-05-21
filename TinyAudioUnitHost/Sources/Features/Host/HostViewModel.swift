@@ -75,8 +75,9 @@ final class HostViewModel: HostViewModelType {
     ) {
         self.library = library
         self.session = session
-        sessionEventsListener = Task { @MainActor [weak self, session] in
-            for await event in session.makeEventStream() {
+        let stream = session.makeEventStream()
+        sessionEventsListener = Task { @MainActor [weak self] in
+            for await event in stream {
                 guard let self else { return }
                 switch event {
                 case .saved:

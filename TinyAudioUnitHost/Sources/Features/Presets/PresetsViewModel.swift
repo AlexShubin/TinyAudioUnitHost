@@ -44,8 +44,12 @@ final class PresetsViewModel: PresetsViewModelType {
 
     init(session: SessionManagerType) {
         self.session = session
-        sessionEventsListener = Task { @MainActor [weak self, session] in
-            for await event in session.makeEventStream() {
+        // makeEventStream is called synchronously here so the continuation is
+        // registered before init returns. Tests that emit immediately after
+        // construction would otherwise lose the event.
+        let stream = session.makeEventStream()
+        sessionEventsListener = Task { @MainActor [weak self] in
+            for await event in stream {
                 guard let self else { return }
                 switch event {
                 case .requestSaveAsDialog:
