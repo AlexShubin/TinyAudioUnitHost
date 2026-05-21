@@ -71,7 +71,7 @@ final class HostViewModel: HostViewModelType {
                 case .restored:
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
                 case .requestNewPresetDialog, .requestProUpgrade:
-                    break  // owned by PresetsSidebar feature
+                    break  // owned by Presets feature
                 }
             }
         }

@@ -17,7 +17,7 @@ struct TinyAudioUnitHostApp: App {
         Window("Tiny Audio Unit Host", id: "host") {
             withTestsDisabled {
                 NavigationSplitView {
-                    PresetsSidebarView(viewModel: dependencies.makePresetsSidebarViewModel())
+                    PresetsView(viewModel: dependencies.makePresetsViewModel())
                         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
                 } detail: {
                     HostView(viewModel: dependencies.makeHostViewModel())

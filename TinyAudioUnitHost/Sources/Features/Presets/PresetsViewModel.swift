@@ -1,5 +1,5 @@
 //
-//  PresetsSidebarViewModel.swift
+//  PresetsViewModel.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 20.05.26.
@@ -10,7 +10,7 @@ import Foundation
 import Observation
 import PresetKit
 
-enum PresetsSidebarAction: Sendable, Equatable {
+enum PresetsAction: Sendable, Equatable {
     case selected(name: String)
     case renameTapped(name: String)
     case deleteTapped(name: String)
@@ -20,7 +20,7 @@ enum PresetsSidebarAction: Sendable, Equatable {
 }
 
 @MainActor
-protocol PresetsSidebarViewModelType: AnyObject, Observable {
+protocol PresetsViewModelType: AnyObject, Observable {
     var presets: [Preset] { get }
     var activeName: String? { get }
     var isInteractionDisabled: Bool { get }
@@ -28,11 +28,11 @@ protocol PresetsSidebarViewModelType: AnyObject, Observable {
     var renameTarget: String? { get }
     var isCreateDialogPresented: Bool { get }
     var openProWindowRequest: UUID? { get }
-    func accept(action: PresetsSidebarAction) async
+    func accept(action: PresetsAction) async
 }
 
 @MainActor @Observable
-final class PresetsSidebarViewModel: PresetsSidebarViewModelType {
+final class PresetsViewModel: PresetsViewModelType {
     private(set) var renameTarget: String?
     private(set) var isCreateDialogPresented: Bool = false
     private(set) var openProWindowRequest: UUID?
@@ -66,7 +66,7 @@ final class PresetsSidebarViewModel: PresetsSidebarViewModelType {
         sessionEventsListener?.cancel()
     }
 
-    func accept(action: PresetsSidebarAction) async {
+    func accept(action: PresetsAction) async {
         switch action {
         case .selected(let name):
             await session.selectPreset(name: name)

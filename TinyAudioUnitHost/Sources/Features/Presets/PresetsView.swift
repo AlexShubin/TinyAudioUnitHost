@@ -1,5 +1,5 @@
 //
-//  PresetsSidebarView.swift
+//  PresetsView.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 20.05.26.
@@ -9,8 +9,8 @@
 import PresetKit
 import SwiftUI
 
-struct PresetsSidebarView: View {
-    @State var viewModel: PresetsSidebarViewModelType
+struct PresetsView: View {
+    @State var viewModel: PresetsViewModelType
     @Environment(\.dependencies) private var dependencies
     @Environment(\.openWindow) private var openWindow
 

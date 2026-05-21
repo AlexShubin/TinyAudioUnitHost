@@ -47,8 +47,8 @@ struct Dependencies: Sendable {
         )
     }
 
-    @MainActor func makePresetsSidebarViewModel() -> PresetsSidebarViewModelType {
-        PresetsSidebarViewModel(session: session)
+    @MainActor func makePresetsViewModel() -> PresetsViewModelType {
+        PresetsViewModel(session: session)
     }
 
     @MainActor func makeHostCommandsViewModel() -> HostCommandsViewModelType {
