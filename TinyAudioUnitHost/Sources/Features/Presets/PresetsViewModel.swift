@@ -9,6 +9,7 @@
 import Foundation
 import Observation
 import PresetKit
+import PurchasesKit
 
 @MainActor
 protocol PresetsViewModelType: AnyObject, Observable {
@@ -31,31 +32,46 @@ enum PresetsAction: Sendable, Equatable {
 
 @MainActor @Observable
 final class PresetsViewModel: PresetsViewModelType {
+    private static let freeTierPresetLimit = 2
+
     private(set) var presentedPresetNameDialog: PresetNameDialogMode?
     private(set) var openProWindowRequest: UUID?
 
-    var presets: [Preset] { session.presets }
+    var presets: [Preset] {
+        isPro ? session.presets : Array(session.presets.prefix(Self.freeTierPresetLimit))
+    }
     var activeName: String? { session.activeName }
     var isInteractionDisabled: Bool { !session.content.isOperable }
     var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
+    private var isPro: Bool = false
+
     @ObservationIgnored private let session: SessionManagerType
+    @ObservationIgnored private let purchasesService: PurchasesServiceType
+    @ObservationIgnored private let eventBus: SessionEventBusType
+    @ObservationIgnored private var isProListener: Task<Void, Never>?
     @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
 
-    init(session: SessionManagerType) {
+    init(
+        session: SessionManagerType,
+        purchasesService: PurchasesServiceType,
+        eventBus: SessionEventBusType
+    ) {
         self.session = session
-        // makeEventStream is called synchronously here so the continuation is
-        // registered before init returns. Tests that emit immediately after
-        // construction would otherwise lose the event.
-        let stream = session.makeEventStream()
+        self.purchasesService = purchasesService
+        self.eventBus = eventBus
+        isProListener = Task { @MainActor [weak self, purchasesService] in
+            for await value in await purchasesService.makeIsProStream() {
+                self?.isPro = value
+            }
+        }
+        let stream = eventBus.makeEventStream()
         sessionEventsListener = Task { @MainActor [weak self] in
             for await event in stream {
                 guard let self else { return }
                 switch event {
-                case .requestSaveAsDialog:
-                    self.presentedPresetNameDialog = .saveAs
-                case .requestProUpgrade:
-                    self.openProWindowRequest = UUID()
+                case .saveAsRequested:
+                    await self.accept(action: .saveAsTapped)
                 case .saved, .restored:
                     break  // owned by Host feature
                 }
@@ -64,6 +80,7 @@ final class PresetsViewModel: PresetsViewModelType {
     }
 
     deinit {
+        isProListener?.cancel()
         sessionEventsListener?.cancel()
     }
 
@@ -76,7 +93,11 @@ final class PresetsViewModel: PresetsViewModelType {
         case .deleteTapped(let name):
             session.deletePreset(name: name)
         case .saveAsTapped:
-            await session.requestSaveAs()
+            if isPro || session.presets.count < Self.freeTierPresetLimit {
+                presentedPresetNameDialog = .saveAs
+            } else {
+                openProWindowRequest = UUID()
+            }
         case .dismissDialog:
             presentedPresetNameDialog = nil
         }

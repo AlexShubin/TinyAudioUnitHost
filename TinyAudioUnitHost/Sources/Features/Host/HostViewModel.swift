@@ -10,6 +10,7 @@ import AudioUnitsKit
 import Foundation
 import Observation
 import PresetKit
+import PurchasesKit
 
 @MainActor
 protocol HostViewModelType: AnyObject, Observable {
@@ -21,6 +22,7 @@ protocol HostViewModelType: AnyObject, Observable {
     var isAudioUnitPickerDisabled: Bool { get }
     var isSaveButtonDisabled: Bool { get }
     var isRestoreButtonDisabled: Bool { get }
+    var isStarFilled: Bool { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -43,6 +45,7 @@ struct ManufacturerGroup: Identifiable, Hashable {
 final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
     private(set) var feedback: FeedbackToastViewState?
+    private(set) var isStarFilled: Bool = false
 
     var content: HostContent { session.content }
 
@@ -67,15 +70,27 @@ final class HostViewModel: HostViewModelType {
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let session: SessionManagerType
+    @ObservationIgnored private let purchasesService: PurchasesServiceType
+    @ObservationIgnored private let eventBus: SessionEventBusType
+    @ObservationIgnored private var isProListener: Task<Void, Never>?
     @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
-        session: SessionManagerType
+        session: SessionManagerType,
+        purchasesService: PurchasesServiceType,
+        eventBus: SessionEventBusType
     ) {
         self.library = library
         self.session = session
-        let stream = session.makeEventStream()
+        self.purchasesService = purchasesService
+        self.eventBus = eventBus
+        isProListener = Task { @MainActor [weak self, purchasesService] in
+            for await value in await purchasesService.makeIsProStream() {
+                self?.isStarFilled = value
+            }
+        }
+        let stream = eventBus.makeEventStream()
         sessionEventsListener = Task { @MainActor [weak self] in
             for await event in stream {
                 guard let self else { return }
@@ -84,7 +99,7 @@ final class HostViewModel: HostViewModelType {
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
                 case .restored:
                     self.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
-                case .requestSaveAsDialog, .requestProUpgrade:
+                case .saveAsRequested:
                     break  // owned by Presets feature
                 }
             }
@@ -92,6 +107,7 @@ final class HostViewModel: HostViewModelType {
     }
 
     deinit {
+        isProListener?.cancel()
         sessionEventsListener?.cancel()
     }
 

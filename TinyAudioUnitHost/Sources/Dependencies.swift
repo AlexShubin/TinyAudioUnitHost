@@ -20,12 +20,14 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionManagerType
+    let eventBus: SessionEventBusType
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
         let engine = EngineKit.Dependencies.live
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
+        let eventBus = SessionEventBus()
         return Dependencies(
             audioSettings: audioSettings,
             audioUnits: .live,
@@ -35,25 +37,35 @@ struct Dependencies: Sendable {
             session: SessionManager(
                 engine: engine.engine,
                 presetProvider: presets.presetProvider,
-                purchasesService: purchases.purchasesService,
-                setupChecker: audioSettings.setupChecker
-            )
+                setupChecker: audioSettings.setupChecker,
+                eventBus: eventBus
+            ),
+            eventBus: eventBus
         )
     }()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             library: audioUnits.audioUnitComponentsLibrary,
-            session: session
+            session: session,
+            purchasesService: purchases.purchasesService,
+            eventBus: eventBus
         )
     }
 
     @MainActor func makePresetsViewModel() -> PresetsViewModelType {
-        PresetsViewModel(session: session)
+        PresetsViewModel(
+            session: session,
+            purchasesService: purchases.purchasesService,
+            eventBus: eventBus
+        )
     }
 
     @MainActor func makeHostCommandsViewModel() -> HostCommandsViewModelType {
-        HostCommandsViewModel(session: session)
+        HostCommandsViewModel(
+            session: session,
+            eventBus: eventBus
+        )
     }
 
     @MainActor func makePresetNameDialogViewModel(

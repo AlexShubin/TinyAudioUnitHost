@@ -130,8 +130,8 @@ struct HostView: View {
             Button {
                 openWindow(id: "purchases")
             } label: {
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
+                Image(systemName: viewModel.isStarFilled ? "star.fill" : "star")
+                    .foregroundStyle(viewModel.isStarFilled ? .yellow : .secondary)
             }
             .help("Pro features")
             SettingsLink {

@@ -46,29 +46,36 @@ final class PurchasesViewModel: PurchasesViewModelType {
     var isRestoreButtonDisabled: Bool { phase == .restoring }
 
     @ObservationIgnored private let purchasesService: PurchasesServiceType
+    @ObservationIgnored private var isProListener: Task<Void, Never>?
 
     init(purchasesService: PurchasesServiceType) {
         self.purchasesService = purchasesService
+        isProListener = Task { @MainActor [weak self, purchasesService] in
+            for await value in await purchasesService.makeIsProStream() {
+                self?.isPro = value
+            }
+        }
+    }
+
+    deinit {
+        isProListener?.cancel()
     }
 
     func accept(action: PurchasesViewAction) async {
         switch action {
         case .task:
-            isPro = await purchasesService.isPro
             productInfo = await purchasesService.productInfo
         case .buyTapped:
             phase = .purchasing
             errorMessage = nil
             let result = await purchasesService.purchase()
             errorMessage = message(for: result)
-            isPro = await purchasesService.isPro
             phase = .idle
         case .restoreTapped:
             phase = .restoring
             errorMessage = nil
             let result = await purchasesService.restore()
             errorMessage = message(for: result)
-            isPro = await purchasesService.isPro
             phase = .idle
         }
     }

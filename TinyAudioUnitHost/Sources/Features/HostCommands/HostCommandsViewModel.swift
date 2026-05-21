@@ -30,9 +30,14 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
     var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
+    @ObservationIgnored private let eventBus: SessionEventBusType
 
-    init(session: SessionManagerType) {
+    init(
+        session: SessionManagerType,
+        eventBus: SessionEventBusType
+    ) {
         self.session = session
+        self.eventBus = eventBus
     }
 
     func accept(action: HostCommandsAction) async {
@@ -42,7 +47,7 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
         case .restore:
             await session.restoreActivePreset()
         case .saveAs:
-            await session.requestSaveAs()
+            eventBus.post(.saveAsRequested)
         }
     }
 }

@@ -12,18 +12,14 @@ import EngineKit
 import Foundation
 import Observation
 import PresetKit
-import PurchasesKit
 
 @MainActor
 protocol SessionManagerType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
     var activeName: String? { get }
-    var presets: [Preset] { get }    // already free-tier capped
-
-    func makeEventStream() -> AsyncStream<SessionEvent>
+    var presets: [Preset] { get }
 
     func start() async
-    func requestSaveAs() async
     func loadComponent(_ component: AudioUnitComponent) async
     func selectPreset(name: String) async
     func saveCurrentPreset()
@@ -55,68 +51,35 @@ enum HostContent: Sendable, Equatable {
     }
 }
 
-enum SessionEvent: Sendable, Equatable {
-    case saved
-    case restored
-    case requestSaveAsDialog
-    case requestProUpgrade
-}
-
 @MainActor @Observable
 final class SessionManager: SessionManagerType {
     private(set) var content: HostContent = .loading
     private(set) var activeName: String?
-    private var allPresets: [Preset] = []
-    private var isPro: Bool = false
-
-    @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
-
-    var presets: [Preset] {
-        isPro ? allPresets : Array(allPresets.prefix(2))
-    }
+    private(set) var presets: [Preset] = []
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
-    @ObservationIgnored private let purchasesService: PurchasesServiceType
     @ObservationIgnored private let setupChecker: SetupCheckerType
+    @ObservationIgnored private let eventBus: SessionEventBusType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     nonisolated init(
         engine: EngineType,
         presetProvider: PresetProviderType,
-        purchasesService: PurchasesServiceType,
-        setupChecker: SetupCheckerType
+        setupChecker: SetupCheckerType,
+        eventBus: SessionEventBusType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
-        self.purchasesService = purchasesService
         self.setupChecker = setupChecker
+        self.eventBus = eventBus
     }
 
     deinit {
         setupListener?.cancel()
     }
 
-    func makeEventStream() -> AsyncStream<SessionEvent> {
-        AsyncStream { continuation in
-            let id = UUID()
-            self.continuations[id] = continuation
-            continuation.onTermination = { [weak self] _ in
-                Task { @MainActor in
-                    self?.continuations.removeValue(forKey: id)
-                }
-            }
-        }
-    }
-
-    private func emit(_ event: SessionEvent) {
-        for continuation in continuations.values {
-            continuation.yield(event)
-        }
-    }
-
     func start() async {
-        isPro = await purchasesService.isPro
         if setupListener == nil {
             setupListener = Task { @MainActor [weak self, setupChecker] in
                 for await next in setupChecker.unmetStream {
@@ -126,15 +89,6 @@ final class SessionManager: SessionManagerType {
             }
         }
         await setupChecker.refresh()
-    }
-
-    func requestSaveAs() async {
-        isPro = await purchasesService.isPro
-        if isPro || allPresets.count < 2 {
-            emit(.requestSaveAsDialog)
-        } else {
-            emit(.requestProUpgrade)
-        }
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
@@ -159,8 +113,8 @@ final class SessionManager: SessionManagerType {
               let state = loaded.audioUnit.fullState else { return }
         let preset = Preset(name: activeName, component: loaded.component, state: state)
         presetProvider.save(preset)
-        allPresets = presetProvider.presets
-        emit(.saved)
+        presets = presetProvider.presets
+        eventBus.post(.saved)
     }
 
     func restoreActivePreset() async {
@@ -169,7 +123,7 @@ final class SessionManager: SessionManagerType {
         content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
-            emit(.restored)
+            eventBus.post(.restored)
         }
     }
 
@@ -180,19 +134,19 @@ final class SessionManager: SessionManagerType {
         presetProvider.save(preset)
         presetProvider.setActive(preset.name)
         activeName = preset.name
-        allPresets = presetProvider.presets
-        emit(.saved)
+        presets = presetProvider.presets
+        eventBus.post(.saved)
     }
 
     func renamePreset(from: String, to: String) {
         presetProvider.rename(from: from, to: to)
-        allPresets = presetProvider.presets
+        presets = presetProvider.presets
         activeName = presetProvider.activeName
     }
 
     func deletePreset(name: String) {
         presetProvider.delete(name: name)
-        allPresets = presetProvider.presets
+        presets = presetProvider.presets
         activeName = presetProvider.activeName
     }
 
@@ -210,7 +164,7 @@ final class SessionManager: SessionManagerType {
     }
 
     private func loadActivePreset() async {
-        allPresets = presetProvider.presets
+        presets = presetProvider.presets
         let storedActive = presetProvider.activeName
         if let storedActive, let preset = presetProvider.load(name: storedActive) {
             activeName = storedActive
