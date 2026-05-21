@@ -20,9 +20,11 @@ protocol PresetNameDialogViewModelType: AnyObject, Observable {
     func accept(action: PresetNameDialogAction) async
 }
 
-enum PresetNameDialogMode: Sendable, Equatable {
+enum PresetNameDialogMode: Sendable, Equatable, Hashable, Identifiable {
     case saveAs
     case rename(currentName: String)
+
+    var id: Self { self }
 }
 
 enum PresetNameDialogAction: Sendable, Equatable {
@@ -56,12 +58,11 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
 
     init(
         mode: PresetNameDialogMode,
-        initialName: String,
         session: SessionManagerType,
         validator: PresetNameValidatorType
     ) {
         self.mode = mode
-        self.name = initialName
+        self.name = mode.defaultInitialName
         self.session = session
         self.validator = validator
     }
@@ -99,6 +100,13 @@ private extension PresetNameDialogMode {
         switch self {
         case .saveAs: return .saveAs
         case .rename(let currentName): return .rename(currentName: currentName)
+        }
+    }
+
+    var defaultInitialName: String {
+        switch self {
+        case .saveAs: return ""
+        case .rename(let currentName): return currentName
         }
     }
 }

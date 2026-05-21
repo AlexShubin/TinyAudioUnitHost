@@ -46,19 +46,9 @@ struct PresetsView: View {
         }
         .listStyle(.sidebar)
         .disabled(viewModel.isInteractionDisabled)
-        .sheet(isPresented: renameDialogPresented) {
-            if let target = viewModel.renameTarget {
-                PresetNameDialogView(
-                    viewModel: dependencies.makePresetNameDialogViewModel(
-                        mode: .rename(currentName: target),
-                        initialName: target
-                    )
-                )
-            }
-        }
-        .sheet(isPresented: saveAsDialogPresented) {
+        .sheet(item: presentedPresetNameDialogBinding) { mode in
             PresetNameDialogView(
-                viewModel: dependencies.makePresetNameDialogViewModel(mode: .saveAs, initialName: "")
+                viewModel: dependencies.makePresetNameDialogViewModel(mode: mode)
             )
         }
         .onChange(of: viewModel.openProWindowRequest) { _, newValue in
@@ -79,23 +69,12 @@ struct PresetsView: View {
         )
     }
 
-    private var renameDialogPresented: Binding<Bool> {
+    private var presentedPresetNameDialogBinding: Binding<PresetNameDialogMode?> {
         Binding(
-            get: { viewModel.renameTarget != nil },
-            set: { isPresented in
-                if !isPresented {
-                    Task { await viewModel.accept(action: .dismissRenameDialog) }
-                }
-            }
-        )
-    }
-
-    private var saveAsDialogPresented: Binding<Bool> {
-        Binding(
-            get: { viewModel.isSaveAsDialogPresented },
-            set: { isPresented in
-                if !isPresented {
-                    Task { await viewModel.accept(action: .dismissSaveAsDialog) }
+            get: { viewModel.presentedPresetNameDialog },
+            set: { newMode in
+                if newMode == nil {
+                    Task { await viewModel.accept(action: .dismissDialog) }
                 }
             }
         )

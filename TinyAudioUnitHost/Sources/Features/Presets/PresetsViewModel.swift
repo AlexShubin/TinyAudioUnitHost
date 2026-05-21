@@ -16,8 +16,7 @@ protocol PresetsViewModelType: AnyObject, Observable {
     var activeName: String? { get }
     var isInteractionDisabled: Bool { get }
     var isSaveAsButtonDisabled: Bool { get }
-    var renameTarget: String? { get }
-    var isSaveAsDialogPresented: Bool { get }
+    var presentedPresetNameDialog: PresetNameDialogMode? { get }
     var openProWindowRequest: UUID? { get }
     func accept(action: PresetsAction) async
 }
@@ -26,15 +25,13 @@ enum PresetsAction: Sendable, Equatable {
     case selected(name: String)
     case renameTapped(name: String)
     case deleteTapped(name: String)
-    case dismissRenameDialog
     case saveAsTapped
-    case dismissSaveAsDialog
+    case dismissDialog
 }
 
 @MainActor @Observable
 final class PresetsViewModel: PresetsViewModelType {
-    private(set) var renameTarget: String?
-    private(set) var isSaveAsDialogPresented: Bool = false
+    private(set) var presentedPresetNameDialog: PresetNameDialogMode?
     private(set) var openProWindowRequest: UUID?
 
     var presets: [Preset] { session.presets }
@@ -52,7 +49,7 @@ final class PresetsViewModel: PresetsViewModelType {
                 guard let self else { return }
                 switch event {
                 case .requestSaveAsDialog:
-                    self.isSaveAsDialogPresented = true
+                    self.presentedPresetNameDialog = .saveAs
                 case .requestProUpgrade:
                     self.openProWindowRequest = UUID()
                 case .saved, .restored:
@@ -71,15 +68,13 @@ final class PresetsViewModel: PresetsViewModelType {
         case .selected(let name):
             await session.selectPreset(name: name)
         case .renameTapped(let name):
-            renameTarget = name
+            presentedPresetNameDialog = .rename(currentName: name)
         case .deleteTapped(let name):
             session.deletePreset(name: name)
-        case .dismissRenameDialog:
-            renameTarget = nil
         case .saveAsTapped:
             await session.requestSaveAs()
-        case .dismissSaveAsDialog:
-            isSaveAsDialogPresented = false
+        case .dismissDialog:
+            presentedPresetNameDialog = nil
         }
     }
 }

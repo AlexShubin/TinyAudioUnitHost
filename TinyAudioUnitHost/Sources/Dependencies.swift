@@ -57,12 +57,10 @@ struct Dependencies: Sendable {
     }
 
     @MainActor func makePresetNameDialogViewModel(
-        mode: PresetNameDialogMode,
-        initialName: String
+        mode: PresetNameDialogMode
     ) -> PresetNameDialogViewModelType {
         PresetNameDialogViewModel(
             mode: mode,
-            initialName: initialName,
             session: session,
             validator: presets.presetNameValidator
         )
