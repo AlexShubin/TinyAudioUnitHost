@@ -17,8 +17,8 @@ public enum EngineLoadError: Error, Sendable, Equatable {
 }
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent, state: Data?) async throws -> LoadedAudioUnit
-    func reload() async throws
+    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit
+    func reload() async throws(EngineLoadError)
 }
 
 final actor Engine: EngineType {
@@ -49,7 +49,7 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent, state: Data?) async throws -> LoadedAudioUnit {
+    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
         engine.stop()
         disconnect()
 
@@ -68,14 +68,14 @@ final actor Engine: EngineType {
         return loaded
     }
 
-    func reload() async throws {
+    func reload() async throws(EngineLoadError) {
         engine.stop()
         disconnect()
         try await applyConnections()
         logging { try engine.start() }
     }
 
-    private func applyConnections() async throws {
+    private func applyConnections() async throws(EngineLoadError) {
         guard let target = await targetSettingsProvider.resolveTarget() else { return }
         let settings = target.settings
 
@@ -97,7 +97,7 @@ final actor Engine: EngineType {
         }
     }
 
-    private func bindDevice(_ target: TargetSettings) throws {
+    private func bindDevice(_ target: TargetSettings) throws(EngineLoadError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
         logging { try coreAudioGateway.setEnableIO(target.settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
         logging { try coreAudioGateway.setEnableIO(target.settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
@@ -155,7 +155,7 @@ final actor Engine: EngineType {
         engine.disconnectHardwareInput()
     }
 
-    private func loadAudioUnit(_ component: AudioUnitComponent) async throws -> LoadedAudioUnit {
+    private func loadAudioUnit(_ component: AudioUnitComponent) async throws(EngineLoadError) -> LoadedAudioUnit {
         await coreMidiManager.teardownMIDI()
         unloadAudioUnit()
         do {
