@@ -10,15 +10,9 @@ import Foundation
 import Observation
 import PresetKit
 
-struct PresetNameDialogState: Sendable, Equatable {
-    var name: String
-    var error: PresetNameError?
-    let mode: Mode
-
-    enum Mode: Sendable, Equatable {
-        case create
-        case rename(currentName: String)
-    }
+enum PresetNameDialogMode: Sendable, Equatable {
+    case create
+    case rename(currentName: String)
 }
 
 enum PresetNameDialogAction: Sendable, Equatable {
@@ -27,66 +21,66 @@ enum PresetNameDialogAction: Sendable, Equatable {
     case commit
 }
 
-enum PresetNameDialogOutcome: Sendable, Equatable {
-    case cancelled
-    case committed(mode: PresetNameDialogState.Mode)
-}
-
 @MainActor
 protocol PresetNameDialogViewModelType: AnyObject, Observable {
-    var state: PresetNameDialogState { get }
-    var outcome: PresetNameDialogOutcome? { get }
+    var name: String { get }
+    var error: PresetNameError? { get }
+    var mode: PresetNameDialogMode { get }
+    var isDismissed: Bool { get }
     func accept(action: PresetNameDialogAction) async
 }
 
 @MainActor @Observable
 final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
-    private(set) var state: PresetNameDialogState
-    private(set) var outcome: PresetNameDialogOutcome?
+    let mode: PresetNameDialogMode
+    private(set) var name: String
+    private(set) var error: PresetNameError?
+    private(set) var isDismissed: Bool = false
 
     @ObservationIgnored private let session: SessionManagerType
     @ObservationIgnored private let validator: PresetNameValidatorType
 
     init(
-        mode: PresetNameDialogState.Mode,
+        mode: PresetNameDialogMode,
         initialName: String,
         session: SessionManagerType,
         validator: PresetNameValidatorType
     ) {
-        self.state = PresetNameDialogState(name: initialName, error: nil, mode: mode)
+        self.mode = mode
+        self.name = initialName
         self.session = session
         self.validator = validator
     }
 
     func accept(action: PresetNameDialogAction) async {
         switch action {
-        case .nameChanged(let name):
-            let error = validator.validate(name: name, for: state.mode.validationMode)
-            state = PresetNameDialogState(name: name, error: error, mode: state.mode)
+        case .nameChanged(let newName):
+            error = validator.validate(name: newName, for: mode.validationMode)
+            name = newName
         case .cancel:
-            outcome = .cancelled
+            isDismissed = true
         case .commit:
-            switch state.mode {
+            switch mode {
             case .create:
-                switch session.saveAsNewPreset(name: state.name) {
+                switch session.saveAsNewPreset(name: name) {
                 case .success:
-                    outcome = .committed(mode: state.mode)
+                    isDismissed = true
                 case .failure(let error):
-                    state = PresetNameDialogState(name: state.name, error: error, mode: state.mode)
+                    self.error = error
                 }
             case .rename(let currentName):
-                switch session.renamePreset(from: currentName, to: state.name) {
+                switch session.renamePreset(from: currentName, to: name) {
                 case .success:
-                    outcome = .committed(mode: state.mode)
+                    isDismissed = true
                 case .failure(let error):
-                    state = PresetNameDialogState(name: state.name, error: error, mode: state.mode)
+                    self.error = error
                 }
             }
         }
     }
 }
 
-private extension PresetNameDialogState.Mode {
+private extension PresetNameDialogMode {
     var validationMode: ValidationMode {
         switch self {
         case .create: return .saveAs

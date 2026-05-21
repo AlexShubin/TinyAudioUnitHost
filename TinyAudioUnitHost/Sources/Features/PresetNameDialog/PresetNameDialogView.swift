@@ -27,7 +27,7 @@ struct PresetNameDialogView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
                     .onSubmit { Task { await viewModel.accept(action: .commit) } }
-                if let message = viewModel.state.error?.displayMessage {
+                if let message = viewModel.error?.displayMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -51,14 +51,14 @@ struct PresetNameDialogView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 440)
-        .onChange(of: viewModel.outcome) { _, outcome in
-            if outcome != nil { dismiss() }
+        .onChange(of: viewModel.isDismissed) { _, isDismissed in
+            if isDismissed { dismiss() }
         }
     }
 
     private var nameBinding: Binding<String> {
         Binding(
-            get: { viewModel.state.name },
+            get: { viewModel.name },
             set: { newValue in
                 Task { await viewModel.accept(action: .nameChanged(newValue)) }
             }
@@ -66,15 +66,15 @@ struct PresetNameDialogView: View {
     }
 
     private var commitLabel: String {
-        switch viewModel.state.mode {
+        switch viewModel.mode {
         case .create: return "Create"
         case .rename: return "Rename"
         }
     }
 
     private var canCommit: Bool {
-        viewModel.state.error == nil
-            && !viewModel.state.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        viewModel.error == nil
+            && !viewModel.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 

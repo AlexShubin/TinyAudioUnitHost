@@ -56,7 +56,7 @@ struct Dependencies: Sendable {
     }
 
     @MainActor func makePresetNameDialogViewModel(
-        mode: PresetNameDialogState.Mode,
+        mode: PresetNameDialogMode,
         initialName: String
     ) -> PresetNameDialogViewModelType {
         PresetNameDialogViewModel(

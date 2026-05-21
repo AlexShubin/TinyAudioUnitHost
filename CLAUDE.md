@@ -65,11 +65,11 @@
 
 ## View state and actions
 
-Every view — top-level feature view or subview — gets a dedicated state struct (`<View>ViewState`) and action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view are nested inside the state struct (e.g. `<View>ViewState.Phase`).
+Every view gets a dedicated action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view live alongside the VM in the same file.
 
 ### Top-level feature views (own a VM)
 
-The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes exactly two things: `var state: <View>ViewState { get }` and `func accept(action: <View>Action) async`. The view reads `viewModel.state.foo` and dispatches `viewModel.accept(action: .bar)`.
+The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes its observable state as individual `@Observable` properties and dispatches via `func accept(action: <View>Action) async`. The view reads `viewModel.foo` directly and dispatches `viewModel.accept(action: .bar)`.
 
 ```swift
 // PurchasesView.swift
@@ -77,17 +77,19 @@ struct PurchasesView: View {
     @State var viewModel: PurchasesViewModelType
 
     var body: some View {
-        Text(viewModel.state.headline)
+        Text(viewModel.headline)
         Button("Buy") { Task { await viewModel.accept(action: .buyTapped) } }
     }
 }
 
-struct PurchasesViewState: Sendable, Equatable {
-    var isPro: Bool
-    var phase: Phase
-
-    enum Phase: Sendable, Equatable { case idle, purchasing, restoring }
+@MainActor
+protocol PurchasesViewModelType: AnyObject, Observable {
+    var headline: String { get }
+    var phase: PurchasesPhase { get }
+    func accept(action: PurchasesViewAction) async
 }
+
+enum PurchasesPhase: Sendable, Equatable { case idle, purchasing, restoring }
 
 enum PurchasesViewAction: Sendable, Equatable {
     case task
@@ -95,7 +97,7 @@ enum PurchasesViewAction: Sendable, Equatable {
 }
 ```
 
-The VM stores one `state` property and mutates its fields. SwiftUI tracks the property via `@Observable` and re-renders on each mutation.
+`@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap the whole VM state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
 
 ### Subviews (no VM)
 
