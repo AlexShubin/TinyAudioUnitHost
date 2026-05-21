@@ -66,7 +66,7 @@ enum SessionEvent: Sendable, Equatable {
 final class SessionManager: SessionManagerType {
     private(set) var content: HostContent = .loading
     private(set) var activeName: String?
-    private(set) var allPresets: [Preset] = []
+    private var allPresets: [Preset] = []
     private var isPro: Bool = false
     private var unmet: Set<SetupRequirement>?
 
@@ -102,9 +102,9 @@ final class SessionManager: SessionManagerType {
         AsyncStream { continuation in
             let id = UUID()
             self.continuations[id] = continuation
-            continuation.onTermination = { _ in
+            continuation.onTermination = { [weak self] _ in
                 Task { @MainActor in
-                    self.continuations.removeValue(forKey: id)
+                    self?.continuations.removeValue(forKey: id)
                 }
             }
         }
@@ -117,7 +117,7 @@ final class SessionManager: SessionManagerType {
     }
 
     func start() async {
-        guard case .loading = content else { return }
+        isPro = await purchasesService.isPro
         if setupListener == nil {
             setupListener = Task { @MainActor [weak self, setupChecker] in
                 for await next in setupChecker.unmetStream {
