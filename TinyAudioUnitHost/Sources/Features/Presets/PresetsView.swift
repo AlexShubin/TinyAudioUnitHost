@@ -32,16 +32,22 @@ struct PresetsView: View {
             } header: {
                 HStack {
                     Text("Presets")
+                        .font(.headline)
                     Spacer()
                     Button {
                         Task { await viewModel.accept(action: .saveAsTapped) }
                     } label: {
-                        Image(systemName: "plus.circle")
+                        Image(systemName: "plus.circle.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.primary, .secondary.opacity(0.35))
+                            .font(.headline)
+                            .padding(.trailing, 8)
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.isSaveAsButtonDisabled)
                     .help("Save current sound as a new preset")
                 }
+                .padding(.vertical, 8)
             }
         }
         .listStyle(.sidebar)
