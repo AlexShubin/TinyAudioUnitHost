@@ -20,20 +20,17 @@ import Testing
 struct PresetProviderTests {
     var rawStoreMock: RawPresetStoreMock!
     var libraryMock: AudioUnitComponentsLibraryMock!
-    var validatorMock: PresetNameValidatorMock!
     var sut: PresetProviderType!
 
     init() {
         rawStoreMock = RawPresetStoreMock()
         libraryMock = AudioUnitComponentsLibraryMock()
-        validatorMock = PresetNameValidatorMock()
     }
 
     mutating func createSut() {
         sut = PresetProvider(
             rawStore: rawStoreMock,
-            library: libraryMock,
-            validator: validatorMock
+            library: libraryMock
         )
     }
 
@@ -153,89 +150,15 @@ struct PresetProviderTests {
 
     // MARK: - saveAs
 
-    @Test
-    mutating func saveAs_callsValidatorWithSaveAsMode() {
-        createSut()
-
-        _ = try? sut.saveAs(Preset.fake(name: "new"))
-
-        #expect(validatorMock.calls == [.validate(name: "new", mode: .saveAs)])
-    }
-
-    @Test
-    mutating func saveAs_validatorError_throws() {
-        validatorMock.result = .duplicate
-        createSut()
-
-        #expect(throws: PresetNameError.duplicate) {
-            try sut.saveAs(Preset.fake(name: "existing"))
-        }
-    }
-
-    @Test
-    mutating func saveAs_validatorError_doesNotSave() {
-        validatorMock.result = .duplicate
-        createSut()
-
-        _ = try? sut.saveAs(Preset.fake(name: "existing"))
-
-        #expect(rawStoreMock.presets.isEmpty)
-    }
-
-    @Test
-    mutating func saveAs_validatorOk_savesAndReturnsPreset() throws {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let preset = Preset(name: "MyPreset", component: component, state: Data([0xBE, 0xEF]))
-        createSut()
-
-        let saved = try sut.saveAs(preset)
-
-        let expectedRaw = rawPreset(matching: component, state: Data([0xBE, 0xEF]))
-        #expect(saved == preset)
-        #expect(rawStoreMock.calls == [.save(expectedRaw, name: "MyPreset")])
-    }
-
     // MARK: - rename
 
     @Test
-    mutating func rename_callsValidatorWithRenameMode() {
-        createSut()
-
-        try? sut.rename(from: "old", to: "new")
-
-        #expect(validatorMock.calls == [.validate(name: "new", mode: .rename(currentName: "old"))])
-    }
-
-    @Test
-    mutating func rename_validatorError_throws() {
-        validatorMock.result = .duplicate
-        createSut()
-
-        #expect(throws: PresetNameError.duplicate) {
-            try sut.rename(from: "old", to: "new")
-        }
-    }
-
-    @Test
-    mutating func rename_validatorError_doesNotMoveFile() {
-        validatorMock.result = .duplicate
-        let preset = RawPreset.fake()
-        rawStoreMock.presets = ["old": preset]
-        createSut()
-
-        try? sut.rename(from: "old", to: "new")
-
-        #expect(rawStoreMock.presets["old"] == preset)
-        #expect(rawStoreMock.presets["new"] == nil)
-    }
-
-    @Test
-    mutating func rename_validatorOk_movesFile() throws {
+    mutating func rename_movesFile() {
         let preset = RawPreset.fake(componentType: 5)
         rawStoreMock.presets = ["old": preset]
         createSut()
 
-        try sut.rename(from: "old", to: "new")
+        sut.rename(from: "old", to: "new")
 
         #expect(rawStoreMock.presets["old"] == nil)
         #expect(rawStoreMock.presets["new"] == preset)
@@ -247,7 +170,7 @@ struct PresetProviderTests {
         rawStoreMock.currentActivePreset = RawActivePresetState(name: "old")
         createSut()
 
-        try? sut.rename(from: "old", to: "new")
+        sut.rename(from: "old", to: "new")
 
         #expect(rawStoreMock.currentActivePreset == RawActivePresetState(name: "new"))
     }
@@ -258,7 +181,7 @@ struct PresetProviderTests {
         rawStoreMock.currentActivePreset = RawActivePresetState(name: "keeper")
         createSut()
 
-        try? sut.rename(from: "old", to: "new")
+        sut.rename(from: "old", to: "new")
 
         #expect(rawStoreMock.currentActivePreset == RawActivePresetState(name: "keeper"))
     }

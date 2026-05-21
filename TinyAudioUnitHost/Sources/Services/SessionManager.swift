@@ -28,8 +28,8 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
-    func saveAsNewPreset(name: String) throws(PresetNameError) -> Preset
-    func renamePreset(from: String, to: String) throws(PresetNameError)
+    func saveAsNewPreset(name: String)
+    func renamePreset(from: String, to: String)
     func deletePreset(name: String)
 }
 
@@ -173,20 +173,19 @@ final class SessionManager: SessionManagerType {
         }
     }
 
-    func saveAsNewPreset(name: String) throws(PresetNameError) -> Preset {
+    func saveAsNewPreset(name: String) {
         guard case .loaded(let loaded) = content,
-              let state = loaded.audioUnit.fullState else { throw .empty }
+              let state = loaded.audioUnit.fullState else { return }
         let preset = Preset(name: name, component: loaded.component, state: state)
-        let saved = try presetProvider.saveAs(preset)
-        presetProvider.setActive(saved.name)
-        activeName = saved.name
+        presetProvider.save(preset)
+        presetProvider.setActive(preset.name)
+        activeName = preset.name
         allPresets = presetProvider.presets
         emit(.saved)
-        return saved
     }
 
-    func renamePreset(from: String, to: String) throws(PresetNameError) {
-        try presetProvider.rename(from: from, to: to)
+    func renamePreset(from: String, to: String) {
+        presetProvider.rename(from: from, to: to)
         allPresets = presetProvider.presets
         activeName = presetProvider.activeName
     }
