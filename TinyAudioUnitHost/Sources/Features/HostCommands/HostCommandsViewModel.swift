@@ -11,23 +11,23 @@ import Observation
 
 @MainActor
 protocol HostCommandsViewModelType: AnyObject, Observable {
-    var canSave: Bool { get }
-    var canRestore: Bool { get }
-    var canCreate: Bool { get }
+    var isSaveButtonDisabled: Bool { get }
+    var isRestoreButtonDisabled: Bool { get }
+    var isSaveAsButtonDisabled: Bool { get }
     func accept(action: HostCommandsAction) async
 }
 
 enum HostCommandsAction: Sendable, Equatable {
     case save
     case restore
-    case create
+    case saveAs
 }
 
 @MainActor @Observable
 final class HostCommandsViewModel: HostCommandsViewModelType {
-    var canSave: Bool { session.activeName != nil && session.content.isLoaded }
-    var canRestore: Bool { session.activeName != nil && session.content.isOperable }
-    var canCreate: Bool { session.content.isLoaded }
+    var isSaveButtonDisabled: Bool { session.activeName == nil || !session.content.isLoaded }
+    var isRestoreButtonDisabled: Bool { session.activeName == nil || !session.content.isOperable }
+    var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
 
@@ -41,8 +41,8 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
             session.saveCurrentPreset()
         case .restore:
             await session.restoreActivePreset()
-        case .create:
-            await session.requestNewPreset()
+        case .saveAs:
+            await session.requestSaveAs()
         }
     }
 }

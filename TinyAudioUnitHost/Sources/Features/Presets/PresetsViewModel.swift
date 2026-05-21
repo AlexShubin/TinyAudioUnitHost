@@ -15,9 +15,9 @@ protocol PresetsViewModelType: AnyObject, Observable {
     var presets: [Preset] { get }
     var activeName: String? { get }
     var isInteractionDisabled: Bool { get }
-    var canCreate: Bool { get }
+    var isSaveAsButtonDisabled: Bool { get }
     var renameTarget: String? { get }
-    var isCreateDialogPresented: Bool { get }
+    var isSaveAsDialogPresented: Bool { get }
     var openProWindowRequest: UUID? { get }
     func accept(action: PresetsAction) async
 }
@@ -27,20 +27,20 @@ enum PresetsAction: Sendable, Equatable {
     case renameTapped(name: String)
     case deleteTapped(name: String)
     case dismissRenameDialog
-    case createTapped
-    case dismissCreateDialog
+    case saveAsTapped
+    case dismissSaveAsDialog
 }
 
 @MainActor @Observable
 final class PresetsViewModel: PresetsViewModelType {
     private(set) var renameTarget: String?
-    private(set) var isCreateDialogPresented: Bool = false
+    private(set) var isSaveAsDialogPresented: Bool = false
     private(set) var openProWindowRequest: UUID?
 
     var presets: [Preset] { session.presets }
     var activeName: String? { session.activeName }
     var isInteractionDisabled: Bool { !session.content.isOperable }
-    var canCreate: Bool { session.content.isLoaded }
+    var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
     @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
@@ -51,8 +51,8 @@ final class PresetsViewModel: PresetsViewModelType {
             for await event in session.makeEventStream() {
                 guard let self else { return }
                 switch event {
-                case .requestNewPresetDialog:
-                    self.isCreateDialogPresented = true
+                case .requestSaveAsDialog:
+                    self.isSaveAsDialogPresented = true
                 case .requestProUpgrade:
                     self.openProWindowRequest = UUID()
                 case .saved, .restored:
@@ -76,10 +76,10 @@ final class PresetsViewModel: PresetsViewModelType {
             session.deletePreset(name: name)
         case .dismissRenameDialog:
             renameTarget = nil
-        case .createTapped:
-            await session.requestNewPreset()
-        case .dismissCreateDialog:
-            isCreateDialogPresented = false
+        case .saveAsTapped:
+            await session.requestSaveAs()
+        case .dismissSaveAsDialog:
+            isSaveAsDialogPresented = false
         }
     }
 }

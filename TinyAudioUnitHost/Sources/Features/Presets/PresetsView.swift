@@ -34,12 +34,12 @@ struct PresetsView: View {
                     Text("Presets")
                     Spacer()
                     Button {
-                        Task { await viewModel.accept(action: .createTapped) }
+                        Task { await viewModel.accept(action: .saveAsTapped) }
                     } label: {
                         Image(systemName: "plus.circle")
                     }
                     .buttonStyle(.plain)
-                    .disabled(!viewModel.canCreate)
+                    .disabled(viewModel.isSaveAsButtonDisabled)
                     .help("Save current sound as a new preset")
                 }
             }
@@ -56,9 +56,9 @@ struct PresetsView: View {
                 )
             }
         }
-        .sheet(isPresented: createDialogPresented) {
+        .sheet(isPresented: saveAsDialogPresented) {
             PresetNameDialogView(
-                viewModel: dependencies.makePresetNameDialogViewModel(mode: .create, initialName: "")
+                viewModel: dependencies.makePresetNameDialogViewModel(mode: .saveAs, initialName: "")
             )
         }
         .onChange(of: viewModel.openProWindowRequest) { _, newValue in
@@ -90,12 +90,12 @@ struct PresetsView: View {
         )
     }
 
-    private var createDialogPresented: Binding<Bool> {
+    private var saveAsDialogPresented: Binding<Bool> {
         Binding(
-            get: { viewModel.isCreateDialogPresented },
+            get: { viewModel.isSaveAsDialogPresented },
             set: { isPresented in
                 if !isPresented {
-                    Task { await viewModel.accept(action: .dismissCreateDialog) }
+                    Task { await viewModel.accept(action: .dismissSaveAsDialog) }
                 }
             }
         )

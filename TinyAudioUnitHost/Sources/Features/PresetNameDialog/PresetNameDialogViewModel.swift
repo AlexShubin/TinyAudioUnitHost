@@ -21,7 +21,7 @@ protocol PresetNameDialogViewModelType: AnyObject, Observable {
 }
 
 enum PresetNameDialogMode: Sendable, Equatable {
-    case create
+    case saveAs
     case rename(currentName: String)
 }
 
@@ -42,7 +42,7 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
 
     var commitLabel: String {
         switch mode {
-        case .create: return "Create"
+        case .saveAs: return "Save"
         case .rename: return "Rename"
         }
     }
@@ -75,7 +75,7 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
             isDismissed = true
         case .commit:
             switch mode {
-            case .create:
+            case .saveAs:
                 switch session.saveAsNewPreset(name: name) {
                 case .success:
                     isDismissed = true
@@ -97,7 +97,7 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
 private extension PresetNameDialogMode {
     var validationMode: ValidationMode {
         switch self {
-        case .create: return .saveAs
+        case .saveAs: return .saveAs
         case .rename(let currentName): return .rename(currentName: currentName)
         }
     }

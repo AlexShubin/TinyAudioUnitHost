@@ -23,7 +23,7 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func makeEventStream() -> AsyncStream<SessionEvent>
 
     func start() async
-    func requestNewPreset() async
+    func requestSaveAs() async
     func loadComponent(_ component: AudioUnitComponent) async
     func selectPreset(name: String) async
     func saveCurrentPreset()
@@ -58,7 +58,7 @@ enum HostContent: Sendable, Equatable {
 enum SessionEvent: Sendable, Equatable {
     case saved
     case restored
-    case requestNewPresetDialog
+    case requestSaveAsDialog
     case requestProUpgrade
 }
 
@@ -129,10 +129,10 @@ final class SessionManager: SessionManagerType {
         await setupChecker.refresh()
     }
 
-    func requestNewPreset() async {
+    func requestSaveAs() async {
         isPro = await purchasesService.isPro
         if isPro || allPresets.count < 2 {
-            emit(.requestNewPresetDialog)
+            emit(.requestSaveAsDialog)
         } else {
             emit(.requestProUpgrade)
         }

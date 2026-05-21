@@ -26,18 +26,18 @@ private struct SavePresetMenu: View {
             Task { await viewModel.accept(action: .save) }
         }
         .keyboardShortcut("s", modifiers: .command)
-        .disabled(!viewModel.canSave)
+        .disabled(viewModel.isSaveButtonDisabled)
 
         Button("Save Preset As…") {
-            Task { await viewModel.accept(action: .create) }
+            Task { await viewModel.accept(action: .saveAs) }
         }
         .keyboardShortcut("s", modifiers: [.command, .shift])
-        .disabled(!viewModel.canCreate)
+        .disabled(viewModel.isSaveAsButtonDisabled)
 
         Button("Restore Preset") {
             Task { await viewModel.accept(action: .restore) }
         }
         .keyboardShortcut("r", modifiers: .command)
-        .disabled(!viewModel.canRestore)
+        .disabled(viewModel.isRestoreButtonDisabled)
     }
 }
