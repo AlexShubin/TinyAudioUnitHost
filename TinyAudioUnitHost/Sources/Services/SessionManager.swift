@@ -68,7 +68,6 @@ final class SessionManager: SessionManagerType {
     private(set) var activeName: String?
     private var allPresets: [Preset] = []
     private var isPro: Bool = false
-    private var unmet: Set<SetupRequirement>?
 
     @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
 
@@ -139,13 +138,11 @@ final class SessionManager: SessionManagerType {
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
-        guard isReady else { return }
         content = .loading
         await load(component: component, state: nil)
     }
 
     func selectPreset(name: String) async {
-        guard isReady else { return }
         presetProvider.setActive(name)
         activeName = name
         if let preset = presetProvider.load(name: name) {
@@ -209,18 +206,16 @@ final class SessionManager: SessionManagerType {
         activeName = presetProvider.activeName
     }
 
-    private var isReady: Bool { unmet?.isEmpty == true }
-
     private func applyUnmet(_ next: Set<SetupRequirement>) async {
-        let previous = unmet
-        unmet = next
         if !next.isEmpty {
             content = .unmet(next)
             return
         }
-        // next is empty — first time we see "good setup", or transition from unmet.
-        if previous != next {
+        switch content {
+        case .loading, .unmet:
             await loadActivePreset()
+        case .empty, .loaded, .failed:
+            break
         }
     }
 
