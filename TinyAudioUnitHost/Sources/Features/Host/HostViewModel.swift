@@ -100,9 +100,9 @@ final class HostViewModel: HostViewModelType {
             guard isReady else { return }
             await session.loadComponent(component)
         case .saveCurrentPreset:
-            _ = session.saveCurrentPreset()
+            session.saveCurrentPreset()
         case .restorePreset:
-            _ = await session.restoreActivePreset()
+            await session.restoreActivePreset()
         case .feedbackToastAction(.timedOut):
             feedback = nil
         }

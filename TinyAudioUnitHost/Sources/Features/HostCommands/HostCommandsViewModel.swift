@@ -38,9 +38,9 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
     func accept(action: HostCommandsAction) async {
         switch action {
         case .save:
-            _ = session.saveCurrentPreset()
+            session.saveCurrentPreset()
         case .restore:
-            _ = await session.restoreActivePreset()
+            await session.restoreActivePreset()
         case .create:
             await session.requestNewPreset()
         }

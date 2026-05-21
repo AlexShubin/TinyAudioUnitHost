@@ -26,8 +26,8 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func requestNewPreset() async
     func loadComponent(_ component: AudioUnitComponent) async
     func selectPreset(name: String) async
-    func saveCurrentPreset() -> Bool
-    func restoreActivePreset() async -> Bool
+    func saveCurrentPreset()
+    func restoreActivePreset() async
     func saveAsNewPreset(name: String) -> Result<Preset, PresetNameError>
     func renamePreset(from: String, to: String) -> Result<Void, PresetNameError>
     func deletePreset(name: String)
@@ -140,27 +140,24 @@ final class SessionManager: SessionManagerType {
         }
     }
 
-    func saveCurrentPreset() -> Bool {
+    func saveCurrentPreset() {
         guard case .loaded(let loaded) = content,
               let activeName,
-              let state = loaded.audioUnit.fullState else { return false }
+              let state = loaded.audioUnit.fullState else { return }
         let preset = Preset(name: activeName, component: loaded.component, state: state)
         presetProvider.save(preset)
         allPresets = presetProvider.presets
         emit(.saved)
-        return true
     }
 
-    func restoreActivePreset() async -> Bool {
+    func restoreActivePreset() async {
         guard let activeName,
-              let saved = presetProvider.load(name: activeName) else { return false }
+              let saved = presetProvider.load(name: activeName) else { return }
         content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
             emit(.restored)
-            return true
         }
-        return false
     }
 
     func saveAsNewPreset(name: String) -> Result<Preset, PresetNameError> {
