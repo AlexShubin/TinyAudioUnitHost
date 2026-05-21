@@ -16,24 +16,20 @@ public protocol PresetProviderType: Sendable {
     func setActive(_ name: String?)
     func load(name: String) -> Preset?
     func save(_ preset: Preset)
-    func saveAs(_ preset: Preset) -> Result<Preset, PresetNameError>
-    func rename(from: String, to: String) -> Result<Void, PresetNameError>
+    func rename(from: String, to: String)
     func delete(name: String)
 }
 
 struct PresetProvider: PresetProviderType {
     private let rawStore: RawPresetStoreType
     private let library: AudioUnitComponentsLibraryType
-    private let validator: PresetNameValidatorType
 
     init(
         rawStore: RawPresetStoreType,
-        library: AudioUnitComponentsLibraryType,
-        validator: PresetNameValidatorType
+        library: AudioUnitComponentsLibraryType
     ) {
         self.rawStore = rawStore
         self.library = library
-        self.validator = validator
     }
 
     var presets: [Preset] {
@@ -62,24 +58,12 @@ struct PresetProvider: PresetProviderType {
         rawStore.save(rawPreset(from: preset), name: preset.name)
     }
 
-    func saveAs(_ preset: Preset) -> Result<Preset, PresetNameError> {
-        if let error = validator.validate(name: preset.name, for: .saveAs) {
-            return .failure(error)
-        }
-        rawStore.save(rawPreset(from: preset), name: preset.name)
-        return .success(preset)
-    }
-
-    func rename(from oldName: String, to newName: String) -> Result<Void, PresetNameError> {
-        if let error = validator.validate(name: newName, for: .rename(currentName: oldName)) {
-            return .failure(error)
-        }
+    func rename(from oldName: String, to newName: String) {
         let activeWasOld = rawStore.activePreset?.name == oldName
         rawStore.rename(from: oldName, to: newName)
         if activeWasOld {
             rawStore.saveActivePreset(RawActivePresetState(name: newName))
         }
-        return .success(())
     }
 
     func delete(name: String) {

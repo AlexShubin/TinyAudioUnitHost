@@ -19,25 +19,50 @@ struct Dependencies: Sendable {
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
+    let session: SessionManagerType
 
     static let live: Dependencies = {
-        Dependencies(
-            audioSettings: .live,
+        let audioSettings = AudioSettingsKit.Dependencies.live
+        let engine = EngineKit.Dependencies.live
+        let presets = PresetKit.Dependencies.live
+        let purchases = PurchasesKit.Dependencies.live
+        return Dependencies(
+            audioSettings: audioSettings,
             audioUnits: .live,
-            engine: .live,
-            presets: .live,
-            purchases: .live
+            engine: engine,
+            presets: presets,
+            purchases: purchases,
+            session: SessionManager(
+                engine: engine.engine,
+                presetProvider: presets.presetProvider,
+                purchasesService: purchases.purchasesService,
+                setupChecker: audioSettings.setupChecker
+            )
         )
     }()
 
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             library: audioUnits.audioUnitComponentsLibrary,
-            engine: engine.engine,
-            presetProvider: presets.presetProvider,
-            setupChecker: audioSettings.setupChecker,
-            presetNameValidator: presets.presetNameValidator,
-            purchasesService: purchases.purchasesService
+            session: session
+        )
+    }
+
+    @MainActor func makePresetsViewModel() -> PresetsViewModelType {
+        PresetsViewModel(session: session)
+    }
+
+    @MainActor func makeHostCommandsViewModel() -> HostCommandsViewModelType {
+        HostCommandsViewModel(session: session)
+    }
+
+    @MainActor func makePresetNameDialogViewModel(
+        mode: PresetNameDialogMode
+    ) -> PresetNameDialogViewModelType {
+        PresetNameDialogViewModel(
+            mode: mode,
+            session: session,
+            validator: presets.presetNameValidator
         )
     }
 

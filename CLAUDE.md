@@ -46,9 +46,21 @@
   ```
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
+- **Use typed throws.** Every throwing function declares its concrete error type — `throws(SomeError)` — not bare `throws`. This applies to protocol requirements, public APIs, and internal helpers. Bare `throws` is only OK when the function is a thin wrapper that intentionally accepts `any Error` (e.g., a `logging` helper that catches and logs). If you have to translate an upstream untyped throw into a domain error, do it where the upstream is called (`do { try foreign() } catch { throw DomainError.specific }`) so the function's signature stays typed. Mocks must match the protocol's typed throws — `throws(DomainError)`, not bare `throws`.
+- **Never use `Task` static methods (`Task.yield()`, `Task.sleep(...)`, `Task.detached`) to "give the scheduler a chance to run" or "wait for async work to settle".** They're non-deterministic and brittle. Two real patterns instead:
+  1. **`withObservationTracking` to wait on a state change** — for `@Observable` consumers (tests, glue code) that need to observe a downstream mutation. Wrap the predicate read in `withObservationTracking { _ = predicate() } onChange: { continuation.resume() }` inside a `withCheckedContinuation`. Loop while the predicate is false — the tracker is single-shot, so register-await-recheck. This is the only pattern tests should use for waiting on session/VM state.
+  2. **Return spawned `Task`s as `@discardableResult Task<...>`** from the method that creates them. Callers — typically tests — can `await` the task instead of guessing how long it needs to finish.
+
+  If neither fits, stop and ask — don't reach for `Task.yield()` as a workaround.
 - Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
 - Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper, write a `private extension` on the input type in the consumer's own file so the call site reads `value.derived` rather than `derived(value)` — e.g. prefer `private extension EngineLoadError { var message: String { … } }` (used as `error.message`) over a `private func message(for: EngineLoadError) -> String` helper on the consumer. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
-- In `<Type>.swift`, the declaration matching the filename comes first; supporting types (enums it uses, value types it consumes, helper extensions) follow afterwards. Exception: when a sibling `*Type` protocol exists for the main type (e.g. `FooType` declared next to `Foo` in the same file), that protocol comes first — consumers depend on the protocol, so it's the more important surface.
+- In `<Type>.swift`, declarations appear in this order:
+  1. The sibling `*Type` protocol if one exists — consumers depend on its surface, so it's the most important thing to see first.
+  2. Helper types the implementation uses or returns (action enums, mode enums, small value types declared in this file).
+  3. The main implementation type (the class/struct named after the file).
+  4. `private extension`s at the bottom — file-local plumbing on imported types, used only by the implementation above.
+
+  When the file has no protocol, the main type leads.
 
 ## Naming Conventions
 
@@ -65,11 +77,11 @@
 
 ## View state and actions
 
-Every view — top-level feature view or subview — gets a dedicated state struct (`<View>ViewState`) and action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view are nested inside the state struct (e.g. `<View>ViewState.Phase`).
+Every view gets a dedicated action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view live alongside the VM in the same file.
 
 ### Top-level feature views (own a VM)
 
-The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes exactly two things: `var state: <View>ViewState { get }` and `func accept(action: <View>Action) async`. The view reads `viewModel.state.foo` and dispatches `viewModel.accept(action: .bar)`.
+The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes its observable state as individual `@Observable` properties and dispatches via `func accept(action: <View>Action) async`. The view reads `viewModel.foo` directly and dispatches `viewModel.accept(action: .bar)`.
 
 ```swift
 // PurchasesView.swift
@@ -77,17 +89,19 @@ struct PurchasesView: View {
     @State var viewModel: PurchasesViewModelType
 
     var body: some View {
-        Text(viewModel.state.headline)
+        Text(viewModel.headline)
         Button("Buy") { Task { await viewModel.accept(action: .buyTapped) } }
     }
 }
 
-struct PurchasesViewState: Sendable, Equatable {
-    var isPro: Bool
-    var phase: Phase
-
-    enum Phase: Sendable, Equatable { case idle, purchasing, restoring }
+@MainActor
+protocol PurchasesViewModelType: AnyObject, Observable {
+    var headline: String { get }
+    var phase: PurchasesPhase { get }
+    func accept(action: PurchasesViewAction) async
 }
+
+enum PurchasesPhase: Sendable, Equatable { case idle, purchasing, restoring }
 
 enum PurchasesViewAction: Sendable, Equatable {
     case task
@@ -95,7 +109,9 @@ enum PurchasesViewAction: Sendable, Equatable {
 }
 ```
 
-The VM stores one `state` property and mutates its fields. SwiftUI tracks the property via `@Observable` and re-renders on each mutation.
+`@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap the whole VM state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
+
+**Keep view-side logic out of the body.** Derived display values and enable/disable conditions belong on the VM as named, testable properties — never inline in the view. If a view body needs `viewModel.activeName == nil || !viewModel.content.isOperable`, the VM should expose `var isRestoreButtonDisabled: Bool`. If it needs `if case .loaded(let loaded) = viewModel.content { return loaded.component.name }`, the VM should expose `var audioUnitTitle: String`. The view does presentation (layout, styling, dispatching actions); the VM does the deriving. Anything more interesting than a single property read or simple optional unwrap should move.
 
 ### Subviews (no VM)
 
@@ -253,6 +269,16 @@ struct FooTests {
 - Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
 - For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
 - Read the test's name to identify which mock(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary mocks with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental mocks, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those mocks, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-mock orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named mock.
+- **Order of declarations inside a `@Suite`:**
+  1. Mock / sut fields (`var someMock: SomeMock!`, `var sut: FooType!`).
+  2. `init()`.
+  3. `deinit` (if any).
+  4. `createSut()`.
+  5. All `@Test` methods, grouped by `// MARK: -` sections.
+  6. Private helpers (`awaitChange`, fixture builders, etc.).
+  7. Private extensions on test-imported types, if any.
+
+  Tests stay near the top so the file reads as "what this suite verifies." Helpers live below — they're scaffolding, not subject matter.
 
 ## Testing through DI seams
 

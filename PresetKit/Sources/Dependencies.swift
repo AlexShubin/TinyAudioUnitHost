@@ -15,14 +15,12 @@ public struct Dependencies: Sendable {
 
     public static let live: Dependencies = {
         let rawStore = StorageKit.Dependencies.live.rawPresetStore
-        let validator = PresetNameValidator(rawStore: rawStore)
         return Dependencies(
             presetProvider: PresetProvider(
                 rawStore: rawStore,
-                library: AudioUnitsKit.Dependencies.live.audioUnitComponentsLibrary,
-                validator: validator
+                library: AudioUnitsKit.Dependencies.live.audioUnitComponentsLibrary
             ),
-            presetNameValidator: validator
+            presetNameValidator: PresetNameValidator(rawStore: rawStore)
         )
     }()
 }

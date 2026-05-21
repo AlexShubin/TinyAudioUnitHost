@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import PurchasesKit
 import SwiftUI
 
 struct PurchasesView: View {
@@ -29,13 +28,13 @@ struct PurchasesView: View {
                     .multilineTextAlignment(.center)
             }
 
-            if viewModel.state.isPro {
+            if viewModel.isPro {
                 proSection
             } else {
                 buySection
             }
 
-            if let errorMessage = viewModel.state.errorMessage {
+            if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -59,15 +58,15 @@ struct PurchasesView: View {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.state.phase == .restoring)
+            .disabled(viewModel.isRestoreButtonDisabled)
         }
     }
 
     @ViewBuilder
     private var buySection: some View {
         VStack(spacing: 12) {
-            if let price = viewModel.state.productInfo?.displayPrice {
-                Text(price)
+            if let priceLabel = viewModel.priceLabel {
+                Text(priceLabel)
                     .font(.title2)
                     .fontWeight(.semibold)
             }
@@ -75,7 +74,7 @@ struct PurchasesView: View {
             Button {
                 Task { await viewModel.accept(action: .buyTapped) }
             } label: {
-                if viewModel.state.phase == .purchasing {
+                if viewModel.isPurchasing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -85,32 +84,13 @@ struct PurchasesView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.state.phase != .idle)
+            .disabled(viewModel.isUpgradeButtonDisabled)
 
             Button("Restore Purchase") {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.state.phase == .restoring)
+            .disabled(viewModel.isRestoreButtonDisabled)
         }
     }
-}
-
-struct PurchasesViewState: Sendable, Equatable {
-    var isPro: Bool
-    var productInfo: ProProductInfo?
-    var phase: Phase
-    var errorMessage: String?
-
-    enum Phase: Sendable, Equatable {
-        case idle
-        case purchasing
-        case restoring
-    }
-}
-
-enum PurchasesViewAction: Sendable, Equatable {
-    case task
-    case buyTapped
-    case restoreTapped
 }

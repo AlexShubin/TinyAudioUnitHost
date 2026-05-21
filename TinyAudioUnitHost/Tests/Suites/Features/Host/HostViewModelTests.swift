@@ -6,17 +6,12 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
-import AudioSettingsKitTestSupport
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
-import EngineKit
-import EngineKitTestSupport
 import Foundation
+import Observation
 import PresetKit
 import PresetKitTestSupport
-import PurchasesKit
-import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -24,48 +19,22 @@ import Testing
 @Suite
 struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
-    var engineMock: EngineMock!
-    var presetProviderMock: PresetProviderMock!
-    var presetNameValidatorMock: PresetNameValidatorMock!
-    var setupCheckerMock: SetupCheckerMock!
-    var purchasesServiceMock: PurchasesServiceMock!
+    var sessionMock: SessionManagerMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
-        engineMock = EngineMock()
-        presetProviderMock = PresetProviderMock()
-        presetNameValidatorMock = PresetNameValidatorMock()
-        setupCheckerMock = SetupCheckerMock()
-        purchasesServiceMock = PurchasesServiceMock()
+        sessionMock = SessionManagerMock()
     }
 
     mutating func createSut() {
-        sut = HostViewModel(
-            library: libraryMock,
-            engine: engineMock,
-            presetProvider: presetProviderMock,
-            setupChecker: setupCheckerMock,
-            presetNameValidator: presetNameValidatorMock,
-            purchasesService: purchasesServiceMock
-        )
-    }
-
-    private func awaitUnmetChange(_ trigger: @MainActor @escaping () async -> Void) async {
-        await withCheckedContinuation { continuation in
-            withObservationTracking {
-                _ = sut.unmetRequirements
-            } onChange: {
-                continuation.resume()
-            }
-            Task { @MainActor in await trigger() }
-        }
+        sut = HostViewModel(library: libraryMock, session: sessionMock)
     }
 
     // MARK: - task
 
     @Test
-    mutating func task_groupsLibraryComponentsByManufacturerAlphabetically() async {
+    mutating func task_groupsLibraryComponentsAlphabetically() async {
         libraryMock.components = [
             .fake(name: "Reverb", manufacturer: "Zoom"),
             .fake(name: "Dynamics", manufacturer: "Apple"),
@@ -79,751 +48,224 @@ struct HostViewModelTests {
     }
 
     @Test
-    mutating func task_emptyLibrary_emptyGroups() async {
+    mutating func task_startsSession() async {
         createSut()
 
         await sut.accept(action: .task)
 
-        #expect(sut.groups == [])
+        #expect(sessionMock.calls == [.start])
     }
 
-    @Test
-    mutating func task_noActiveAndNoPresets_setsContentEmpty() async {
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.content == .empty)
-        #expect(sut.activeName == nil)
-        #expect(await engineMock.calls == [])
-    }
+    // MARK: - selected / save / restore (forwarding)
 
     @Test
-    mutating func task_storedActiveValid_loadsIntoEngine() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        presetProviderMock = PresetProviderMock(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data([0x01]))],
-            activeName: "foo"
-        )
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.activeName == "foo")
-        #expect(sut.content == .loaded(loaded))
-        #expect(await engineMock.calls == [.load(component, Data([0x01]))])
-    }
-
-    @Test
-    mutating func task_storedActiveStale_clearsActiveAndShowsEmpty() async {
-        presetProviderMock.currentActiveName = "ghost"
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.activeName == nil)
-        #expect(sut.content == .empty)
-        #expect(presetProviderMock.currentActiveName == nil)
-        #expect(presetProviderMock.calls.contains(.setActive(nil)))
-    }
-
-    @Test
-    mutating func task_presetsExistButNoActive_staysInNotSelected() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())]
-        )
-        createSut()
-
-        await sut.accept(action: .task)
-
-        #expect(sut.activeName == nil)
-        #expect(sut.content == .empty)
-        #expect(await engineMock.calls == [])
-    }
-
-    @Test
-    mutating func task_calledTwice_doesNotReloadActivePreset() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        presetProviderMock = PresetProviderMock(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
-            activeName: "foo"
-        )
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-
-        await sut.accept(action: .task)
-        await sut.accept(action: .task)
-
-        #expect(await engineMock.calls == [.load(component, Data())])
-    }
-
-    // MARK: - selected
-
-    @Test
-    mutating func selected_setsSelectedComponentImmediately() async {
+    mutating func selected_forwardsToSessionLoadComponent() async {
         let component = AudioUnitComponent.fake(name: "Dynamics")
         createSut()
 
         await sut.accept(action: .selected(component))
 
-        #expect(sut.selectedComponent == component)
+        #expect(sessionMock.calls == [.loadComponent(component)])
     }
 
     @Test
-    mutating func selected_engineLoadSucceeds_setsContentToLoaded() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        let loaded = LoadedAudioUnit.fake(component: component)
-        engineMock = EngineMock(loadResult: .success(loaded))
+    mutating func saveCurrentPreset_forwardsToSession() async {
         createSut()
-
-        await sut.accept(action: .selected(component))
-
-        #expect(sut.content == .loaded(loaded))
-    }
-
-    @Test
-    mutating func selected_engineLoadFails_setsContentToFailed() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        // engineMock defaults to .failure(.audioUnitInstantiationFailed)
-        createSut()
-
-        await sut.accept(action: .selected(component))
-
-        #expect(sut.content == .failed("Couldn't load this audio unit."))
-    }
-
-    @Test
-    mutating func selected_engineDeviceUnavailable_setsFailedWithDeviceMessage() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        engineMock = EngineMock(loadResult: .failure(.deviceUnavailable))
-        createSut()
-
-        await sut.accept(action: .selected(component))
-
-        #expect(sut.content == .failed("Audio device is unavailable. Check Settings."))
-    }
-
-    @Test
-    mutating func selected_callsEngineLoadWithComponent() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        createSut()
-
-        await sut.accept(action: .selected(component))
-
-        #expect(await engineMock.calls == [.load(component, nil)])
-    }
-
-    @Test
-    mutating func selected_notReady_doesNotLoadEngine() async {
-        createSut()
-        let sut = sut!
-        let mock = setupCheckerMock!
-
-        await awaitUnmetChange { await mock.emit([.microphonePermission]) }
-        #expect(!sut.isReady)
-
-        await sut.accept(action: .selected(.fake()))
-
-        #expect(await engineMock.calls == [])
-    }
-
-    @Test
-    mutating func selected_withActiveName_doesNotWriteBack() async {
-        let original = Preset.fake(name: "active", state: Data([0x01]))
-        let differentComponent = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: differentComponent, audioUnit: auMock)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        presetProviderMock = PresetProviderMock(
-            presets: ["active": original],
-            activeName: "active"
-        )
-        createSut()
-        await sut.accept(action: .task)
-
-        await sut.accept(action: .selected(differentComponent))
-
-        // Picking an AU only loads it into the engine; the active preset's file
-        // stays untouched until the user explicitly saves.
-        #expect(presetProviderMock.storedPresets["active"] == original)
-    }
-
-    @Test
-    mutating func selected_withoutActiveName_doesNotWriteBack() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-
-        await sut.accept(action: .selected(component))
-
-        #expect(presetProviderMock.storedPresets.isEmpty)
-    }
-
-    // MARK: - groupExpansionChanged
-
-    @Test
-    mutating func groupExpansionChanged_togglesGroupExpansion() async {
-        libraryMock.components = [
-            .fake(manufacturer: "Apple"),
-            .fake(manufacturer: "Zoom"),
-        ]
-        createSut()
-        await sut.accept(action: .task)
-
-        await sut.accept(action: .groupExpansionChanged(manufacturer: "Apple", isExpanded: true))
-
-        let appleGroup = sut.groups.first { $0.manufacturer == "Apple" }
-        let zoomGroup = sut.groups.first { $0.manufacturer == "Zoom" }
-        #expect(appleGroup?.isExpanded == true)
-        #expect(zoomGroup?.isExpanded == false)
-    }
-
-    @Test
-    mutating func groupExpansionChanged_canCollapseAfterExpanding() async {
-        libraryMock.components = [.fake(manufacturer: "Apple")]
-        createSut()
-        await sut.accept(action: .task)
-        await sut.accept(action: .groupExpansionChanged(manufacturer: "Apple", isExpanded: true))
-
-        await sut.accept(action: .groupExpansionChanged(manufacturer: "Apple", isExpanded: false))
-
-        #expect(sut.groups.first?.isExpanded == false)
-    }
-
-    @Test
-    mutating func groupExpansionChanged_unknownManufacturer_noOp() async {
-        libraryMock.components = [.fake(manufacturer: "Apple")]
-        createSut()
-        await sut.accept(action: .task)
-        let groupsBefore = sut.groups
-
-        await sut.accept(action: .groupExpansionChanged(manufacturer: "Unknown", isExpanded: true))
-
-        #expect(sut.groups == groupsBefore)
-    }
-
-    // MARK: - saveCurrentPreset
-
-    @Test
-    mutating func saveCurrentPreset_loadedAndActive_writesAndSetsFeedback() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        presetProviderMock = PresetProviderMock(
-            presets: ["active": Preset(name: "active", component: component, state: Data())],
-            activeName: "active"
-        )
-        createSut()
-        await sut.accept(action: .task)
 
         await sut.accept(action: .saveCurrentPreset)
 
-        let expected = Preset(name: "active", component: component, state: Data([0xBE, 0xEF]))
-        #expect(presetProviderMock.storedPresets["active"] == expected)
+        #expect(sessionMock.calls == [.saveCurrentPreset])
+    }
+
+    @Test
+    mutating func restorePreset_forwardsToSession() async {
+        createSut()
+
+        await sut.accept(action: .restorePreset)
+
+        #expect(sessionMock.calls == [.restoreActivePreset])
+    }
+
+    // MARK: - feedback from session events
+
+    @Test
+    mutating func savedEvent_setsFeedbackToSaved() async {
+        createSut()
+        let sut = sut!
+
+        sessionMock.emit(.saved)
+        await awaitChange { sut.feedback?.kind == .saved }
+
         #expect(sut.feedback?.kind == .saved)
     }
 
     @Test
-    mutating func saveCurrentPreset_emptyContent_doesNothing() async {
-        presetProviderMock = PresetProviderMock(activeName: "active")
+    mutating func restoredEvent_setsFeedbackToRestored() async {
         createSut()
+        let sut = sut!
 
-        await sut.accept(action: .saveCurrentPreset)
+        sessionMock.emit(.restored)
+        await awaitChange { sut.feedback?.kind == .restored }
 
-        #expect(presetProviderMock.storedPresets.isEmpty)
-        #expect(sut.feedback == nil)
-    }
-
-    @Test
-    mutating func saveCurrentPreset_loadedButNoActive_doesNothing() async {
-        let component = AudioUnitComponent.fake()
-        let loaded = LoadedAudioUnit.fake(component: component)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-        await sut.accept(action: .selected(component))
-
-        await sut.accept(action: .saveCurrentPreset)
-
-        #expect(presetProviderMock.storedPresets.isEmpty)
-        #expect(sut.feedback == nil)
-    }
-
-    // MARK: - restorePreset
-
-    @Test
-    mutating func restorePreset_activeAndLoadable_reloadsAndShowsFeedback() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        presetProviderMock = PresetProviderMock(
-            presets: ["saved": Preset(name: "saved", component: component, state: Data([0x01]))],
-            activeName: "saved"
-        )
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-        await sut.accept(action: .task)
-        #expect(sut.activeName == "saved")
-
-        await sut.accept(action: .restorePreset)
-
-        #expect(sut.content == .loaded(loaded))
         #expect(sut.feedback?.kind == .restored)
     }
 
     @Test
-    mutating func restorePreset_noActive_isNoOp() async {
-        createSut()
-
-        await sut.accept(action: .restorePreset)
-
-        #expect(await engineMock.calls == [])
-        #expect(sut.feedback == nil)
-    }
-
-    @Test
-    mutating func restorePreset_engineFails_doesNotSetFeedback() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["saved": Preset(name: "saved", component: component, state: Data())],
-            activeName: "saved"
-        )
-        // engineMock defaults to .failure
-        createSut()
-        await sut.accept(action: .task)
-        // After task, content is .failed (engine load failed).
-        // Restore should attempt load again and fail.
-
-        await sut.accept(action: .restorePreset)
-
-        #expect(sut.feedback == nil)
-    }
-
-    // MARK: - selectedPreset
-
-    @Test
-    mutating func selectedPreset_setsActiveAndCallsSetActive() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        presetProviderMock = PresetProviderMock(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())]
-        )
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-
-        await sut.accept(action: .presetSelected(name: "foo"))
-
-        #expect(sut.activeName == "foo")
-        #expect(presetProviderMock.currentActiveName == "foo")
-    }
-
-    @Test
-    mutating func selectedPreset_validName_loadsPresetIntoEngine() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        presetProviderMock = PresetProviderMock(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data([0x07]))]
-        )
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-
-        await sut.accept(action: .presetSelected(name: "foo"))
-
-        #expect(sut.content == .loaded(loaded))
-        #expect(await engineMock.calls == [.load(component, Data([0x07]))])
-    }
-
-    @Test
-    mutating func selectedPreset_missingPreset_setsContentToEmpty() async {
-        createSut()
-
-        await sut.accept(action: .presetSelected(name: "ghost"))
-
-        #expect(sut.content == .empty)
-        #expect(sut.selectedComponent == nil)
-        #expect(await engineMock.calls == [])
-    }
-
-    @Test
-    mutating func selectedPreset_notReady_doesNotLoadEngine() async {
+    mutating func requestSaveAsDialogEvent_isIgnored() async {
         createSut()
         let sut = sut!
-        let mock = setupCheckerMock!
-        await awaitUnmetChange { await mock.emit([.microphonePermission]) }
 
-        await sut.accept(action: .presetSelected(name: "foo"))
+        sessionMock.emit(.requestSaveAsDialog)
+        // Give a chance: trigger a known event after the ignored one and await it.
+        sessionMock.emit(.saved)
+        await awaitChange { sut.feedback?.kind == .saved }
 
-        #expect(await engineMock.calls == [])
-    }
-
-    // MARK: - newPresetTapped
-
-    @Test
-    mutating func newPresetTapped_opensEmptyDialog() async {
-        createSut()
-
-        await sut.accept(action: .newPresetTapped)
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(name: "", error: nil, mode: .create))
-    }
-
-    // MARK: - presetNameDialogAction
-
-    @Test
-    mutating func nameChanged_dialogClosed_isNoOp() async {
-        createSut()
-
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("foo")))
-
-        #expect(sut.presetNameDialog == nil)
-    }
-
-    @Test
-    mutating func nameChanged_validName_updatesNameAndClearsError() async {
-        createSut()
-        await sut.accept(action: .newPresetTapped)
-
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("MyPreset")))
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(name: "MyPreset", error: nil, mode: .create))
-    }
-
-    @Test
-    mutating func nameChanged_invalidName_setsError() async {
-        presetNameValidatorMock.result = .duplicate
-        createSut()
-        await sut.accept(action: .newPresetTapped)
-
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("dupe")))
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(name: "dupe", error: .duplicate, mode: .create))
-    }
-
-    @Test
-    mutating func nameChanged_callsValidatorWithSaveAsMode() async {
-        createSut()
-        await sut.accept(action: .newPresetTapped)
-
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("anything")))
-
-        #expect(presetNameValidatorMock.calls == [.validate(name: "anything", mode: .saveAs)])
-    }
-
-    @Test
-    mutating func cancel_closesDialog() async {
-        createSut()
-        await sut.accept(action: .newPresetTapped)
-
-        await sut.accept(action: .presetNameDialogAction(.cancel))
-
-        #expect(sut.presetNameDialog == nil)
-    }
-
-    @Test
-    mutating func commit_dialogClosed_isNoOp() async {
-        createSut()
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(presetProviderMock.calls.isEmpty)
-    }
-
-    @Test
-    mutating func commit_emptyContent_isNoOp() async {
-        createSut()
-        await sut.accept(action: .newPresetTapped)
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("foo")))
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(presetProviderMock.storedPresets.isEmpty)
-    }
-
-    @Test
-    mutating func commit_success_setsActiveDismissesAndShowsFeedback() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        createSut()
-        await sut.accept(action: .selected(component))
-        await sut.accept(action: .newPresetTapped)
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("MyNew")))
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(sut.activeName == "MyNew")
-        #expect(sut.presetNameDialog == nil)
         #expect(sut.feedback?.kind == .saved)
-        #expect(presetProviderMock.currentActiveName == "MyNew")
     }
 
     @Test
-    mutating func commit_failure_keepsDialogOpenWithError() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data())
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        presetProviderMock.saveAsResult = .failure(.duplicate)
+    mutating func feedbackToastTimedOut_clearsFeedback() async {
         createSut()
-        await sut.accept(action: .selected(component))
-        await sut.accept(action: .newPresetTapped)
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("dupe")))
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(name: "dupe", error: .duplicate, mode: .create))
-        #expect(sut.activeName == nil)
-        #expect(sut.feedback == nil)
-    }
-
-    // MARK: - presetRenameTapped + rename commit
-
-    @Test
-    mutating func presetRenameTapped_opensDialogPrefilledInRenameMode() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["old": Preset(name: "old", component: component, state: Data())]
-        )
-        createSut()
-
-        await sut.accept(action: .presetRenameTapped(name: "old"))
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(
-            name: "old",
-            error: nil,
-            mode: .rename(currentName: "old")
-        ))
-    }
-
-    @Test
-    mutating func nameChanged_renameMode_callsValidatorWithRenameContext() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["old": Preset(name: "old", component: component, state: Data())]
-        )
-        createSut()
-        await sut.accept(action: .presetRenameTapped(name: "old"))
-
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("new")))
-
-        #expect(presetNameValidatorMock.calls == [
-            .validate(name: "new", mode: .rename(currentName: "old")),
-        ])
-    }
-
-    @Test
-    mutating func commit_renameMode_success_refreshesPresetsAndActiveAndClosesDialog() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["old": Preset(name: "old", component: component, state: Data())],
-            activeName: "old"
-        )
-        createSut()
-        await sut.accept(action: .presetRenameTapped(name: "old"))
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("new")))
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(sut.activeName == "new")
-        #expect(sut.presets.contains { $0.name == "new" })
-        #expect(sut.presetNameDialog == nil)
-        #expect(presetProviderMock.calls.contains(.rename(from: "old", to: "new")))
-    }
-
-    @Test
-    mutating func commit_renameMode_failure_keepsDialogOpenWithError() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["old": Preset(name: "old", component: component, state: Data())]
-        )
-        presetProviderMock.renameResult = .failure(.duplicate)
-        createSut()
-        await sut.accept(action: .presetRenameTapped(name: "old"))
-        await sut.accept(action: .presetNameDialogAction(.nameChanged("dupe")))
-
-        await sut.accept(action: .presetNameDialogAction(.commit))
-
-        #expect(sut.presetNameDialog == PresetNameDialogState(
-            name: "dupe",
-            error: .duplicate,
-            mode: .rename(currentName: "old")
-        ))
-    }
-
-    // MARK: - deletePreset
-
-    @Test
-    mutating func deletePreset_callsProviderAndRefreshes() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["target": Preset(name: "target", component: component, state: Data())]
-        )
-        createSut()
-
-        await sut.accept(action: .presetDeleteTapped(name: "target"))
-
-        #expect(sut.presets.isEmpty)
-        #expect(presetProviderMock.calls.contains(.delete(name: "target")))
-    }
-
-    @Test
-    mutating func deletePreset_activeMatched_activeBecomesNil() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(
-            presets: ["target": Preset(name: "target", component: component, state: Data())],
-            activeName: "target"
-        )
-        createSut()
-
-        await sut.accept(action: .presetDeleteTapped(name: "target"))
-
-        #expect(sut.activeName == nil)
-    }
-
-    // MARK: - feedbackToastAction
-
-    @Test
-    mutating func feedbackToastAction_timedOut_clearsFeedback() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component)
-        engineMock = EngineMock(loadResult: .success(loaded))
-        presetProviderMock = PresetProviderMock(
-            presets: ["active": Preset(name: "active", component: component, state: Data())],
-            activeName: "active"
-        )
-        createSut()
-        await sut.accept(action: .task)
-        await sut.accept(action: .saveCurrentPreset)
-        #expect(sut.feedback != nil)
+        let sut = sut!
+        sessionMock.emit(.saved)
+        await awaitChange { sut.feedback != nil }
 
         await sut.accept(action: .feedbackToastAction(.timedOut))
 
         #expect(sut.feedback == nil)
     }
 
-    // MARK: - setup gating
+    // MARK: - presetLabel
 
     @Test
-    mutating func setupChecker_yields_updatesUnmetRequirements() async {
-        createSut()
-        let sut = sut!
-        let mock = setupCheckerMock!
-
-        await awaitUnmetChange { await mock.emit([.outputDevice]) }
-
-        #expect(sut.unmetRequirements == [.outputDevice])
-        #expect(!sut.isReady)
-    }
-
-    // MARK: - free-tier cap on presets
-
-    @Test
-    mutating func presets_freeUserWithMoreThanTwo_seesOnlyFirstTwo() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-            "beta": Preset(name: "beta", component: component, state: Data()),
-            "gamma": Preset(name: "gamma", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+    mutating func presetLabel_noActive_showsDash() async {
+        sessionMock.setActiveName(nil)
         createSut()
 
-        await sut.accept(action: .task)
-
-        #expect(sut.presets.map(\.name) == ["alpha", "beta"])
+        #expect(sut.presetLabel == "Preset: —")
     }
 
     @Test
-    mutating func presets_proUserWithMoreThanTwo_seesAll() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-            "beta": Preset(name: "beta", component: component, state: Data()),
-            "gamma": Preset(name: "gamma", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+    mutating func presetLabel_withActive_showsName() async {
+        sessionMock.setActiveName("foo")
         createSut()
 
-        await sut.accept(action: .task)
-
-        #expect(sut.presets.map(\.name) == ["alpha", "beta", "gamma"])
+        #expect(sut.presetLabel == "Preset: foo")
     }
 
-    // MARK: - newPresetTapped gate
+    // MARK: - audioUnitTitle
 
     @Test
-    mutating func newPresetTapped_freeUserAtCap_setsOpenProWindowRequest() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-            "beta": Preset(name: "beta", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+    mutating func audioUnitTitle_loaded_returnsComponentName() async {
+        let component = AudioUnitComponent.fake(name: "Reverb")
+        let loaded = LoadedAudioUnit.fake(component: component)
+        sessionMock.setContent(.loaded(loaded))
         createSut()
-        await sut.accept(action: .task)
 
-        await sut.accept(action: .newPresetTapped)
-
-        #expect(sut.openProWindowRequest != nil)
-        #expect(sut.presetNameDialog == nil)
+        #expect(sut.audioUnitTitle == "Reverb")
     }
 
     @Test
-    mutating func newPresetTapped_freeUserBelowCap_opensDialog() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+    mutating func audioUnitTitle_notLoaded_returnsChooseAudioUnit() async {
+        sessionMock.setContent(.empty)
         createSut()
 
-        await sut.accept(action: .newPresetTapped)
+        #expect(sut.audioUnitTitle == "Choose Audio Unit")
+    }
 
-        #expect(sut.presetNameDialog != nil)
-        #expect(sut.openProWindowRequest == nil)
+    // MARK: - button-disabled derivations
+
+    @Test
+    mutating func isAudioUnitPickerDisabled_whenContentIsLoading() async {
+        sessionMock.setContent(.loading)
+        createSut()
+
+        #expect(sut.isAudioUnitPickerDisabled == true)
     }
 
     @Test
-    mutating func newPresetTapped_proUserAboveCap_opensDialog() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-            "beta": Preset(name: "beta", component: component, state: Data()),
-            "gamma": Preset(name: "gamma", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+    mutating func isAudioUnitPickerDisabled_whenContentIsUnmet() async {
+        sessionMock.setContent(.unmet([.microphonePermission]))
         createSut()
 
-        await sut.accept(action: .newPresetTapped)
-
-        #expect(sut.presetNameDialog != nil)
-        #expect(sut.openProWindowRequest == nil)
+        #expect(sut.isAudioUnitPickerDisabled == true)
     }
 
     @Test
-    mutating func newPresetTapped_freeUserAtCap_repeatedTap_changesRequestToken() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        presetProviderMock = PresetProviderMock(presets: [
-            "alpha": Preset(name: "alpha", component: component, state: Data()),
-            "beta": Preset(name: "beta", component: component, state: Data()),
-        ])
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+    mutating func isAudioUnitPickerDisabled_whenContentIsEmpty() async {
+        sessionMock.setContent(.empty)
         createSut()
-        await sut.accept(action: .task)
 
-        await sut.accept(action: .newPresetTapped)
-        let first = sut.openProWindowRequest
-        await sut.accept(action: .newPresetTapped)
-        let second = sut.openProWindowRequest
+        #expect(sut.isAudioUnitPickerDisabled == false)
+    }
 
-        #expect(first != nil)
-        #expect(second != nil)
-        #expect(first != second)
+    @Test
+    mutating func isSaveButtonDisabled_noActive() async {
+        let loaded = LoadedAudioUnit.fake()
+        sessionMock.setContent(.loaded(loaded))
+        sessionMock.setActiveName(nil)
+        createSut()
+
+        #expect(sut.isSaveButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isSaveButtonDisabled_activeButContentNotLoaded() async {
+        sessionMock.setContent(.empty)
+        sessionMock.setActiveName("foo")
+        createSut()
+
+        #expect(sut.isSaveButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isSaveButtonDisabled_activeAndLoaded_enabled() async {
+        let loaded = LoadedAudioUnit.fake()
+        sessionMock.setContent(.loaded(loaded))
+        sessionMock.setActiveName("foo")
+        createSut()
+
+        #expect(sut.isSaveButtonDisabled == false)
+    }
+
+    @Test
+    mutating func isRestoreButtonDisabled_noActive() async {
+        sessionMock.setContent(.empty)
+        sessionMock.setActiveName(nil)
+        createSut()
+
+        #expect(sut.isRestoreButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isRestoreButtonDisabled_activeAndLoading() async {
+        sessionMock.setContent(.loading)
+        sessionMock.setActiveName("foo")
+        createSut()
+
+        #expect(sut.isRestoreButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isRestoreButtonDisabled_activeAndFailed_enabled() async {
+        sessionMock.setContent(.failed("oops"))
+        sessionMock.setActiveName("foo")
+        createSut()
+
+        #expect(sut.isRestoreButtonDisabled == false)
+    }
+
+    // MARK: - Helpers
+
+    private func awaitChange(_ predicate: () -> Bool) async {
+        while !predicate() {
+            await withCheckedContinuation { continuation in
+                withObservationTracking {
+                    _ = predicate()
+                } onChange: {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }
