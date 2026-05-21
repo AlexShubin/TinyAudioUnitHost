@@ -9,18 +9,18 @@
 import Foundation
 import Observation
 
-enum HostCommandsAction: Sendable, Equatable {
-    case save
-    case restore
-    case create
-}
-
 @MainActor
 protocol HostCommandsViewModelType: AnyObject, Observable {
     var canSave: Bool { get }
     var canRestore: Bool { get }
     var canCreate: Bool { get }
     func accept(action: HostCommandsAction) async
+}
+
+enum HostCommandsAction: Sendable, Equatable {
+    case save
+    case restore
+    case create
 }
 
 @MainActor @Observable

@@ -12,14 +12,6 @@ import Foundation
 import Observation
 import PresetKit
 
-enum HostViewModelAction {
-    case task
-    case selected(AudioUnitComponent)
-    case saveCurrentPreset
-    case restorePreset
-    case feedbackToastAction(FeedbackToastAction)
-}
-
 @MainActor
 protocol HostViewModelType: AnyObject, Observable {
     var groups: [ManufacturerGroup] { get }
@@ -30,6 +22,22 @@ protocol HostViewModelType: AnyObject, Observable {
     var isReady: Bool { get }
     var activeName: String? { get }
     func accept(action: HostViewModelAction) async
+}
+
+enum HostViewModelAction {
+    case task
+    case selected(AudioUnitComponent)
+    case saveCurrentPreset
+    case restorePreset
+    case feedbackToastAction(FeedbackToastAction)
+}
+
+struct ManufacturerGroup: Identifiable, Hashable {
+    let manufacturer: String
+    let components: [AudioUnitComponent]
+    var isExpanded: Bool
+
+    var id: String { manufacturer }
 }
 
 @MainActor @Observable
@@ -105,12 +113,4 @@ final class HostViewModel: HostViewModelType {
             .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value, isExpanded: false) }
             .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
     }
-}
-
-struct ManufacturerGroup: Identifiable, Hashable {
-    let manufacturer: String
-    let components: [AudioUnitComponent]
-    var isExpanded: Bool
-
-    var id: String { manufacturer }
 }

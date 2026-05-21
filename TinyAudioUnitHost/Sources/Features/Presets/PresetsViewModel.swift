@@ -10,15 +10,6 @@ import Foundation
 import Observation
 import PresetKit
 
-enum PresetsAction: Sendable, Equatable {
-    case selected(name: String)
-    case renameTapped(name: String)
-    case deleteTapped(name: String)
-    case dismissRenameDialog
-    case createTapped
-    case dismissCreateDialog
-}
-
 @MainActor
 protocol PresetsViewModelType: AnyObject, Observable {
     var presets: [Preset] { get }
@@ -29,6 +20,15 @@ protocol PresetsViewModelType: AnyObject, Observable {
     var isCreateDialogPresented: Bool { get }
     var openProWindowRequest: UUID? { get }
     func accept(action: PresetsAction) async
+}
+
+enum PresetsAction: Sendable, Equatable {
+    case selected(name: String)
+    case renameTapped(name: String)
+    case deleteTapped(name: String)
+    case dismissRenameDialog
+    case createTapped
+    case dismissCreateDialog
 }
 
 @MainActor @Observable

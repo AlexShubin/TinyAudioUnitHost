@@ -13,25 +13,6 @@ import Observation
 import PresetKit
 import PurchasesKit
 
-enum HostContent: Sendable, Equatable {
-    case empty
-    case loading
-    case loaded(LoadedAudioUnit)
-    case failed(String)
-
-    var isLoaded: Bool {
-        if case .loaded = self { return true }
-        return false
-    }
-}
-
-enum SessionEvent: Sendable, Equatable {
-    case saved
-    case restored
-    case requestNewPresetDialog
-    case requestProUpgrade
-}
-
 @MainActor
 protocol SessionManagerType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
@@ -51,6 +32,25 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func saveAsNewPreset(name: String) -> Result<Preset, PresetNameError>
     func renamePreset(from: String, to: String) -> Result<Void, PresetNameError>
     func deletePreset(name: String)
+}
+
+enum HostContent: Sendable, Equatable {
+    case empty
+    case loading
+    case loaded(LoadedAudioUnit)
+    case failed(String)
+
+    var isLoaded: Bool {
+        if case .loaded = self { return true }
+        return false
+    }
+}
+
+enum SessionEvent: Sendable, Equatable {
+    case saved
+    case restored
+    case requestNewPresetDialog
+    case requestProUpgrade
 }
 
 @MainActor @Observable

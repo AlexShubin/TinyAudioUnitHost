@@ -10,6 +10,15 @@ import Foundation
 import Observation
 import PresetKit
 
+@MainActor
+protocol PresetNameDialogViewModelType: AnyObject, Observable {
+    var name: String { get }
+    var error: PresetNameError? { get }
+    var mode: PresetNameDialogMode { get }
+    var isDismissed: Bool { get }
+    func accept(action: PresetNameDialogAction) async
+}
+
 enum PresetNameDialogMode: Sendable, Equatable {
     case create
     case rename(currentName: String)
@@ -19,15 +28,6 @@ enum PresetNameDialogAction: Sendable, Equatable {
     case nameChanged(String)
     case cancel
     case commit
-}
-
-@MainActor
-protocol PresetNameDialogViewModelType: AnyObject, Observable {
-    var name: String { get }
-    var error: PresetNameError? { get }
-    var mode: PresetNameDialogMode { get }
-    var isDismissed: Bool { get }
-    func accept(action: PresetNameDialogAction) async
 }
 
 @MainActor @Observable

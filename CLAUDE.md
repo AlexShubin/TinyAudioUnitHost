@@ -48,7 +48,13 @@
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
 - Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
 - Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper, write a `private extension` on the input type in the consumer's own file so the call site reads `value.derived` rather than `derived(value)` — e.g. prefer `private extension EngineLoadError { var message: String { … } }` (used as `error.message`) over a `private func message(for: EngineLoadError) -> String` helper on the consumer. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
-- In `<Type>.swift`, the declaration matching the filename comes first; supporting types (enums it uses, value types it consumes, helper extensions) follow afterwards. Exception: when a sibling `*Type` protocol exists for the main type (e.g. `FooType` declared next to `Foo` in the same file), that protocol comes first — consumers depend on the protocol, so it's the more important surface.
+- In `<Type>.swift`, declarations appear in this order:
+  1. The sibling `*Type` protocol if one exists — consumers depend on its surface, so it's the most important thing to see first.
+  2. Helper types the implementation uses or returns (action enums, mode enums, small value types declared in this file).
+  3. The main implementation type (the class/struct named after the file).
+  4. `private extension`s at the bottom — file-local plumbing on imported types, used only by the implementation above.
+
+  When the file has no protocol, the main type leads.
 
 ## Naming Conventions
 
