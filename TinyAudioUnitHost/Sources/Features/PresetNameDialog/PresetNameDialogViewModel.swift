@@ -13,8 +13,9 @@ import PresetKit
 @MainActor
 protocol PresetNameDialogViewModelType: AnyObject, Observable {
     var name: String { get }
-    var error: PresetNameError? { get }
-    var mode: PresetNameDialogMode { get }
+    var errorMessage: String? { get }
+    var commitLabel: String { get }
+    var canCommit: Bool { get }
     var isDismissed: Bool { get }
     func accept(action: PresetNameDialogAction) async
 }
@@ -36,6 +37,19 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
     private(set) var name: String
     private(set) var error: PresetNameError?
     private(set) var isDismissed: Bool = false
+
+    var errorMessage: String? { error?.displayMessage }
+
+    var commitLabel: String {
+        switch mode {
+        case .create: return "Create"
+        case .rename: return "Rename"
+        }
+    }
+
+    var canCommit: Bool {
+        error == nil && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     @ObservationIgnored private let session: SessionManagerType
     @ObservationIgnored private let validator: PresetNameValidatorType
@@ -85,6 +99,16 @@ private extension PresetNameDialogMode {
         switch self {
         case .create: return .saveAs
         case .rename(let currentName): return .rename(currentName: currentName)
+        }
+    }
+}
+
+private extension PresetNameError {
+    var displayMessage: String? {
+        switch self {
+        case .empty: return nil
+        case .invalidCharacter: return "Name can't contain /, :, or start with a dot."
+        case .duplicate: return "A preset with that name already exists."
         }
     }
 }

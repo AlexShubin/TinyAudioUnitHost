@@ -39,7 +39,7 @@ final class PresetsViewModel: PresetsViewModelType {
 
     var presets: [Preset] { session.presets }
     var activeName: String? { session.activeName }
-    var isInteractionDisabled: Bool { session.content == .loading }
+    var isInteractionDisabled: Bool { !session.content.isOperable }
     var canCreate: Bool { session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType

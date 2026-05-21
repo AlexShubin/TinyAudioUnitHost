@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
 import EngineKit
 import Foundation
@@ -17,7 +18,6 @@ import PurchasesKit
 protocol SessionManagerType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
     var activeName: String? { get }
-    var selectedComponent: AudioUnitComponent? { get }
     var presets: [Preset] { get }    // already free-tier capped
 
     func makeEventStream() -> AsyncStream<SessionEvent>
@@ -34,6 +34,7 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
 }
 
 enum HostContent: Sendable, Equatable {
+    case unmet(Set<SetupRequirement>)
     case empty
     case loading
     case loaded(LoadedAudioUnit)
@@ -42,6 +43,15 @@ enum HostContent: Sendable, Equatable {
     var isLoaded: Bool {
         if case .loaded = self { return true }
         return false
+    }
+
+    /// True for states the user can act on from the UI. False for transient
+    /// (.loading) and blocked (.unmet) states where input should be disabled.
+    var isOperable: Bool {
+        switch self {
+        case .empty, .loaded, .failed: return true
+        case .loading, .unmet: return false
+        }
     }
 }
 
@@ -56,9 +66,9 @@ enum SessionEvent: Sendable, Equatable {
 final class SessionManager: SessionManagerType {
     private(set) var content: HostContent = .loading
     private(set) var activeName: String?
-    private(set) var selectedComponent: AudioUnitComponent?
     private(set) var allPresets: [Preset] = []
     private var isPro: Bool = false
+    private var unmet: Set<SetupRequirement>?
 
     @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
 
@@ -69,15 +79,23 @@ final class SessionManager: SessionManagerType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let purchasesService: PurchasesServiceType
+    @ObservationIgnored private let setupChecker: SetupCheckerType
+    @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     nonisolated init(
         engine: EngineType,
         presetProvider: PresetProviderType,
-        purchasesService: PurchasesServiceType
+        purchasesService: PurchasesServiceType,
+        setupChecker: SetupCheckerType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
         self.purchasesService = purchasesService
+        self.setupChecker = setupChecker
+    }
+
+    deinit {
+        setupListener?.cancel()
     }
 
     func makeEventStream() -> AsyncStream<SessionEvent> {
@@ -100,17 +118,15 @@ final class SessionManager: SessionManagerType {
 
     func start() async {
         guard case .loading = content else { return }
-        isPro = await purchasesService.isPro
-        allPresets = presetProvider.presets
-        let storedActive = presetProvider.activeName
-        if let storedActive, let preset = presetProvider.load(name: storedActive) {
-            activeName = storedActive
-            await load(component: preset.component, state: preset.state)
-        } else {
-            if storedActive != nil { presetProvider.setActive(nil) }
-            activeName = nil
-            content = .empty
+        if setupListener == nil {
+            setupListener = Task { @MainActor [weak self, setupChecker] in
+                for await next in setupChecker.unmetStream {
+                    guard let self else { break }
+                    await self.applyUnmet(next)
+                }
+            }
         }
+        await setupChecker.refresh()
     }
 
     func requestNewPreset() async {
@@ -123,19 +139,19 @@ final class SessionManager: SessionManagerType {
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
-        selectedComponent = component
+        guard isReady else { return }
         content = .loading
         await load(component: component, state: nil)
     }
 
     func selectPreset(name: String) async {
+        guard isReady else { return }
         presetProvider.setActive(name)
         activeName = name
         if let preset = presetProvider.load(name: name) {
             content = .loading
             await load(component: preset.component, state: preset.state)
         } else {
-            selectedComponent = nil
             content = .empty
         }
     }
@@ -193,10 +209,37 @@ final class SessionManager: SessionManagerType {
         activeName = presetProvider.activeName
     }
 
+    private var isReady: Bool { unmet?.isEmpty == true }
+
+    private func applyUnmet(_ next: Set<SetupRequirement>) async {
+        let previous = unmet
+        unmet = next
+        if !next.isEmpty {
+            content = .unmet(next)
+            return
+        }
+        // next is empty — first time we see "good setup", or transition from unmet.
+        if previous != next {
+            await loadActivePreset()
+        }
+    }
+
+    private func loadActivePreset() async {
+        allPresets = presetProvider.presets
+        let storedActive = presetProvider.activeName
+        if let storedActive, let preset = presetProvider.load(name: storedActive) {
+            activeName = storedActive
+            await load(component: preset.component, state: preset.state)
+        } else {
+            if storedActive != nil { presetProvider.setActive(nil) }
+            activeName = nil
+            content = .empty
+        }
+    }
+
     private func load(component: AudioUnitComponent, state: Data?) async {
         do {
             let loaded = try await engine.load(component: component, state: state)
-            selectedComponent = loaded.component
             content = .loaded(loaded)
         } catch let error as EngineLoadError {
             content = .failed(error.message)

@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import PresetKit
 import SwiftUI
 
 struct PresetNameDialogView: View {
@@ -27,7 +26,7 @@ struct PresetNameDialogView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
                     .onSubmit { Task { await viewModel.accept(action: .commit) } }
-                if let message = viewModel.error?.displayMessage {
+                if let message = viewModel.errorMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -41,11 +40,11 @@ struct PresetNameDialogView: View {
                 }
                 .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(commitLabel) {
+                Button(viewModel.commitLabel) {
                     Task { await viewModel.accept(action: .commit) }
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(!canCommit)
+                .disabled(!viewModel.canCommit)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
@@ -63,27 +62,5 @@ struct PresetNameDialogView: View {
                 Task { await viewModel.accept(action: .nameChanged(newValue)) }
             }
         )
-    }
-
-    private var commitLabel: String {
-        switch viewModel.mode {
-        case .create: return "Create"
-        case .rename: return "Rename"
-        }
-    }
-
-    private var canCommit: Bool {
-        viewModel.error == nil
-            && !viewModel.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-}
-
-private extension PresetNameError {
-    var displayMessage: String? {
-        switch self {
-        case .empty: return nil
-        case .invalidCharacter: return "Name can't contain /, :, or start with a dot."
-        case .duplicate: return "A preset with that name already exists."
-        }
     }
 }

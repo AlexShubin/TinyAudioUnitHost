@@ -105,6 +105,8 @@ enum PurchasesViewAction: Sendable, Equatable {
 
 `@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap the whole VM state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
 
+**Keep view-side logic out of the body.** Derived display values and enable/disable conditions belong on the VM as named, testable properties — never inline in the view. If a view body needs `viewModel.activeName == nil || !viewModel.content.isOperable`, the VM should expose `var isRestoreButtonDisabled: Bool`. If it needs `if case .loaded(let loaded) = viewModel.content { return loaded.component.name }`, the VM should expose `var audioUnitTitle: String`. The view does presentation (layout, styling, dispatching actions); the VM does the deriving. Anything more interesting than a single property read or simple optional unwrap should move.
+
 ### Subviews (no VM)
 
 Subviews don't own a view model and don't mutate shared state. The view takes `let state: <View>ViewState` and `let onAction: (<View>Action) -> Void`; every event bubbles up through `onAction` to the parent feature's VM, which is the only thing that decides what to do.

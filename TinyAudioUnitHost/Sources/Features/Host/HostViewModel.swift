@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioUnitsKit
 import Foundation
 import Observation
@@ -15,12 +14,13 @@ import PresetKit
 @MainActor
 protocol HostViewModelType: AnyObject, Observable {
     var groups: [ManufacturerGroup] { get }
-    var selectedComponent: AudioUnitComponent? { get }
     var content: HostContent { get }
-    var unmetRequirements: Set<SetupRequirement> { get }
     var feedback: FeedbackToastViewState? { get }
-    var isReady: Bool { get }
-    var activeName: String? { get }
+    var presetLabel: String { get }
+    var audioUnitTitle: String { get }
+    var isAudioUnitPickerDisabled: Bool { get }
+    var isSaveButtonDisabled: Bool { get }
+    var isRestoreButtonDisabled: Bool { get }
     func accept(action: HostViewModelAction) async
 }
 
@@ -35,7 +35,6 @@ enum HostViewModelAction {
 struct ManufacturerGroup: Identifiable, Hashable {
     let manufacturer: String
     let components: [AudioUnitComponent]
-    var isExpanded: Bool
 
     var id: String { manufacturer }
 }
@@ -43,33 +42,39 @@ struct ManufacturerGroup: Identifiable, Hashable {
 @MainActor @Observable
 final class HostViewModel: HostViewModelType {
     private(set) var groups: [ManufacturerGroup] = []
-    private(set) var unmetRequirements: Set<SetupRequirement> = []
     private(set) var feedback: FeedbackToastViewState?
 
     var content: HostContent { session.content }
-    var activeName: String? { session.activeName }
-    var selectedComponent: AudioUnitComponent? { session.selectedComponent }
-    var isReady: Bool { unmetRequirements.isEmpty }
+
+    var presetLabel: String { "Preset: \(session.activeName ?? "—")" }
+
+    var audioUnitTitle: String {
+        if case .loaded(let loaded) = session.content {
+            return loaded.component.name
+        }
+        return "Choose Audio Unit"
+    }
+
+    var isAudioUnitPickerDisabled: Bool { !session.content.isOperable }
+
+    var isSaveButtonDisabled: Bool {
+        session.activeName == nil || !session.content.isLoaded
+    }
+
+    var isRestoreButtonDisabled: Bool {
+        session.activeName == nil || !session.content.isOperable
+    }
 
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let session: SessionManagerType
-    @ObservationIgnored private let setupChecker: SetupCheckerType
-    @ObservationIgnored private var setupListener: Task<Void, Never>?
     @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
-        session: SessionManagerType,
-        setupChecker: SetupCheckerType
+        session: SessionManagerType
     ) {
         self.library = library
         self.session = session
-        self.setupChecker = setupChecker
-        setupListener = Task { [weak self, setupChecker] in
-            for await unmet in setupChecker.unmetStream {
-                self?.unmetRequirements = unmet
-            }
-        }
         sessionEventsListener = Task { @MainActor [weak self, session] in
             for await event in session.makeEventStream() {
                 guard let self else { return }
@@ -86,7 +91,6 @@ final class HostViewModel: HostViewModelType {
     }
 
     deinit {
-        setupListener?.cancel()
         sessionEventsListener?.cancel()
     }
 
@@ -94,10 +98,8 @@ final class HostViewModel: HostViewModelType {
         switch action {
         case .task:
             groups = grouped(library.components)
-            await setupChecker.refresh()
             await session.start()
         case .selected(let component):
-            guard isReady else { return }
             await session.loadComponent(component)
         case .saveCurrentPreset:
             session.saveCurrentPreset()
@@ -110,7 +112,7 @@ final class HostViewModel: HostViewModelType {
 
     private func grouped(_ components: [AudioUnitComponent]) -> [ManufacturerGroup] {
         Dictionary(grouping: components, by: \.manufacturer)
-            .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value, isExpanded: false) }
+            .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value) }
             .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
     }
 }

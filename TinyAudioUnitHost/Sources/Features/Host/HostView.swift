@@ -32,25 +32,23 @@ struct HostView: View {
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.isReady {
-            switch viewModel.content {
-            case .empty:
-                EmptySelectionView()
-            case .loading:
-                LoadingView()
-            case .loaded(let audioUnit):
-                AudioUnitView(audioUnit: audioUnit)
-            case .failed(let message):
-                PlaceholderView {
-                    Text(message)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
+        switch viewModel.content {
+        case .unmet(let unmet):
+            SetupChecklistView(unmet: unmet)
+        case .empty:
+            EmptySelectionView()
+        case .loading:
+            LoadingView()
+        case .loaded(let audioUnit):
+            AudioUnitView(audioUnit: audioUnit)
+        case .failed(let message):
+            PlaceholderView {
+                Text(message)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-        } else {
-            SetupChecklistView(unmet: viewModel.unmetRequirements)
         }
     }
 
@@ -75,7 +73,7 @@ struct HostView: View {
             HStack(spacing: 8) {
                 Image(systemName: "puzzlepiece.extension")
                     .foregroundStyle(.secondary)
-                Text(audioUnitHeaderTitle)
+                Text(viewModel.audioUnitTitle)
                     .font(.headline)
                     .foregroundStyle(.primary)
                 Image(systemName: "chevron.down")
@@ -86,8 +84,8 @@ struct HostView: View {
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .disabled(viewModel.content == .loading || !viewModel.isReady)
+        //.menuIndicator(.hidden)
+        .disabled(viewModel.isAudioUnitPickerDisabled)
     }
 
     @ViewBuilder
@@ -107,19 +105,12 @@ struct HostView: View {
         }
     }
 
-    private var audioUnitHeaderTitle: String {
-        if case .loaded(let loaded) = viewModel.content {
-            return loaded.component.name
-        }
-        return "Choose Audio Unit"
-    }
-
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Text("Preset: \(viewModel.activeName ?? "—")")
+            Text(viewModel.presetLabel)
                 .padding([.leading], 12)
             Button {
                 Task { await viewModel.accept(action: .restorePreset) }
@@ -127,14 +118,14 @@ struct HostView: View {
                 Image(systemName: "arrow.uturn.backward")
             }
             .help("Restore preset")
-            .disabled(viewModel.activeName == nil || viewModel.content == .loading)
+            .disabled(viewModel.isRestoreButtonDisabled)
             Button {
                 Task { await viewModel.accept(action: .saveCurrentPreset) }
             } label: {
                 Image(systemName: "square.and.arrow.down")
             }
             .help("Save preset")
-            .disabled(viewModel.activeName == nil || !viewModel.content.isLoaded)
+            .disabled(viewModel.isSaveButtonDisabled)
             Spacer()
             Button {
                 openWindow(id: "purchases")

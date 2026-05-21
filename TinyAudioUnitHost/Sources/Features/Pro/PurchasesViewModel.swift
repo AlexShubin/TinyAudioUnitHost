@@ -13,9 +13,11 @@ import PurchasesKit
 @MainActor
 protocol PurchasesViewModelType: AnyObject, Observable {
     var isPro: Bool { get }
-    var productInfo: ProProductInfo? { get }
-    var phase: PurchasesPhase { get }
+    var priceLabel: String? { get }
     var errorMessage: String? { get }
+    var isPurchasing: Bool { get }
+    var isUpgradeButtonDisabled: Bool { get }
+    var isRestoreButtonDisabled: Bool { get }
     func accept(action: PurchasesViewAction) async
 }
 
@@ -37,6 +39,11 @@ final class PurchasesViewModel: PurchasesViewModelType {
     private(set) var productInfo: ProProductInfo?
     private(set) var phase: PurchasesPhase = .idle
     private(set) var errorMessage: String?
+
+    var priceLabel: String? { productInfo?.displayPrice }
+    var isPurchasing: Bool { phase == .purchasing }
+    var isUpgradeButtonDisabled: Bool { phase != .idle }
+    var isRestoreButtonDisabled: Bool { phase == .restoring }
 
     @ObservationIgnored private let purchasesService: PurchasesServiceType
 

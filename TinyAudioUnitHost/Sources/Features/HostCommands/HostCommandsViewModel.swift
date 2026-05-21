@@ -26,7 +26,7 @@ enum HostCommandsAction: Sendable, Equatable {
 @MainActor @Observable
 final class HostCommandsViewModel: HostCommandsViewModelType {
     var canSave: Bool { session.activeName != nil && session.content.isLoaded }
-    var canRestore: Bool { session.activeName != nil && session.content != .loading }
+    var canRestore: Bool { session.activeName != nil && session.content.isOperable }
     var canCreate: Bool { session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType

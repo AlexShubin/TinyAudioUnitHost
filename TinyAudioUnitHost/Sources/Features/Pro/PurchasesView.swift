@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import PurchasesKit
 import SwiftUI
 
 struct PurchasesView: View {
@@ -59,15 +58,15 @@ struct PurchasesView: View {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.phase == .restoring)
+            .disabled(viewModel.isRestoreButtonDisabled)
         }
     }
 
     @ViewBuilder
     private var buySection: some View {
         VStack(spacing: 12) {
-            if let price = viewModel.productInfo?.displayPrice {
-                Text(price)
+            if let priceLabel = viewModel.priceLabel {
+                Text(priceLabel)
                     .font(.title2)
                     .fontWeight(.semibold)
             }
@@ -75,7 +74,7 @@ struct PurchasesView: View {
             Button {
                 Task { await viewModel.accept(action: .buyTapped) }
             } label: {
-                if viewModel.phase == .purchasing {
+                if viewModel.isPurchasing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -85,13 +84,13 @@ struct PurchasesView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.phase != .idle)
+            .disabled(viewModel.isUpgradeButtonDisabled)
 
             Button("Restore Purchase") {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.phase == .restoring)
+            .disabled(viewModel.isRestoreButtonDisabled)
         }
     }
 }

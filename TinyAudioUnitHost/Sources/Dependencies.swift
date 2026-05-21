@@ -22,11 +22,12 @@ struct Dependencies: Sendable {
     let session: SessionManagerType
 
     static let live: Dependencies = {
+        let audioSettings = AudioSettingsKit.Dependencies.live
         let engine = EngineKit.Dependencies.live
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
         return Dependencies(
-            audioSettings: .live,
+            audioSettings: audioSettings,
             audioUnits: .live,
             engine: engine,
             presets: presets,
@@ -34,7 +35,8 @@ struct Dependencies: Sendable {
             session: SessionManager(
                 engine: engine.engine,
                 presetProvider: presets.presetProvider,
-                purchasesService: purchases.purchasesService
+                purchasesService: purchases.purchasesService,
+                setupChecker: audioSettings.setupChecker
             )
         )
     }()
@@ -42,8 +44,7 @@ struct Dependencies: Sendable {
     @MainActor func makeHostViewModel() -> HostViewModelType {
         HostViewModel(
             library: audioUnits.audioUnitComponentsLibrary,
-            session: session,
-            setupChecker: audioSettings.setupChecker
+            session: session
         )
     }
 
