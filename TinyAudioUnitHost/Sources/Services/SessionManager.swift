@@ -19,7 +19,6 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     var activeName: String? { get }
     var selectedComponent: AudioUnitComponent? { get }
     var presets: [Preset] { get }    // already free-tier capped
-    var isPro: Bool { get }
 
     func makeEventStream() -> AsyncStream<SessionEvent>
 
@@ -59,7 +58,7 @@ final class SessionManager: SessionManagerType {
     private(set) var activeName: String?
     private(set) var selectedComponent: AudioUnitComponent?
     private(set) var allPresets: [Preset] = []
-    private(set) var isPro: Bool = false
+    private var isPro: Bool = false
 
     @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
 
