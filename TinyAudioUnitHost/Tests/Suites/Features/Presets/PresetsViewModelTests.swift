@@ -10,6 +10,8 @@ import Foundation
 import Observation
 import PresetKit
 import PresetKitTestSupport
+import PurchasesKit
+import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -17,25 +19,25 @@ import Testing
 @Suite
 struct PresetsViewModelTests {
     var sessionMock: SessionManagerMock!
+    var purchasesServiceMock: PurchasesServiceMock!
+    var eventBusMock: SessionEventBusMock!
     var sut: PresetsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
+        purchasesServiceMock = PurchasesServiceMock()
+        eventBusMock = SessionEventBusMock()
     }
 
     mutating func createSut() {
-        sut = PresetsViewModel(session: sessionMock)
+        sut = PresetsViewModel(
+            session: sessionMock,
+            purchasesService: purchasesServiceMock,
+            eventBus: eventBusMock
+        )
     }
 
     // MARK: - forwarded state
-
-    @Test
-    mutating func presets_forwardsSessionPresets() async {
-        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b")])
-        createSut()
-
-        #expect(sut.presets.map(\.name) == ["a", "b"])
-    }
 
     @Test
     mutating func activeName_forwardsSessionActiveName() async {
@@ -85,7 +87,36 @@ struct PresetsViewModelTests {
         #expect(sut.isSaveAsButtonDisabled == false)
     }
 
-    // MARK: - selected / deleteTapped / saveAsTapped (forwarding)
+    // MARK: - presets (free-tier cap)
+
+    @Test
+    mutating func presets_freeUser_slicesToFirstTwo() async {
+        sessionMock.setPresets([
+            Preset.fake(name: "a"),
+            Preset.fake(name: "b"),
+            Preset.fake(name: "c"),
+        ])
+        createSut()
+
+        #expect(sut.presets.map(\.name) == ["a", "b"])
+    }
+
+    @Test
+    mutating func presets_proUser_returnsAll() async {
+        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        sessionMock.setPresets([
+            Preset.fake(name: "a"),
+            Preset.fake(name: "b"),
+            Preset.fake(name: "c"),
+        ])
+        createSut()
+        let sut = sut!
+        await awaitChange { sut.presets.count == 3 }
+
+        #expect(sut.presets.map(\.name) == ["a", "b", "c"])
+    }
+
+    // MARK: - selected / deleteTapped (forwarding)
 
     @Test
     mutating func selected_forwardsToSession() async {
@@ -105,13 +136,42 @@ struct PresetsViewModelTests {
         #expect(sessionMock.calls == [.deletePreset(name: "foo")])
     }
 
+    // MARK: - saveAsTapped: cap-and-decide
+
     @Test
-    mutating func saveAsTapped_forwardsToSessionRequestSaveAs() async {
+    mutating func saveAsTapped_pro_presentsSaveAsDialog() async {
+        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b"), Preset.fake(name: "c")])
+        createSut()
+        let sut = sut!
+        await awaitChange { sut.presets.count == 3 }
+
+        await sut.accept(action: .saveAsTapped)
+
+        #expect(sut.presentedPresetNameDialog == .saveAs)
+        #expect(sut.openProWindowRequest == nil)
+    }
+
+    @Test
+    mutating func saveAsTapped_freeBelowCap_presentsSaveAsDialog() async {
+        sessionMock.setPresets([Preset.fake(name: "a")])
         createSut()
 
         await sut.accept(action: .saveAsTapped)
 
-        #expect(sessionMock.calls == [.requestSaveAs])
+        #expect(sut.presentedPresetNameDialog == .saveAs)
+        #expect(sut.openProWindowRequest == nil)
+    }
+
+    @Test
+    mutating func saveAsTapped_freeAtCap_opensProUpgrade() async {
+        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b")])
+        createSut()
+
+        await sut.accept(action: .saveAsTapped)
+
+        #expect(sut.presentedPresetNameDialog == nil)
+        #expect(sut.openProWindowRequest != nil)
     }
 
     // MARK: - rename / dismiss dialog state
@@ -138,35 +198,39 @@ struct PresetsViewModelTests {
     // MARK: - session events
 
     @Test
-    mutating func requestSaveAsDialogEvent_presentsSaveAsDialog() async {
+    mutating func saveAsRequestedEvent_freeBelowCap_presentsSaveAsDialog() async {
+        sessionMock.setPresets([Preset.fake(name: "a")])
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.requestSaveAsDialog)
+        eventBusMock.post(.saveAsRequested)
         await awaitChange { sut.presentedPresetNameDialog == .saveAs }
 
         #expect(sut.presentedPresetNameDialog == .saveAs)
     }
 
     @Test
-    mutating func requestProUpgradeEvent_bumpsOpenProWindowRequest() async {
+    mutating func saveAsRequestedEvent_freeAtCap_opensProUpgrade() async {
+        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b")])
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.requestProUpgrade)
+        eventBusMock.post(.saveAsRequested)
         await awaitChange { sut.openProWindowRequest != nil }
 
         #expect(sut.openProWindowRequest != nil)
+        #expect(sut.presentedPresetNameDialog == nil)
     }
 
     @Test
     mutating func savedEvent_isIgnored() async {
+        sessionMock.setPresets([Preset.fake(name: "a")])
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.saved)
+        eventBusMock.post(.saved)
         // Cross-check by emitting a known event that does flip state.
-        sessionMock.emit(.requestSaveAsDialog)
+        eventBusMock.post(.saveAsRequested)
         await awaitChange { sut.presentedPresetNameDialog == .saveAs }
 
         #expect(sut.presentedPresetNameDialog == .saveAs)

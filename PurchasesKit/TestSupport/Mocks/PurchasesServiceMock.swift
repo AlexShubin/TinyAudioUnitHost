@@ -6,11 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Foundation
 import PurchasesKit
 
 public actor PurchasesServiceMock: PurchasesServiceType {
     public enum Calls: Equatable, Sendable {
-        case isPro
         case productInfo
         case purchase
         case restore
@@ -21,6 +21,8 @@ public actor PurchasesServiceMock: PurchasesServiceType {
     public var currentProductInfo: ProProductInfo?
     public var purchaseResult: PurchaseResult
     public var restoreResult: PurchaseResult
+
+    private var continuation: AsyncStream<Bool>.Continuation?
 
     public init(
         isPro: Bool = false,
@@ -34,13 +36,6 @@ public actor PurchasesServiceMock: PurchasesServiceType {
         self.restoreResult = restoreResult
     }
 
-    public var isPro: Bool {
-        get async {
-            calls.append(.isPro)
-            return currentIsPro
-        }
-    }
-
     public var productInfo: ProProductInfo? {
         get async {
             calls.append(.productInfo)
@@ -48,10 +43,17 @@ public actor PurchasesServiceMock: PurchasesServiceType {
         }
     }
 
+    public func makeIsProStream() -> AsyncStream<Bool> {
+        let (stream, continuation) = AsyncStream<Bool>.makeStream()
+        self.continuation = continuation
+        continuation.yield(currentIsPro)
+        return stream
+    }
+
     public func purchase() async -> PurchaseResult {
         calls.append(.purchase)
         if purchaseResult == .success {
-            currentIsPro = true
+            broadcastIsPro(true)
         }
         return purchaseResult
     }
@@ -62,7 +64,7 @@ public actor PurchasesServiceMock: PurchasesServiceType {
     }
 
     public func setIsPro(_ value: Bool) {
-        currentIsPro = value
+        broadcastIsPro(value)
     }
 
     public func setProductInfo(_ value: ProProductInfo?) {
@@ -75,5 +77,11 @@ public actor PurchasesServiceMock: PurchasesServiceType {
 
     public func setRestoreResult(_ value: PurchaseResult) {
         restoreResult = value
+    }
+
+    private func broadcastIsPro(_ value: Bool) {
+        guard currentIsPro != value else { return }
+        currentIsPro = value
+        continuation?.yield(value)
     }
 }

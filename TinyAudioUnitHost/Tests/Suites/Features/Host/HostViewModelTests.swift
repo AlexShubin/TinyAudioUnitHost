@@ -12,6 +12,8 @@ import Foundation
 import Observation
 import PresetKit
 import PresetKitTestSupport
+import PurchasesKit
+import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -20,15 +22,24 @@ import Testing
 struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
     var sessionMock: SessionManagerMock!
+    var purchasesServiceMock: PurchasesServiceMock!
+    var eventBusMock: SessionEventBusMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
         sessionMock = SessionManagerMock()
+        purchasesServiceMock = PurchasesServiceMock()
+        eventBusMock = SessionEventBusMock()
     }
 
     mutating func createSut() {
-        sut = HostViewModel(library: libraryMock, session: sessionMock)
+        sut = HostViewModel(
+            library: libraryMock,
+            session: sessionMock,
+            purchasesService: purchasesServiceMock,
+            eventBus: eventBusMock
+        )
     }
 
     // MARK: - task
@@ -93,7 +104,7 @@ struct HostViewModelTests {
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.saved)
+        eventBusMock.post(.saved)
         await awaitChange { sut.feedback?.kind == .saved }
 
         #expect(sut.feedback?.kind == .saved)
@@ -104,20 +115,20 @@ struct HostViewModelTests {
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.restored)
+        eventBusMock.post(.restored)
         await awaitChange { sut.feedback?.kind == .restored }
 
         #expect(sut.feedback?.kind == .restored)
     }
 
     @Test
-    mutating func requestSaveAsDialogEvent_isIgnored() async {
+    mutating func saveAsRequestedEvent_isIgnored() async {
         createSut()
         let sut = sut!
 
-        sessionMock.emit(.requestSaveAsDialog)
-        // Give a chance: trigger a known event after the ignored one and await it.
-        sessionMock.emit(.saved)
+        eventBusMock.post(.saveAsRequested)
+        // Cross-check by emitting a known event that does flip state.
+        eventBusMock.post(.saved)
         await awaitChange { sut.feedback?.kind == .saved }
 
         #expect(sut.feedback?.kind == .saved)
@@ -127,12 +138,45 @@ struct HostViewModelTests {
     mutating func feedbackToastTimedOut_clearsFeedback() async {
         createSut()
         let sut = sut!
-        sessionMock.emit(.saved)
+        eventBusMock.post(.saved)
         await awaitChange { sut.feedback != nil }
 
         await sut.accept(action: .feedbackToastAction(.timedOut))
 
         #expect(sut.feedback == nil)
+    }
+
+    // MARK: - isStarFilled
+
+    @Test
+    mutating func isStarFilled_defaultsToFalse() async {
+        createSut()
+
+        #expect(sut.isStarFilled == false)
+    }
+
+    @Test
+    mutating func isStarFilled_followsPurchasesProStream() async {
+        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        createSut()
+        let sut = sut!
+
+        await awaitChange { sut.isStarFilled == true }
+
+        #expect(sut.isStarFilled == true)
+    }
+
+    @Test
+    mutating func isStarFilled_updatesWhenProBroadcastChanges() async {
+        purchasesServiceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+        let sut = sut!
+        await awaitChange { sut.isStarFilled == false }
+
+        await purchasesServiceMock.setIsPro(true)
+        await awaitChange { sut.isStarFilled == true }
+
+        #expect(sut.isStarFilled == true)
     }
 
     // MARK: - presetLabel

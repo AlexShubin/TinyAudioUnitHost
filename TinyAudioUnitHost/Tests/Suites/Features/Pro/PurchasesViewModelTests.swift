@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Observation
 import PurchasesKit
 import PurchasesKitTestSupport
 import Testing
@@ -26,17 +27,33 @@ struct PurchasesViewModelTests {
         sut = PurchasesViewModel(purchasesService: serviceMock)
     }
 
-    // MARK: - task
+    // MARK: - isPro stream
 
     @Test
-    mutating func task_readsIsProFromService() async {
+    mutating func init_subscribesToIsProStream() async {
         serviceMock = PurchasesServiceMock(isPro: true)
         createSut()
+        let sut = sut!
 
-        await sut.accept(action: .task)
+        await awaitChange { sut.isPro == true }
 
         #expect(sut.isPro == true)
     }
+
+    @Test
+    mutating func isPro_updatesWhenServiceBroadcastsChange() async {
+        serviceMock = PurchasesServiceMock(isPro: false)
+        createSut()
+        let sut = sut!
+        await awaitChange { sut.isPro == false }
+
+        await serviceMock.setIsPro(true)
+        await awaitChange { sut.isPro == true }
+
+        #expect(sut.isPro == true)
+    }
+
+    // MARK: - task
 
     @Test
     mutating func task_readsPriceLabelFromProductInfo() async {
@@ -50,12 +67,11 @@ struct PurchasesViewModelTests {
     }
 
     @Test
-    mutating func task_nothingFromService_priceLabelStaysNil() async {
+    mutating func task_noProductInfo_priceLabelStaysNil() async {
         createSut()
 
         await sut.accept(action: .task)
 
-        #expect(sut.isPro == false)
         #expect(sut.priceLabel == nil)
     }
 
@@ -65,8 +81,10 @@ struct PurchasesViewModelTests {
     mutating func buyTapped_success_setsIsProAndClearsErrorMessage() async {
         serviceMock = PurchasesServiceMock(purchaseResult: .success)
         createSut()
+        let sut = sut!
 
         await sut.accept(action: .buyTapped)
+        await awaitChange { sut.isPro == true }
 
         #expect(sut.isPro == true)
         #expect(sut.errorMessage == nil)
@@ -130,6 +148,8 @@ struct PurchasesViewModelTests {
     mutating func restoreTapped_success_picksUpExistingEntitlement() async {
         serviceMock = PurchasesServiceMock(isPro: true, restoreResult: .success)
         createSut()
+        let sut = sut!
+        await awaitChange { sut.isPro == true }
 
         await sut.accept(action: .restoreTapped)
 
@@ -155,5 +175,19 @@ struct PurchasesViewModelTests {
 
         #expect(sut.isPurchasing == false)
         #expect(sut.isRestoreButtonDisabled == false)
+    }
+
+    // MARK: - Helpers
+
+    private func awaitChange(_ predicate: () -> Bool) async {
+        while !predicate() {
+            await withCheckedContinuation { continuation in
+                withObservationTracking {
+                    _ = predicate()
+                } onChange: {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }

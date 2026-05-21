@@ -15,14 +15,16 @@ import Testing
 @Suite
 struct HostCommandsViewModelTests {
     var sessionMock: SessionManagerMock!
+    var eventBusMock: SessionEventBusMock!
     var sut: HostCommandsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
+        eventBusMock = SessionEventBusMock()
     }
 
     mutating func createSut() {
-        sut = HostCommandsViewModel(session: sessionMock)
+        sut = HostCommandsViewModel(session: sessionMock, eventBus: eventBusMock)
     }
 
     // MARK: - actions
@@ -46,12 +48,13 @@ struct HostCommandsViewModelTests {
     }
 
     @Test
-    mutating func saveAs_forwardsToSessionRequestSaveAs() async {
+    mutating func saveAs_postsSaveAsRequestedEvent() async {
         createSut()
 
         await sut.accept(action: .saveAs)
 
-        #expect(sessionMock.calls == [.requestSaveAs])
+        #expect(eventBusMock.calls == [.post(.saveAsRequested)])
+        #expect(sessionMock.calls.isEmpty)
     }
 
     // MARK: - isSaveButtonDisabled

@@ -16,7 +16,6 @@ import PresetKit
 final class SessionManagerMock: SessionManagerType {
     enum Calls: Equatable, Sendable {
         case start
-        case requestSaveAs
         case loadComponent(AudioUnitComponent)
         case selectPreset(name: String)
         case saveCurrentPreset
@@ -31,8 +30,6 @@ final class SessionManagerMock: SessionManagerType {
     private(set) var presets: [Preset] = []
     private(set) var calls: [Calls] = []
 
-    @ObservationIgnored private var continuations: [UUID: AsyncStream<SessionEvent>.Continuation] = [:]
-
     init(
         content: HostContent = .empty,
         activeName: String? = nil,
@@ -43,30 +40,11 @@ final class SessionManagerMock: SessionManagerType {
         self.presets = presets
     }
 
-    func makeEventStream() -> AsyncStream<SessionEvent> {
-        AsyncStream { continuation in
-            let id = UUID()
-            self.continuations[id] = continuation
-            continuation.onTermination = { [weak self] _ in
-                Task { @MainActor in
-                    self?.continuations.removeValue(forKey: id)
-                }
-            }
-        }
-    }
-
-    func emit(_ event: SessionEvent) {
-        for continuation in continuations.values {
-            continuation.yield(event)
-        }
-    }
-
     func setContent(_ value: HostContent) { content = value }
     func setActiveName(_ value: String?) { activeName = value }
     func setPresets(_ value: [Preset]) { presets = value }
 
     func start() async { calls.append(.start) }
-    func requestSaveAs() async { calls.append(.requestSaveAs) }
     func loadComponent(_ component: AudioUnitComponent) async { calls.append(.loadComponent(component)) }
     func selectPreset(name: String) async { calls.append(.selectPreset(name: name)) }
     func saveCurrentPreset() { calls.append(.saveCurrentPreset) }

@@ -16,8 +16,6 @@ import Foundation
 import Observation
 import PresetKit
 import PresetKitTestSupport
-import PurchasesKit
-import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -26,23 +24,23 @@ import Testing
 struct SessionManagerTests {
     var engineMock: EngineMock!
     var presetProviderMock: PresetProviderMock!
-    var purchasesServiceMock: PurchasesServiceMock!
     var setupCheckerMock: SetupCheckerMock!
+    var eventBusMock: SessionEventBusMock!
     var sut: SessionManagerType!
 
     init() {
         engineMock = EngineMock()
         presetProviderMock = PresetProviderMock()
-        purchasesServiceMock = PurchasesServiceMock()
         setupCheckerMock = SetupCheckerMock()
+        eventBusMock = SessionEventBusMock()
     }
 
     mutating func createSut() {
         sut = SessionManager(
             engine: engineMock,
             presetProvider: presetProviderMock,
-            purchasesService: purchasesServiceMock,
-            setupChecker: setupCheckerMock
+            setupChecker: setupCheckerMock,
+            eventBus: eventBusMock
         )
     }
 
@@ -211,10 +209,11 @@ struct SessionManagerTests {
         sut.saveCurrentPreset()
 
         #expect(!presetProviderMock.calls.contains { if case .save = $0 { return true } else { return false } })
+        #expect(eventBusMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveCurrentPreset_happyPath_savesAndEmitsSavedEvent() async {
+    mutating func saveCurrentPreset_happyPath_savesAndPostsSavedEvent() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
@@ -226,13 +225,12 @@ struct SessionManagerTests {
         createSut()
         await sut.start()
         await awaitChange { sut.content == .loaded(loaded) }
-        var events = sut.makeEventStream().makeAsyncIterator()
 
         sut.saveCurrentPreset()
 
         let saved = Preset(name: "foo", component: component, state: Data([0xBE, 0xEF]))
         #expect(presetProviderMock.calls.contains(.save(saved)))
-        #expect(await events.next() == .saved)
+        #expect(eventBusMock.calls == [.post(.saved)])
     }
 
     // MARK: - restoreActivePreset
@@ -244,10 +242,11 @@ struct SessionManagerTests {
         await sut.restoreActivePreset()
 
         #expect(await engineMock.calls == [])
+        #expect(eventBusMock.calls.isEmpty)
     }
 
     @Test
-    mutating func restoreActivePreset_happyPath_emitsRestoredEvent() async {
+    mutating func restoreActivePreset_happyPath_postsRestoredEvent() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let loaded = LoadedAudioUnit.fake(component: component)
         presetProviderMock = PresetProviderMock(
@@ -258,12 +257,11 @@ struct SessionManagerTests {
         createSut()
         await sut.start()
         await awaitChange { sut.content == .loaded(loaded) }
-        var events = sut.makeEventStream().makeAsyncIterator()
 
         await sut.restoreActivePreset()
 
         #expect(sut.content == .loaded(loaded))
-        #expect(await events.next() == .restored)
+        #expect(eventBusMock.calls == [.post(.restored)])
     }
 
     // MARK: - saveAsNewPreset
@@ -275,23 +273,39 @@ struct SessionManagerTests {
         sut.saveAsNewPreset(name: "anything")
 
         #expect(presetProviderMock.storedPresets.isEmpty)
+        #expect(eventBusMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndEmits() async {
+    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndPosts() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let auMock = AUAudioUnitMock(fullState: Data([0xAA]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.loadComponent(component)
-        var events = sut.makeEventStream().makeAsyncIterator()
 
         sut.saveAsNewPreset(name: "MyNew")
 
         #expect(sut.activeName == "MyNew")
         #expect(presetProviderMock.currentActiveName == "MyNew")
-        #expect(await events.next() == .saved)
+        #expect(eventBusMock.calls == [.post(.saved)])
+    }
+
+    // MARK: - presets exposure (no longer capped at this layer)
+
+    @Test
+    mutating func presets_exposesAllStoredPresetsRegardlessOfCount() async {
+        presetProviderMock = PresetProviderMock(presets: [
+            "a": Preset.fake(name: "a"),
+            "b": Preset.fake(name: "b"),
+            "c": Preset.fake(name: "c"),
+        ])
+        createSut()
+        await sut.start()
+        await awaitChange { sut.content == .empty }
+
+        #expect(sut.presets.map(\.name).sorted() == ["a", "b", "c"])
     }
 
     // MARK: - renamePreset
@@ -324,82 +338,6 @@ struct SessionManagerTests {
 
         #expect(presetProviderMock.calls.contains(.delete(name: "target")))
         #expect(sut.activeName == nil)
-    }
-
-    // MARK: - requestSaveAs
-
-    @Test
-    mutating func requestSaveAs_pro_emitsRequestSaveAsDialog() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
-        createSut()
-        var events = sut.makeEventStream().makeAsyncIterator()
-
-        await sut.requestSaveAs()
-
-        #expect(await events.next() == .requestSaveAsDialog)
-    }
-
-    @Test
-    mutating func requestSaveAs_freeBelowCap_emitsRequestSaveAsDialog() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
-        presetProviderMock = PresetProviderMock(presets: ["one": Preset.fake(name: "one")])
-        createSut()
-        await sut.start()
-        await awaitChange { sut.content == .empty }
-        var events = sut.makeEventStream().makeAsyncIterator()
-
-        await sut.requestSaveAs()
-
-        #expect(await events.next() == .requestSaveAsDialog)
-    }
-
-    @Test
-    mutating func requestSaveAs_freeAtCap_emitsRequestProUpgrade() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
-        presetProviderMock = PresetProviderMock(presets: [
-            "a": Preset.fake(name: "a"),
-            "b": Preset.fake(name: "b"),
-        ])
-        createSut()
-        await sut.start()
-        await awaitChange { sut.content == .empty }
-        var events = sut.makeEventStream().makeAsyncIterator()
-
-        await sut.requestSaveAs()
-
-        #expect(await events.next() == .requestProUpgrade)
-    }
-
-    // MARK: - free-tier slicing
-
-    @Test
-    mutating func presets_freeUser_slicesToFirstTwo() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
-        presetProviderMock = PresetProviderMock(presets: [
-            "a": Preset.fake(name: "a"),
-            "b": Preset.fake(name: "b"),
-            "c": Preset.fake(name: "c"),
-        ])
-        createSut()
-        await sut.start()
-        await awaitChange { sut.content == .empty }
-
-        #expect(sut.presets.map(\.name) == ["a", "b"])
-    }
-
-    @Test
-    mutating func presets_proUser_returnsAll() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
-        presetProviderMock = PresetProviderMock(presets: [
-            "a": Preset.fake(name: "a"),
-            "b": Preset.fake(name: "b"),
-            "c": Preset.fake(name: "c"),
-        ])
-        createSut()
-        await sut.start()
-        await awaitChange { sut.content == .empty }
-
-        #expect(sut.presets.map(\.name) == ["a", "b", "c"])
     }
 
     // MARK: - Helpers
