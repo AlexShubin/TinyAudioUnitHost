@@ -28,8 +28,8 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
-    func saveAsNewPreset(name: String) -> Result<Preset, PresetNameError>
-    func renamePreset(from: String, to: String) -> Result<Void, PresetNameError>
+    func saveAsNewPreset(name: String) throws(PresetNameError) -> Preset
+    func renamePreset(from: String, to: String) throws(PresetNameError)
     func deletePreset(name: String)
 }
 
@@ -173,31 +173,22 @@ final class SessionManager: SessionManagerType {
         }
     }
 
-    func saveAsNewPreset(name: String) -> Result<Preset, PresetNameError> {
+    func saveAsNewPreset(name: String) throws(PresetNameError) -> Preset {
         guard case .loaded(let loaded) = content,
-              let state = loaded.audioUnit.fullState else { return .failure(.empty) }
+              let state = loaded.audioUnit.fullState else { throw .empty }
         let preset = Preset(name: name, component: loaded.component, state: state)
-        switch presetProvider.saveAs(preset) {
-        case .success(let saved):
-            presetProvider.setActive(saved.name)
-            activeName = saved.name
-            allPresets = presetProvider.presets
-            emit(.saved)
-            return .success(saved)
-        case .failure(let error):
-            return .failure(error)
-        }
+        let saved = try presetProvider.saveAs(preset)
+        presetProvider.setActive(saved.name)
+        activeName = saved.name
+        allPresets = presetProvider.presets
+        emit(.saved)
+        return saved
     }
 
-    func renamePreset(from: String, to: String) -> Result<Void, PresetNameError> {
-        switch presetProvider.rename(from: from, to: to) {
-        case .success:
-            allPresets = presetProvider.presets
-            activeName = presetProvider.activeName
-            return .success(())
-        case .failure(let error):
-            return .failure(error)
-        }
+    func renamePreset(from: String, to: String) throws(PresetNameError) {
+        try presetProvider.rename(from: from, to: to)
+        allPresets = presetProvider.presets
+        activeName = presetProvider.activeName
     }
 
     func deletePreset(name: String) {

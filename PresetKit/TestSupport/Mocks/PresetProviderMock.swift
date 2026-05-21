@@ -25,8 +25,8 @@ public final class PresetProviderMock: PresetProviderType, @unchecked Sendable {
     public private(set) var calls: [Calls] = []
     public var storedPresets: [String: Preset]
     public var currentActiveName: String?
-    public var saveAsResult: Result<Preset, PresetNameError>?
-    public var renameResult: Result<Void, PresetNameError>?
+    public var saveAsError: PresetNameError?
+    public var renameError: PresetNameError?
 
     public init(
         presets: [String: Preset] = [:],
@@ -63,16 +63,16 @@ public final class PresetProviderMock: PresetProviderType, @unchecked Sendable {
         calls.append(.save(preset))
     }
 
-    public func saveAs(_ preset: Preset) -> Result<Preset, PresetNameError> {
+    public func saveAs(_ preset: Preset) throws(PresetNameError) -> Preset {
         calls.append(.saveAs(preset))
-        if let saveAsResult { return saveAsResult }
+        if let saveAsError { throw saveAsError }
         storedPresets[preset.name] = preset
-        return .success(preset)
+        return preset
     }
 
-    public func rename(from oldName: String, to newName: String) -> Result<Void, PresetNameError> {
+    public func rename(from oldName: String, to newName: String) throws(PresetNameError) {
         calls.append(.rename(from: oldName, to: newName))
-        if let renameResult { return renameResult }
+        if let renameError { throw renameError }
         if let existing = storedPresets.removeValue(forKey: oldName) {
             storedPresets[newName] = Preset(
                 name: newName,
@@ -83,7 +83,6 @@ public final class PresetProviderMock: PresetProviderType, @unchecked Sendable {
         if currentActiveName == oldName {
             currentActiveName = newName
         }
-        return .success(())
     }
 
     public func delete(name: String) {

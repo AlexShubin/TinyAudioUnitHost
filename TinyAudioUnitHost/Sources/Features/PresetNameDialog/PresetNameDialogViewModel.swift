@@ -75,21 +75,16 @@ final class PresetNameDialogViewModel: PresetNameDialogViewModelType {
         case .cancel:
             isDismissed = true
         case .commit:
-            switch mode {
-            case .saveAs:
-                switch session.saveAsNewPreset(name: name) {
-                case .success:
-                    isDismissed = true
-                case .failure(let error):
-                    self.error = error
+            do {
+                switch mode {
+                case .saveAs:
+                    _ = try session.saveAsNewPreset(name: name)
+                case .rename(let currentName):
+                    try session.renamePreset(from: currentName, to: name)
                 }
-            case .rename(let currentName):
-                switch session.renamePreset(from: currentName, to: name) {
-                case .success:
-                    isDismissed = true
-                case .failure(let error):
-                    self.error = error
-                }
+                isDismissed = true
+            } catch {
+                self.error = error
             }
         }
     }
