@@ -29,13 +29,13 @@ struct PurchasesView: View {
                     .multilineTextAlignment(.center)
             }
 
-            if viewModel.state.isPro {
+            if viewModel.isPro {
                 proSection
             } else {
                 buySection
             }
 
-            if let errorMessage = viewModel.state.errorMessage {
+            if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -59,14 +59,14 @@ struct PurchasesView: View {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.state.phase == .restoring)
+            .disabled(viewModel.phase == .restoring)
         }
     }
 
     @ViewBuilder
     private var buySection: some View {
         VStack(spacing: 12) {
-            if let price = viewModel.state.productInfo?.displayPrice {
+            if let price = viewModel.productInfo?.displayPrice {
                 Text(price)
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -75,7 +75,7 @@ struct PurchasesView: View {
             Button {
                 Task { await viewModel.accept(action: .buyTapped) }
             } label: {
-                if viewModel.state.phase == .purchasing {
+                if viewModel.phase == .purchasing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -85,32 +85,13 @@ struct PurchasesView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.state.phase != .idle)
+            .disabled(viewModel.phase != .idle)
 
             Button("Restore Purchase") {
                 Task { await viewModel.accept(action: .restoreTapped) }
             }
             .buttonStyle(.borderless)
-            .disabled(viewModel.state.phase == .restoring)
+            .disabled(viewModel.phase == .restoring)
         }
     }
-}
-
-struct PurchasesViewState: Sendable, Equatable {
-    var isPro: Bool
-    var productInfo: ProProductInfo?
-    var phase: Phase
-    var errorMessage: String?
-
-    enum Phase: Sendable, Equatable {
-        case idle
-        case purchasing
-        case restoring
-    }
-}
-
-enum PurchasesViewAction: Sendable, Equatable {
-    case task
-    case buyTapped
-    case restoreTapped
 }
