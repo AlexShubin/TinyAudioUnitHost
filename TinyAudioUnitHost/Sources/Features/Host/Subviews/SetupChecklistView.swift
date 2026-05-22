@@ -35,7 +35,17 @@ struct SetupChecklistView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if unmet.contains(.outputDevice) {
+                if let savedName = unmet.savedOutputDeviceName {
+                    VStack(alignment: .center, spacing: 2) {
+                        Text("Turn on “\(savedName)”")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                        SettingsLink {
+                            Label("…or choose another device", systemImage: "speaker.wave.2")
+                        }
+                        .buttonStyle(.link)
+                    }
+                } else if unmet.contains(.noOutputDevice) {
                     SettingsLink {
                         Label("Choose audio devices…", systemImage: "speaker.wave.2")
                     }
@@ -43,5 +53,16 @@ struct SetupChecklistView: View {
                 }
             }
         }
+    }
+}
+
+private extension Set<SetupRequirement> {
+    var savedOutputDeviceName: String? {
+        for requirement in self {
+            if case .savedOutputDeviceUnavailable(let name) = requirement {
+                return name
+            }
+        }
+        return nil
     }
 }

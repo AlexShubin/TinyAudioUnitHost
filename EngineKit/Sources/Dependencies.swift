@@ -28,7 +28,6 @@ public struct Dependencies: Sendable {
             engine: engine,
             engineReloader: EngineReloader(
                 engine: engine,
-                notificationCenter: NotificationCenter.default,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
             )
         )

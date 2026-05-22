@@ -5,6 +5,10 @@
 - **Never commit or push without explicit per-action permission.** Applies to every branch, especially `main`. Instructions like "reverse this commit on origin" or "make these changes" are *not* implicit authorization to commit or push — leave the work as working-tree edits and ask. Each commit and each push needs its own explicit go-ahead.
 - Force-pushes to `main` are off-limits unless the user uses the words "force push".
 
+## Working scope
+
+**WHEN A STEP IS SCOPED TO ONE FRAMEWORK / MODULE, ONLY MODIFY AND VERIFY THAT MODULE.** Do not edit other frameworks "to keep them compiling". Do not run the full-app scheme. Fix the module's own tests, build the module's own scheme (e.g. `xcodebuild -scheme StorageKit`), and stop there. Inter-module breakage during a multi-step refactor is *expected* — the next step covers the downstream module. Building the whole app to "verify" a single-module change wastes time and noisy cross-module edits muddy the diff.
+
 ## Tuist
 
 - To regenerate the Xcode project, run: `mise run generate`
@@ -26,6 +30,7 @@
 - DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
 - Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
 - **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, view models) consume the resolved types and never see UIDs.
+- **Stateless services are structs, not actors.** When a service holds only `let` references to injected dependencies and doesn't cache anything between calls (e.g. `RawPresetStore`, `PresetProvider`), declare it as `struct` (or `final class` if reference semantics are needed) and keep its protocol sync. The mock follows: `final class @unchecked Sendable`, not `actor`. Reserve `actor` for types that actually own mutable state — caching loaded data (e.g. `RawSettingsStore` caches `RawAudioSettings`), serializing concurrent access to shared state, or composing async work. Drop `actor` on sight whenever it isn't earned — async-from-outside, isolation, and forced `await` cost everyone time when no suspension is happening.
 
 ## Code Style
 
@@ -41,9 +46,21 @@
   ```
 - Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
+- **Use typed throws.** Every throwing function declares its concrete error type — `throws(SomeError)` — not bare `throws`. This applies to protocol requirements, public APIs, and internal helpers. Bare `throws` is only OK when the function is a thin wrapper that intentionally accepts `any Error` (e.g., a `logging` helper that catches and logs). If you have to translate an upstream untyped throw into a domain error, do it where the upstream is called (`do { try foreign() } catch { throw DomainError.specific }`) so the function's signature stays typed. Mocks must match the protocol's typed throws — `throws(DomainError)`, not bare `throws`.
+- **Never use `Task` static methods (`Task.yield()`, `Task.sleep(...)`, `Task.detached`) to "give the scheduler a chance to run" or "wait for async work to settle".** They're non-deterministic and brittle. Two real patterns instead:
+  1. **`withObservationTracking` to wait on a state change** — for `@Observable` consumers (tests, glue code) that need to observe a downstream mutation. Wrap the predicate read in `withObservationTracking { _ = predicate() } onChange: { continuation.resume() }` inside a `withCheckedContinuation`. Loop while the predicate is false — the tracker is single-shot, so register-await-recheck. This is the only pattern tests should use for waiting on session/VM state.
+  2. **Return spawned `Task`s as `@discardableResult Task<...>`** from the method that creates them. Callers — typically tests — can `await` the task instead of guessing how long it needs to finish.
+
+  If neither fits, stop and ask — don't reach for `Task.yield()` as a workaround.
 - Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
 - Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper, write a `private extension` on the input type in the consumer's own file so the call site reads `value.derived` rather than `derived(value)` — e.g. prefer `private extension EngineLoadError { var message: String { … } }` (used as `error.message`) over a `private func message(for: EngineLoadError) -> String` helper on the consumer. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
-- In `<Type>.swift`, the declaration matching the filename comes first; supporting types (enums it uses, value types it consumes, helper extensions) follow afterwards. Exception: when a sibling `*Type` protocol exists for the main type (e.g. `FooType` declared next to `Foo` in the same file), that protocol comes first — consumers depend on the protocol, so it's the more important surface.
+- In `<Type>.swift`, declarations appear in this order:
+  1. The sibling `*Type` protocol if one exists — consumers depend on its surface, so it's the most important thing to see first.
+  2. Helper types the implementation uses or returns (action enums, mode enums, small value types declared in this file).
+  3. The main implementation type (the class/struct named after the file).
+  4. `private extension`s at the bottom — file-local plumbing on imported types, used only by the implementation above.
+
+  When the file has no protocol, the main type leads.
 
 ## Naming Conventions
 
@@ -58,29 +75,60 @@
 - **`*Gateway` protocols hold only foreign-API primitives, not domain logic.** Each gateway method should map roughly 1:1 onto an underlying foreign call (`setChannelMap(_ map: [Int32], element:, on:)`, `physicalChannelCount(of:) -> Int?`, `authorizationStatus(for:)`). Logic that *builds* the call's inputs from domain types (e.g. computing a channel map from `SelectedChannel` + an offset) stays in the caller as private methods. Otherwise correctness-critical code hides behind a non-substitutable boundary and the gateway gets coupled to types that have nothing to do with the foreign API.
 - **File-backed storage keys use snake_case.** Keys that become on-disk filenames, plist keys, or other external persistent identifiers should be snake_case (`"audio_settings"` → `audio_settings.json`), not camelCase. Swift symbol naming inside the codebase still follows normal camelCase.
 
-## Subview communication
+## View state and actions
 
-Subviews don't own a view model and don't mutate shared state. Every event bubbles up through a single `onAction: (Action) -> Void` closure to the parent feature's VM, which is the only thing that decides what to do:
+Every view gets a dedicated action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view live alongside the VM in the same file.
+
+### Top-level feature views (own a VM)
+
+The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes its observable state as individual `@Observable` properties and dispatches via `func accept(action: <View>Action) async`. The view reads `viewModel.foo` directly and dispatches `viewModel.accept(action: .bar)`.
 
 ```swift
-struct FooViewState: Sendable, Equatable {
-    /* the data the view renders */
+// PurchasesView.swift
+struct PurchasesView: View {
+    @State var viewModel: PurchasesViewModelType
+
+    var body: some View {
+        Text(viewModel.headline)
+        Button("Buy") { Task { await viewModel.accept(action: .buyTapped) } }
+    }
 }
 
-enum FooViewAction { /* every event the subview can emit */ }
+@MainActor
+protocol PurchasesViewModelType: AnyObject, Observable {
+    var headline: String { get }
+    var phase: PurchasesPhase { get }
+    func accept(action: PurchasesViewAction) async
+}
 
-struct FooView: View {
-    let state: FooViewState
-    let onAction: (FooViewAction) -> Void
+enum PurchasesPhase: Sendable, Equatable { case idle, purchasing, restoring }
+
+enum PurchasesViewAction: Sendable, Equatable {
+    case task
+    case buyTapped
 }
 ```
 
-- Define a dedicated action enum per subview, named after the view (`<View>Action` — drop the trailing "View" if the view's name already ends in "View"). Don't reuse the parent VM's action type — the subview shouldn't know it exists.
-- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout`/`onDone`/etc. closures — the subview has exactly one outbound channel.
-- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(FooViewAction)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
+`@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap the whole VM state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
+
+**Keep view-side logic out of the body.** Derived display values and enable/disable conditions belong on the VM as named, testable properties — never inline in the view. If a view body needs `viewModel.activeName == nil || !viewModel.content.isOperable`, the VM should expose `var isRestoreButtonDisabled: Bool`. If it needs `if case .loaded(let loaded) = viewModel.content { return loaded.component.name }`, the VM should expose `var audioUnitTitle: String`. The view does presentation (layout, styling, dispatching actions); the VM does the deriving. Anything more interesting than a single property read or simple optional unwrap should move.
+
+### Subviews (no VM)
+
+Subviews don't own a view model and don't mutate shared state. The view takes `let state: <View>ViewState` and `let onAction: (<View>Action) -> Void`; every event bubbles up through `onAction` to the parent feature's VM, which is the only thing that decides what to do.
+
+```swift
+struct FeedbackToast: View {
+    let state: FeedbackToastViewState
+    let onAction: (FeedbackToastAction) -> Void
+}
+```
+
+- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout` / `onDone` / etc. closures — the subview has exactly one outbound channel.
+- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(<View>Action)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
 - When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own wrapping case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
 - If multiple instances share write logic on the VM, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
-- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct (`FooViewState`) — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
+- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
 
 ## Project Structure
 
@@ -128,7 +176,7 @@ Mocks for `*Type` protocols live in one of two places depending on scope:
 Default shape:
 
 ```swift
-public actor AudioSettingsStoreMock: AudioSettingsStoreType {
+public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Sendable {
     public enum Calls: Equatable {
         case update
         case current
@@ -141,12 +189,12 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
         self.settings = settings
     }
 
-    public func current() -> AudioSettings {
+    public func current() async -> AudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) {
+    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
         transform(&settings)
         calls.append(.update)
     }
@@ -155,10 +203,10 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 
 - One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
-- Configure stub state and return-value overrides via init params with defaults.
-- Actor mocks may add one `set<Field>(_:)` method per init parameter, alongside the protocol surface. These setters mirror what `init` already accepts, do **not** append to `calls`, and are reserved for test setup — they let a test adjust starting state mid-fixture without recording a sut-driven call. Use them to (a) reach an actor whose protocol has no in-place setter, or (b) keep the `calls` log clean when the protocol *does* have a setter (`update`, etc.) but the test is using it for setup rather than to exercise the sut. Protocol methods always record; setters never do.
-- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept.
-- For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
+- Configure stub state and return-value overrides via init params with defaults; tests mutate them directly (`mock.settings = ...`). No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
+- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept. One exception: a non-`setX` helper that performs a real side effect tests need (e.g. yielding on a stream) — name it for the action (`emit`, `broadcast`), not as a setter.
+- Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
+- Default to `final class @unchecked Sendable` for *every* mock. The protocol's `async` declarations stay on the methods so call sites still look right (`await mock.current()`); only test-side property reads/writes become sync (`mock.calls`, `mock.settings = ...`). The trade-off vs `actor`: you lose compiler-enforced isolation. In practice the established `await sut.someCall(); #expect(mock.calls == ...)` pattern has a sync point in the `await`, so the race window is theoretical. Reserve `actor` for mocks that *simulate genuinely concurrent state* — readers and writers running on multiple isolations whose interleaving you want the compiler to police. None of the current mocks meet that bar.
 
 ## Fake pattern
 
@@ -221,6 +269,16 @@ struct FooTests {
 - Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
 - For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
 - Read the test's name to identify which mock(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary mocks with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental mocks, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those mocks, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-mock orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named mock.
+- **Order of declarations inside a `@Suite`:**
+  1. Mock / sut fields (`var someMock: SomeMock!`, `var sut: FooType!`).
+  2. `init()`.
+  3. `deinit` (if any).
+  4. `createSut()`.
+  5. All `@Test` methods, grouped by `// MARK: -` sections.
+  6. Private helpers (`awaitChange`, fixture builders, etc.).
+  7. Private extensions on test-imported types, if any.
+
+  Tests stay near the top so the file reads as "what this suite verifies." Helpers live below — they're scaffolding, not subject matter.
 
 ## Testing through DI seams
 

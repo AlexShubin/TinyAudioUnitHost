@@ -52,7 +52,7 @@ struct TargetSettingsProviderTests {
     @Test
     mutating func resolveTarget_inputOnly_returnsNil() async {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice)
         createSut()
 
         #expect(await sut.resolveTarget() == nil)
@@ -62,7 +62,7 @@ struct TargetSettingsProviderTests {
     mutating func resolveTarget_outputOnly_returnsTargetWithOutputDevice() async {
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let settings = AudioSettings.fake(outputDevice: outDevice)
-        await audioSettingsMock.setSettings(settings)
+        audioSettingsMock.settings = settings
         createSut()
 
         let result = await sut.resolveTarget()
@@ -75,7 +75,7 @@ struct TargetSettingsProviderTests {
     mutating func resolveTarget_sameInputAndOutput_returnsTargetWithOutput() async {
         let device = AudioDevice.fake(id: 1, uid: "uid")
         let settings = AudioSettings.fake(inputDevice: device, outputDevice: device)
-        await audioSettingsMock.setSettings(settings)
+        audioSettingsMock.settings = settings
         createSut()
 
         let result = await sut.resolveTarget()
@@ -90,7 +90,7 @@ struct TargetSettingsProviderTests {
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let aggregate = AudioDevice.fake(id: 99, uid: "aggregate")
         let settings = AudioSettings.fake(inputDevice: inDevice, outputDevice: outDevice)
-        await audioSettingsMock.setSettings(settings)
+        audioSettingsMock.settings = settings
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate]
         createSut()
@@ -108,7 +108,7 @@ struct TargetSettingsProviderTests {
     mutating func resolveTarget_aggregateCreationFails_returnsNil() async {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = nil
         createSut()
 
@@ -119,7 +119,7 @@ struct TargetSettingsProviderTests {
     mutating func resolveTarget_aggregateNotFoundInDevices_returnsNil() async {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [:]
         createSut()
@@ -132,7 +132,7 @@ struct TargetSettingsProviderTests {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let aggregate = AudioDevice.fake(id: 99, uid: "aggregate")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate]
         createSut()
@@ -154,14 +154,14 @@ struct TargetSettingsProviderTests {
         let inDevice2 = AudioDevice.fake(id: 3, uid: "in-uid-2")
         let aggregate1 = AudioDevice.fake(id: 99, uid: "agg1")
         let aggregate2 = AudioDevice.fake(id: 100, uid: "agg2")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate1]
         createSut()
 
         _ = await sut.resolveTarget()
 
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice2, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice2, outputDevice: outDevice)
         factoryMock.createResult = 100
         devicesProviderMock.deviceByID = [100: aggregate2]
 
@@ -182,7 +182,7 @@ struct TargetSettingsProviderTests {
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let aggregate1 = AudioDevice.fake(id: 99, uid: "agg1")
         let aggregate2 = AudioDevice.fake(id: 100, uid: "agg2")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate1]
         createSut()
@@ -209,14 +209,14 @@ struct TargetSettingsProviderTests {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let aggregate = AudioDevice.fake(id: 99, uid: "agg")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate]
         createSut()
 
         _ = await sut.resolveTarget()
 
-        await audioSettingsMock.setSettings(.fake(outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(outputDevice: outDevice)
 
         let second = await sut.resolveTarget()
 
@@ -233,14 +233,14 @@ struct TargetSettingsProviderTests {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
         let aggregate = AudioDevice.fake(id: 99, uid: "agg")
-        await audioSettingsMock.setSettings(.fake(inputDevice: inDevice, outputDevice: outDevice))
+        audioSettingsMock.settings = .fake(inputDevice: inDevice, outputDevice: outDevice)
         factoryMock.createResult = 99
         devicesProviderMock.deviceByID = [99: aggregate]
         createSut()
 
         _ = await sut.resolveTarget()
 
-        await audioSettingsMock.setSettings(.empty)
+        audioSettingsMock.settings = .empty
 
         #expect(await sut.resolveTarget() == nil)
         #expect(factoryMock.calls == [

@@ -13,9 +13,10 @@ import PresetKit
 
 public extension Preset {
     static func fake(
+        name: String = "test",
         component: AudioUnitComponent = .fake(),
         state: Data = Data()
     ) -> Preset {
-        Preset(component: component, state: state)
+        Preset(name: name, component: component, state: state)
     }
 }

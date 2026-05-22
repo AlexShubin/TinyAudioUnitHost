@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 
-public actor TargetSettingsProviderMock: TargetSettingsProviderType {
+public final class TargetSettingsProviderMock: TargetSettingsProviderType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case resolveTarget
     }
@@ -20,12 +20,8 @@ public actor TargetSettingsProviderMock: TargetSettingsProviderType {
         self.resolveTargetResult = resolveTargetResult
     }
 
-    public func resolveTarget() -> TargetSettings? {
+    public func resolveTarget() async -> TargetSettings? {
         calls.append(.resolveTarget)
         return resolveTargetResult
-    }
-
-    public func setResolveTargetResult(_ value: TargetSettings?) {
-        resolveTargetResult = value
     }
 }

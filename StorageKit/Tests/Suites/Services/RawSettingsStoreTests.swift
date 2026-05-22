@@ -24,36 +24,36 @@ struct RawSettingsStoreTests {
     }
 
     @Test
-    mutating func init_emptyStorage_returnsEmpty() async {
+    mutating func current_emptyStorage_returnsEmpty() {
         createSut()
 
-        #expect(await sut.current() == .empty)
+        #expect(sut.current == .empty)
     }
 
     @Test
-    mutating func init_readsStoredSettings() async {
+    mutating func current_readsStoredSettings() {
         let stored = RawAudioSettings.fake(bufferSize: 256, sampleRate: 48_000)
         fileStorageMock.storage["audio_settings"] = stored
         createSut()
 
-        #expect(await sut.current() == stored)
+        #expect(sut.current == stored)
     }
 
     @Test
-    mutating func init_wrongTypeInStorage_returnsEmpty() async {
+    mutating func current_wrongTypeInStorage_returnsEmpty() {
         fileStorageMock.storage["audio_settings"] = "not a RawAudioSettings"
         createSut()
 
-        #expect(await sut.current() == .empty)
+        #expect(sut.current == .empty)
     }
 
     @Test
-    mutating func update_appliesTransformAndPersists() async throws {
+    mutating func save_writesToStorage() throws {
         createSut()
 
-        await sut.update { $0.bufferSize = 512 }
+        sut.save(.fake(bufferSize: 512))
 
-        #expect(await sut.current().bufferSize == 512)
+        #expect(sut.current.bufferSize == 512)
         let persisted = try #require(fileStorageMock.storage["audio_settings"] as? RawAudioSettings)
         #expect(persisted.bufferSize == 512)
     }

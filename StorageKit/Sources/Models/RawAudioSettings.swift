@@ -7,14 +7,14 @@
 //
 
 public struct RawAudioSettings: Sendable, Equatable, Codable {
-    public var input: RawDeviceSettings
-    public var output: RawDeviceSettings
-    public var bufferSize: UInt32?
-    public var sampleRate: Float64?
+    public let input: RawDeviceSettings?
+    public let output: RawDeviceSettings?
+    public let bufferSize: UInt32?
+    public let sampleRate: Float64?
 
     public init(
-        input: RawDeviceSettings = .empty,
-        output: RawDeviceSettings = .empty,
+        input: RawDeviceSettings? = nil,
+        output: RawDeviceSettings? = nil,
         bufferSize: UInt32? = nil,
         sampleRate: Float64? = nil
     ) {

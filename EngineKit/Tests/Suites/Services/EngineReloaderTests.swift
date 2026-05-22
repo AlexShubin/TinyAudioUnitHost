@@ -7,8 +7,6 @@
 //
 
 import AppKit
-import AVFoundation
-import Common
 import CommonTestSupport
 import EngineKitTestSupport
 import Testing
@@ -17,65 +15,39 @@ import Testing
 @Suite
 struct EngineReloaderTests {
     var engineMock: EngineMock!
-    var notificationCenterMock: NotificationCenterMock!
     var workspaceNotificationCenterMock: NotificationCenterMock!
     var sut: EngineReloader!
 
     init() {
         engineMock = EngineMock()
-        notificationCenterMock = NotificationCenterMock()
         workspaceNotificationCenterMock = NotificationCenterMock()
     }
 
     mutating func createSut() {
         sut = EngineReloader(
             engine: engineMock,
-            notificationCenter: notificationCenterMock,
             workspaceNotificationCenter: workspaceNotificationCenterMock
         )
     }
 
     @Test
-    mutating func startListening_audioEngineConfigurationChange_subscribesOnDefaultCenter() {
+    mutating func startListening_subscribesOnWorkspaceCenter() {
         createSut()
 
-        sut.startListening(to: .audioEngineConfigurationChange)
-
-        #expect(notificationCenterMock.calls == [.stream(.AVAudioEngineConfigurationChange)])
-        #expect(workspaceNotificationCenterMock.calls == [])
-    }
-
-    @Test
-    mutating func startListening_workspaceDidWake_subscribesOnWorkspaceCenter() {
-        createSut()
-
-        sut.startListening(to: .workspaceDidWake)
+        sut.startListening()
 
         #expect(workspaceNotificationCenterMock.calls == [.stream(NSWorkspace.didWakeNotification)])
-        #expect(notificationCenterMock.calls == [])
     }
 
     @Test
-    mutating func startListening_audioEngineConfigurationChange_emitted_callsEngineReload() async {
+    mutating func startListening_workspaceDidWakeEmitted_callsEngineReload() async {
         createSut()
 
-        let task = sut.startListening(to: .audioEngineConfigurationChange)
-        notificationCenterMock.emit(.AVAudioEngineConfigurationChange)
-        notificationCenterMock.finish(.AVAudioEngineConfigurationChange)
-        try? await task.value
-
-        #expect(await engineMock.calls == [.reload])
-    }
-
-    @Test
-    mutating func startListening_workspaceDidWake_emitted_callsEngineReload() async {
-        createSut()
-
-        let task = sut.startListening(to: .workspaceDidWake)
+        let task = sut.startListening()
         workspaceNotificationCenterMock.emit(NSWorkspace.didWakeNotification)
         workspaceNotificationCenterMock.finish(NSWorkspace.didWakeNotification)
         try? await task.value
 
-        #expect(await engineMock.calls == [.reload])
+        #expect(engineMock.calls == [.reload])
     }
 }

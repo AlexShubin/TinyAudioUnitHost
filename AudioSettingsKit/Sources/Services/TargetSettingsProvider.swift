@@ -28,8 +28,7 @@ final actor TargetSettingsProvider: TargetSettingsProviderType {
     }
 
     func resolveTarget() async -> TargetSettings? {
-        let settings = await audioSettings.current()
-        return resolve(settings)
+        resolve(audioSettings.current)
     }
 
     private func resolve(_ settings: AudioSettings) -> TargetSettings? {

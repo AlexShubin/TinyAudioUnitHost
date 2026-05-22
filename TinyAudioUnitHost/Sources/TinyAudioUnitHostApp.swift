@@ -14,28 +14,31 @@ struct TinyAudioUnitHostApp: App {
     @Environment(\.dependencies) private var dependencies
 
     var body: some Scene {
-        WindowGroup {
-            withTestsDisabled {
-                HostView(viewModel: dependencies.makeHostViewModel())
-                    .task {
-                        dependencies.engine.engineReloader.startListening(to: .audioEngineConfigurationChange)
-                        dependencies.engine.engineReloader.startListening(to: .workspaceDidWake)
-                        dependencies.audioSettings.setupRefresher.startListening()
-                    }
+        Window("Tiny Audio Unit Host", id: "host") {
+            WithTestsDisabled {
+                MainWindowView(viewModel: dependencies.makeMainWindowViewModel())
             }
         }
         .windowResizability(.contentSize)
         .commands {
-            HostCommands()
+            AppCommands(viewModel: dependencies.makeAppCommandsViewModel())
         }
 
         Settings {
-            withTestsDisabled { SettingsView(viewModel: dependencies.makeSettingsViewModel()) }
+            SettingsView(viewModel: dependencies.makeSettingsViewModel())
         }
-    }
 
-    @ViewBuilder
-    private func withTestsDisabled<V: View>(@ViewBuilder _ content: () -> V) -> some View {
+        Window("Tiny Audio Unit Host Pro", id: "purchases") {
+            PurchasesView(viewModel: dependencies.makePurchasesViewModel())
+        }
+        .windowResizability(.contentSize)
+    }
+}
+
+private struct WithTestsDisabled<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
         if isRunningTests {
             EmptyView()
         } else {

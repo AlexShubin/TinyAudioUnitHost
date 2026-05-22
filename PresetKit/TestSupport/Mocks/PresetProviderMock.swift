@@ -6,32 +6,79 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
+import Foundation
 import PresetKit
 
-public actor PresetProviderMock: PresetProviderType {
+public final class PresetProviderMock: PresetProviderType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
-        case loadDefault
-        case saveDefault(Preset)
+        case presets
+        case activeName
+        case setActive(String?)
+        case load(name: String)
+        case save(Preset)
+        case rename(from: String, to: String)
+        case delete(name: String)
     }
 
     public private(set) var calls: [Calls] = []
-    public var defaultPreset: Preset?
+    public var storedPresets: [String: Preset]
+    public var currentActiveName: String?
 
-    public init(defaultPreset: Preset? = nil) {
-        self.defaultPreset = defaultPreset
+    public init(
+        presets: [String: Preset] = [:],
+        activeName: String? = nil
+    ) {
+        self.storedPresets = presets
+        self.currentActiveName = activeName
     }
 
-    public func loadDefault() -> Preset? {
-        calls.append(.loadDefault)
-        return defaultPreset
+    public var presets: [String] {
+        calls.append(.presets)
+        return storedPresets.keys.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
     }
 
-    public func saveDefault(_ preset: Preset) {
-        defaultPreset = preset
-        calls.append(.saveDefault(preset))
+    public var activeName: String? {
+        calls.append(.activeName)
+        return currentActiveName
     }
 
-    public func setDefaultPreset(_ value: Preset?) {
-        defaultPreset = value
+    public func setActive(_ name: String?) {
+        currentActiveName = name
+        calls.append(.setActive(name))
+    }
+
+    public func load(name: String) -> Preset? {
+        calls.append(.load(name: name))
+        return storedPresets[name]
+    }
+
+    public func save(_ preset: Preset) {
+        storedPresets[preset.name] = preset
+        calls.append(.save(preset))
+    }
+
+    public func rename(from oldName: String, to newName: String) {
+        calls.append(.rename(from: oldName, to: newName))
+        if let existing = storedPresets.removeValue(forKey: oldName) {
+            storedPresets[newName] = Preset(
+                name: newName,
+                component: existing.component,
+                state: existing.state
+            )
+        }
+        if currentActiveName == oldName {
+            currentActiveName = newName
+        }
+    }
+
+    public func delete(name: String) {
+        storedPresets.removeValue(forKey: name)
+        if currentActiveName == name {
+            currentActiveName = nil
+        }
+        calls.append(.delete(name: name))
     }
 }

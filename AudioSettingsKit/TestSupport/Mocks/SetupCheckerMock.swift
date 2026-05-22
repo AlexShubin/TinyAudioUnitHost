@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 
-public actor SetupCheckerMock: SetupCheckerType {
+public final class SetupCheckerMock: SetupCheckerType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case refresh
     }
@@ -16,7 +16,7 @@ public actor SetupCheckerMock: SetupCheckerType {
     public private(set) var calls: [Calls] = []
     public var unmet: Set<SetupRequirement>
 
-    public nonisolated let unmetStream: AsyncStream<Set<SetupRequirement>>
+    public let unmetStream: AsyncStream<Set<SetupRequirement>>
     private let continuation: AsyncStream<Set<SetupRequirement>>.Continuation
 
     public init(unmet: Set<SetupRequirement> = []) {
@@ -30,7 +30,7 @@ public actor SetupCheckerMock: SetupCheckerType {
         continuation.finish()
     }
 
-    public func refresh() {
+    public func refresh() async {
         calls.append(.refresh)
         continuation.yield(unmet)
     }

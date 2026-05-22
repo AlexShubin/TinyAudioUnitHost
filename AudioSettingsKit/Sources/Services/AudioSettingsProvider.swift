@@ -9,8 +9,8 @@
 import StorageKit
 
 public protocol AudioSettingsProviderType: Sendable {
-    func current() async -> AudioSettings
-    func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
+    var current: AudioSettings { get }
+    func save(_ settings: AudioSettings)
 }
 
 public struct AudioSettingsProvider: AudioSettingsProviderType {
@@ -25,40 +25,38 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         self.devicesProvider = devicesProvider
     }
 
-    public func current() async -> AudioSettings {
-        await resolve()
+    public var current: AudioSettings {
+        resolve()
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
-        var copy = await resolve()
-        transform(&copy)
-        let inputUID = copy.inputDevice?.uid
-        let inputChannels = copy.inputChannel?.channels.map(\.id) ?? []
-        let outputUID = copy.outputDevice?.uid
-        let outputChannels = copy.outputChannel?.channels.map(\.id) ?? []
-        let bufferSize = copy.bufferSize
-        let sampleRate = copy.sampleRate
-        await rawStore.update { raw in
-            raw.input.uid = inputUID
-            raw.input.selectedChannels = inputChannels
-            raw.output.uid = outputUID
-            raw.output.selectedChannels = outputChannels
-            raw.bufferSize = bufferSize
-            raw.sampleRate = sampleRate
+    public func save(_ settings: AudioSettings) {
+        let inputChannelIDs = settings.inputChannel?.channels.map(\.id) ?? []
+        let outputChannelIDs = settings.outputChannel?.channels.map(\.id) ?? []
+        let nextInput = settings.inputDevice.map { device in
+            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: inputChannelIDs)
         }
+        let nextOutput = settings.outputDevice.map { device in
+            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: outputChannelIDs)
+        }
+        rawStore.save(RawAudioSettings(
+            input: nextInput,
+            output: nextOutput,
+            bufferSize: settings.bufferSize,
+            sampleRate: settings.sampleRate
+        ))
     }
 
-    private func resolve() async -> AudioSettings {
-        let raw = await rawStore.current()
+    private func resolve() -> AudioSettings {
+        let raw = rawStore.current
         let devices = devicesProvider.devices(.all)
-        let inputDevice = raw.input.uid.flatMap { uid in devices.first { $0.uid == uid } }
-        let outputDevice = raw.output.uid.flatMap { uid in devices.first { $0.uid == uid } }
+        let inputDevice = raw.input.flatMap { saved in devices.first { $0.uid == saved.uid } }
+        let outputDevice = raw.output.flatMap { saved in devices.first { $0.uid == saved.uid } }
         let inputChannel = SelectedChannel(
-            ids: raw.input.selectedChannels,
+            ids: raw.input?.selectedChannels ?? [],
             in: inputDevice?.inputChannels ?? []
         )
         let outputChannel = SelectedChannel(
-            ids: raw.output.selectedChannels,
+            ids: raw.output?.selectedChannels ?? [],
             in: outputDevice?.outputChannels ?? []
         )
         return AudioSettings(
@@ -67,8 +65,16 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
             inputChannel: inputChannel,
             outputChannel: outputChannel,
             bufferSize: raw.bufferSize,
-            sampleRate: raw.sampleRate
+            sampleRate: raw.sampleRate,
+            savedInput: raw.input?.saved,
+            savedOutput: raw.output?.saved
         )
+    }
+}
+
+private extension RawDeviceSettings {
+    var saved: SavedDevice {
+        SavedDevice(uid: uid, name: name, selectedChannelCount: selectedChannels.count)
     }
 }
 

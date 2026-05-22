@@ -47,12 +47,12 @@ struct SettingsViewModelTests {
         let inDevice = AudioDevice.fake(id: 1, uid: "in", inputChannels: [.fake(id: 1)])
         let outDevice = AudioDevice.fake(id: 2, uid: "out", outputChannels: [.fake(id: 1)])
         devicesProviderMock.devicesResult = [inDevice, outDevice]
-        await audioSettingsMock.setSettings(.fake(
+        audioSettingsMock.settings = .fake(
             inputDevice: inDevice,
             outputDevice: outDevice,
             inputChannel: .mono(.fake(id: 1)),
             outputChannel: .mono(.fake(id: 1))
-        ))
+        )
         createSut()
 
         await sut.accept(action: .task)
@@ -70,8 +70,8 @@ struct SettingsViewModelTests {
             availableBufferSizes: [32, 64, 128],
             availableSampleRates: [44_100, 48_000]
         )
-        await audioSettingsMock.setSettings(.fake(bufferSize: 64, sampleRate: 44_100))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 64, sampleRate: 44_100)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
 
         await sut.accept(action: .task)
@@ -85,8 +85,8 @@ struct SettingsViewModelTests {
     @Test
     mutating func task_resolvesInvalidBufferSizeTo32() async {
         let device = AudioDevice.fake(availableBufferSizes: [32, 64])
-        await audioSettingsMock.setSettings(.fake(bufferSize: 9999))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 9999)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
 
         await sut.accept(action: .task)
@@ -97,8 +97,8 @@ struct SettingsViewModelTests {
     @Test
     mutating func task_resolvesInvalidSampleRateTo48000() async {
         let device = AudioDevice.fake(availableSampleRates: [44_100, 48_000])
-        await audioSettingsMock.setSettings(.fake(sampleRate: 9999))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(sampleRate: 9999)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
 
         await sut.accept(action: .task)
@@ -112,8 +112,8 @@ struct SettingsViewModelTests {
             availableBufferSizes: [256, 512],
             availableSampleRates: [88_200, 96_000]
         )
-        await audioSettingsMock.setSettings(.fake(bufferSize: 9999, sampleRate: 9999))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 9999, sampleRate: 9999)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
 
         await sut.accept(action: .task)
@@ -124,7 +124,7 @@ struct SettingsViewModelTests {
 
     @Test
     mutating func task_noTarget_clearsAvailableAndResolvesNil() async {
-        await audioSettingsMock.setSettings(.fake(bufferSize: 64, sampleRate: 44_100))
+        audioSettingsMock.settings = .fake(bufferSize: 64, sampleRate: 44_100)
         createSut()
 
         await sut.accept(action: .task)
@@ -138,13 +138,13 @@ struct SettingsViewModelTests {
     @Test
     mutating func task_persistsResolvedBufferSize_whenChanged() async {
         let device = AudioDevice.fake(availableBufferSizes: [32, 64])
-        await audioSettingsMock.setSettings(.fake(bufferSize: 9999))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 9999)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
 
         await sut.accept(action: .task)
 
-        #expect(await audioSettingsMock.settings.bufferSize == 32)
+        #expect(audioSettingsMock.settings.bufferSize == 32)
     }
 
     @Test
@@ -153,7 +153,7 @@ struct SettingsViewModelTests {
 
         await sut.accept(action: .task)
 
-        #expect(await engineMock.calls == [])
+        #expect(engineMock.calls == [])
     }
 
     // MARK: - device picker
@@ -168,8 +168,8 @@ struct SettingsViewModelTests {
         await sut.accept(action: .inputDevicePickerAction(.selectDevice(device)))
 
         #expect(sut.inputState.selectedDevice == device)
-        #expect(await audioSettingsMock.settings.inputDevice == device)
-        #expect(await engineMock.calls == [.reload])
+        #expect(audioSettingsMock.settings.inputDevice == device)
+        #expect(engineMock.calls == [.reload])
     }
 
     @Test
@@ -177,10 +177,10 @@ struct SettingsViewModelTests {
         let device = AudioDevice.fake(id: 1, uid: "in", inputChannels: [.fake(id: 1)])
         let other = AudioDevice.fake(id: 2, uid: "other")
         devicesProviderMock.devicesResult = [device, other]
-        await audioSettingsMock.setSettings(.fake(
+        audioSettingsMock.settings = .fake(
             inputDevice: device,
             inputChannel: .mono(.fake(id: 1))
-        ))
+        )
         createSut()
         await sut.accept(action: .task)
 
@@ -194,16 +194,16 @@ struct SettingsViewModelTests {
     mutating func selectInputDevice_sameDevice_noOp() async {
         let device = AudioDevice.fake(id: 1, uid: "in")
         devicesProviderMock.devicesResult = [device]
-        await audioSettingsMock.setSettings(.fake(inputDevice: device))
+        audioSettingsMock.settings = .fake(inputDevice: device)
         createSut()
         await sut.accept(action: .task)
-        let updateCallsBefore = await audioSettingsMock.calls.filter { $0 == .update }.count
-        let reloadCallsBefore = await engineMock.calls.count
+        let savesBefore = audioSettingsMock.calls.filter { if case .save = $0 { true } else { false } }.count
+        let reloadsBefore = engineMock.calls.count
 
         await sut.accept(action: .inputDevicePickerAction(.selectDevice(device)))
 
-        #expect(await audioSettingsMock.calls.filter { $0 == .update }.count == updateCallsBefore)
-        #expect(await engineMock.calls.count == reloadCallsBefore)
+        #expect(audioSettingsMock.calls.filter { if case .save = $0 { true } else { false } }.count == savesBefore)
+        #expect(engineMock.calls.count == reloadsBefore)
     }
 
     @Test
@@ -212,7 +212,7 @@ struct SettingsViewModelTests {
         let channel2 = AudioChannel.fake(id: 2, name: "Ch2")
         let device = AudioDevice.fake(id: 1, uid: "in", inputChannels: [channel1, channel2])
         devicesProviderMock.devicesResult = [device]
-        await audioSettingsMock.setSettings(.fake(inputDevice: device))
+        audioSettingsMock.settings = .fake(inputDevice: device)
         createSut()
         await sut.accept(action: .task)
 
@@ -233,7 +233,7 @@ struct SettingsViewModelTests {
         let channel3 = AudioChannel.fake(id: 3, name: "Ch3")
         let device = AudioDevice.fake(id: 1, uid: "in", inputChannels: [channel1, channel2, channel3])
         devicesProviderMock.devicesResult = [device]
-        await audioSettingsMock.setSettings(.fake(inputDevice: device))
+        audioSettingsMock.settings = .fake(inputDevice: device)
         createSut()
         await sut.accept(action: .task)
 
@@ -254,7 +254,7 @@ struct SettingsViewModelTests {
         await sut.accept(action: .outputDevicePickerAction(.selectDevice(device)))
 
         #expect(sut.outputState.selectedDevice == device)
-        #expect(await audioSettingsMock.settings.outputDevice == device)
+        #expect(audioSettingsMock.settings.outputDevice == device)
     }
 
     // MARK: - buffer / sample rate
@@ -262,57 +262,57 @@ struct SettingsViewModelTests {
     @Test
     mutating func selectBufferSize_changes_persistsAndReloads() async {
         let device = AudioDevice.fake(availableBufferSizes: [32, 64, 128])
-        await audioSettingsMock.setSettings(.fake(bufferSize: 32))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 32)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
         await sut.accept(action: .task)
 
         await sut.accept(action: .selectBufferSize(128))
 
         #expect(sut.bufferSize == 128)
-        #expect(await audioSettingsMock.settings.bufferSize == 128)
-        #expect(await engineMock.calls == [.reload])
+        #expect(audioSettingsMock.settings.bufferSize == 128)
+        #expect(engineMock.calls == [.reload])
     }
 
     @Test
     mutating func selectBufferSize_sameValue_noOp() async {
         let device = AudioDevice.fake(availableBufferSizes: [32, 64])
-        await audioSettingsMock.setSettings(.fake(bufferSize: 64))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(bufferSize: 64)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
         await sut.accept(action: .task)
-        let reloadsBefore = await engineMock.calls.count
+        let reloadsBefore = engineMock.calls.count
 
         await sut.accept(action: .selectBufferSize(64))
 
-        #expect(await engineMock.calls.count == reloadsBefore)
+        #expect(engineMock.calls.count == reloadsBefore)
     }
 
     @Test
     mutating func selectSampleRate_changes_persistsAndReloads() async {
         let device = AudioDevice.fake(availableSampleRates: [44_100, 48_000, 96_000])
-        await audioSettingsMock.setSettings(.fake(sampleRate: 48_000))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(sampleRate: 48_000)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
         await sut.accept(action: .task)
 
         await sut.accept(action: .selectSampleRate(96_000))
 
         #expect(sut.sampleRate == 96_000)
-        #expect(await audioSettingsMock.settings.sampleRate == 96_000)
+        #expect(audioSettingsMock.settings.sampleRate == 96_000)
     }
 
     @Test
     mutating func selectSampleRate_sameValue_noOp() async {
         let device = AudioDevice.fake(availableSampleRates: [44_100, 48_000])
-        await audioSettingsMock.setSettings(.fake(sampleRate: 48_000))
-        await targetSettingsMock.setResolveTargetResult(.fake(device: device))
+        audioSettingsMock.settings = .fake(sampleRate: 48_000)
+        targetSettingsMock.resolveTargetResult = .fake(device: device)
         createSut()
         await sut.accept(action: .task)
-        let reloadsBefore = await engineMock.calls.count
+        let reloadsBefore = engineMock.calls.count
 
         await sut.accept(action: .selectSampleRate(48_000))
 
-        #expect(await engineMock.calls.count == reloadsBefore)
+        #expect(engineMock.calls.count == reloadsBefore)
     }
 }

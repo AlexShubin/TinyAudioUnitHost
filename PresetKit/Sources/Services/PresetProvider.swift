@@ -7,34 +7,74 @@
 //
 
 import AudioUnitsKit
+import Foundation
 import StorageKit
 
 public protocol PresetProviderType: Sendable {
-    /// Reads the saved default preset, if any.
-    func loadDefault() async -> Preset?
-    /// Writes the default preset.
-    func saveDefault(_ preset: Preset) async
+    var presets: [String] { get }
+    var activeName: String? { get }
+    func setActive(_ name: String?)
+    func load(name: String) -> Preset?
+    func save(_ preset: Preset)
+    func rename(from: String, to: String)
+    func delete(name: String)
 }
 
-final actor PresetProvider: PresetProviderType {
-    private static let defaultName = "default"
-
+struct PresetProvider: PresetProviderType {
     private let rawStore: RawPresetStoreType
     private let library: AudioUnitComponentsLibraryType
 
-    init(rawStore: RawPresetStoreType, library: AudioUnitComponentsLibraryType) {
+    init(
+        rawStore: RawPresetStoreType,
+        library: AudioUnitComponentsLibraryType
+    ) {
         self.rawStore = rawStore
         self.library = library
     }
 
-    func loadDefault() async -> Preset? {
-        guard let raw = await rawStore.load(name: Self.defaultName),
-              let component = resolve(raw) else { return nil }
-        return Preset(component: component, state: raw.state)
+    var presets: [String] {
+        rawStore.names
     }
 
-    func saveDefault(_ preset: Preset) async {
-        await rawStore.save(raw(from: preset), name: Self.defaultName)
+    var activeName: String? {
+        rawStore.activePreset?.name
+    }
+
+    func setActive(_ name: String?) {
+        if let name {
+            rawStore.saveActivePreset(RawActivePresetState(name: name))
+        } else {
+            rawStore.deleteActivePreset()
+        }
+    }
+
+    func load(name: String) -> Preset? {
+        rawStore.load(name: name).flatMap { domainPreset(from: $0, name: name) }
+    }
+
+    func save(_ preset: Preset) {
+        rawStore.save(rawPreset(from: preset), name: preset.name)
+    }
+
+    func rename(from oldName: String, to newName: String) {
+        let activeWasOld = rawStore.activePreset?.name == oldName
+        rawStore.rename(from: oldName, to: newName)
+        if activeWasOld {
+            rawStore.saveActivePreset(RawActivePresetState(name: newName))
+        }
+    }
+
+    func delete(name: String) {
+        let activeMatched = rawStore.activePreset?.name == name
+        rawStore.delete(name: name)
+        if activeMatched {
+            rawStore.deleteActivePreset()
+        }
+    }
+
+    private func domainPreset(from raw: RawPreset, name: String) -> Preset? {
+        guard let component = resolve(raw) else { return nil }
+        return Preset(name: name, component: component, state: raw.state)
     }
 
     private func resolve(_ raw: RawPreset) -> AudioUnitComponent? {
@@ -46,7 +86,7 @@ final actor PresetProvider: PresetProviderType {
         }
     }
 
-    private func raw(from preset: Preset) -> RawPreset {
+    private func rawPreset(from preset: Preset) -> RawPreset {
         let desc = preset.component.componentDescription
         return RawPreset(
             componentType: desc.componentType,

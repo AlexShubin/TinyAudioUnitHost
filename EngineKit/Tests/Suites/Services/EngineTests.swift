@@ -160,7 +160,7 @@ struct EngineTests {
         ))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
@@ -185,7 +185,7 @@ struct EngineTests {
         ))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
@@ -206,7 +206,7 @@ struct EngineTests {
         let target = TargetSettings.fake(settings: .fake(inputDevice: .fake()))
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
@@ -242,7 +242,7 @@ struct EngineTests {
         )
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
@@ -266,7 +266,7 @@ struct EngineTests {
         )
         avEngineMock.inputAudioUnit = inputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.mixerComponent, state: nil)
@@ -290,7 +290,7 @@ struct EngineTests {
         avEngineMock.outputAudioUnit = outputAU
         avAudioUnitFactoryMock.instantiateResult = .success(avAudioUnit)
         coreAudioGatewayMock.physicalChannelCountResult = 4
-        await targetSettingsProviderMock.setResolveTargetResult(target)
+        targetSettingsProviderMock.resolveTargetResult = target
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)

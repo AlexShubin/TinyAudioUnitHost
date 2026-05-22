@@ -9,10 +9,10 @@
 import Foundation
 
 public struct RawPreset: Sendable, Equatable, Codable {
-    public var componentType: UInt32
-    public var componentSubType: UInt32
-    public var componentManufacturer: UInt32
-    public var state: Data
+    public let componentType: UInt32
+    public let componentSubType: UInt32
+    public let componentManufacturer: UInt32
+    public let state: Data
 
     public init(
         componentType: UInt32,

@@ -10,10 +10,12 @@ import AudioUnitsKit
 import Foundation
 
 public struct Preset: Sendable, Equatable {
+    public let name: String
     public let component: AudioUnitComponent
     public let state: Data
 
-    public init(component: AudioUnitComponent, state: Data) {
+    public init(name: String, component: AudioUnitComponent, state: Data) {
+        self.name = name
         self.component = component
         self.state = state
     }

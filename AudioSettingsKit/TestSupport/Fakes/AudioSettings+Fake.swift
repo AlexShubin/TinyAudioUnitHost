@@ -15,7 +15,9 @@ public extension AudioSettings {
         inputChannel: SelectedChannel? = nil,
         outputChannel: SelectedChannel? = nil,
         bufferSize: UInt32? = nil,
-        sampleRate: Float64? = nil
+        sampleRate: Float64? = nil,
+        savedInput: SavedDevice? = nil,
+        savedOutput: SavedDevice? = nil
     ) -> AudioSettings {
         AudioSettings(
             inputDevice: inputDevice,
@@ -23,7 +25,19 @@ public extension AudioSettings {
             inputChannel: inputChannel,
             outputChannel: outputChannel,
             bufferSize: bufferSize,
-            sampleRate: sampleRate
+            sampleRate: sampleRate,
+            savedInput: savedInput,
+            savedOutput: savedOutput
         )
+    }
+}
+
+public extension SavedDevice {
+    static func fake(
+        uid: String = "saved-uid",
+        name: String = "Saved Device",
+        selectedChannelCount: Int = 2
+    ) -> SavedDevice {
+        SavedDevice(uid: uid, name: name, selectedChannelCount: selectedChannelCount)
     }
 }

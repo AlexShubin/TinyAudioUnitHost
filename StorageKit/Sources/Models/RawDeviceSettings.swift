@@ -7,13 +7,13 @@
 //
 
 public struct RawDeviceSettings: Sendable, Equatable, Codable {
-    public var uid: String?
-    public var selectedChannels: [UInt32]
+    public let uid: String
+    public let name: String
+    public let selectedChannels: [UInt32]
 
-    public init(uid: String? = nil, selectedChannels: [UInt32] = []) {
+    public init(uid: String, name: String, selectedChannels: [UInt32]) {
         self.uid = uid
+        self.name = name
         self.selectedChannels = selectedChannels
     }
-
-    public static let empty = RawDeviceSettings()
 }
