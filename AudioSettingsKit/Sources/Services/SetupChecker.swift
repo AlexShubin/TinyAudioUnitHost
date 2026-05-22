@@ -51,7 +51,7 @@ public final actor SetupChecker: SetupCheckerType {
         if captureDevice.authorizationStatus(for: .audio) != .authorized {
             next.insert(.microphonePermission)
         }
-        let settings = await audioSettings.current()
+        let settings = audioSettings.current
         if settings.outputChannel == nil {
             // Treat "saved without channels" the same as "never configured" —
             // the user still needs to finish picking, not turn on a device.

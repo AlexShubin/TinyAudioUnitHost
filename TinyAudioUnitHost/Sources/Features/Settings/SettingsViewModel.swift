@@ -53,7 +53,7 @@ final class SettingsViewModel: SettingsViewModelType {
     func accept(action: SettingsViewAction) async {
         switch action {
         case .task:
-            let current = await audioSettings.current()
+            let current = audioSettings.current
             inputState = makePickerState(kind: .input, settings: current)
             outputState = makePickerState(kind: .output, settings: current)
             bufferSize = current.bufferSize
@@ -68,12 +68,12 @@ final class SettingsViewModel: SettingsViewModelType {
         case .selectBufferSize(let size):
             guard bufferSize != size else { return }
             bufferSize = size
-            await persist()
+            persist()
             await applyToEngine()
         case .selectSampleRate(let rate):
             guard sampleRate != rate else { return }
             sampleRate = rate
-            await persist()
+            persist()
             await applyToEngine()
         }
     }
@@ -86,7 +86,7 @@ final class SettingsViewModel: SettingsViewModelType {
                 state.selectedDevice = device
                 state.selectedChannel = nil
             }
-            await persist()
+            persist()
             await applyToEngine()
         case let .setChannel(channel, isOn):
             mutatePickerState(kind: kind) { state in
@@ -99,7 +99,7 @@ final class SettingsViewModel: SettingsViewModelType {
                 }
                 state.selectedChannel = SelectedChannel(from: selected)
             }
-            await persist()
+            persist()
             await applyToEngine()
         }
     }
@@ -135,12 +135,12 @@ final class SettingsViewModel: SettingsViewModelType {
         }
     }
 
-    private func persist() async {
+    private func persist() {
         let input = inputState
         let output = outputState
         let buffer = bufferSize
         let rate = sampleRate
-        await audioSettings.update { settings in
+        audioSettings.update { settings in
             settings.inputDevice = input.selectedDevice
             settings.inputChannel = input.selectedChannel
             settings.outputDevice = output.selectedDevice
@@ -163,7 +163,7 @@ final class SettingsViewModel: SettingsViewModelType {
         let resolved = resolveBufferSize(current: bufferSize, available: availableBufferSizes)
         guard resolved != bufferSize else { return }
         bufferSize = resolved
-        await persist()
+        persist()
     }
 
     private func resolveBufferSize(current: UInt32?, available: [UInt32]) -> UInt32? {
@@ -177,7 +177,7 @@ final class SettingsViewModel: SettingsViewModelType {
         let resolved = resolveSampleRate(current: sampleRate, available: availableSampleRates)
         guard resolved != sampleRate else { return }
         sampleRate = resolved
-        await persist()
+        persist()
     }
 
     private func resolveSampleRate(current: Float64?, available: [Float64]) -> Float64? {

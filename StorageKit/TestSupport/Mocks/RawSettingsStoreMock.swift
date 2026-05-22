@@ -21,12 +21,12 @@ public final class RawSettingsStoreMock: RawSettingsStoreType, @unchecked Sendab
         self.settings = settings
     }
 
-    public func current() async -> RawAudioSettings {
+    public var current: RawAudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout RawAudioSettings) -> Void) async {
+    public func update(_ transform: (inout RawAudioSettings) -> Void) {
         transform(&settings)
         calls.append(.update)
     }

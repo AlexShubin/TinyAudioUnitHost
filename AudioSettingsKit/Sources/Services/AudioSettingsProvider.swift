@@ -9,8 +9,8 @@
 import StorageKit
 
 public protocol AudioSettingsProviderType: Sendable {
-    func current() async -> AudioSettings
-    func update(_ transform: @Sendable (inout AudioSettings) -> Void) async
+    var current: AudioSettings { get }
+    func update(_ transform: (inout AudioSettings) -> Void)
 }
 
 public struct AudioSettingsProvider: AudioSettingsProviderType {
@@ -25,12 +25,12 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         self.devicesProvider = devicesProvider
     }
 
-    public func current() async -> AudioSettings {
-        await resolve()
+    public var current: AudioSettings {
+        resolve()
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
-        var copy = await resolve()
+    public func update(_ transform: (inout AudioSettings) -> Void) {
+        var copy = resolve()
         transform(&copy)
         let inputChannelIDs = copy.inputChannel?.channels.map(\.id) ?? []
         let outputChannelIDs = copy.outputChannel?.channels.map(\.id) ?? []
@@ -42,7 +42,7 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         }
         let bufferSize = copy.bufferSize
         let sampleRate = copy.sampleRate
-        await rawStore.update { raw in
+        rawStore.update { raw in
             raw.input = nextInput
             raw.output = nextOutput
             raw.bufferSize = bufferSize
@@ -50,8 +50,8 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         }
     }
 
-    private func resolve() async -> AudioSettings {
-        let raw = await rawStore.current()
+    private func resolve() -> AudioSettings {
+        let raw = rawStore.current
         let devices = devicesProvider.devices(.all)
         let inputDevice = raw.input.flatMap { saved in devices.first { $0.uid == saved.uid } }
         let outputDevice = raw.output.flatMap { saved in devices.first { $0.uid == saved.uid } }

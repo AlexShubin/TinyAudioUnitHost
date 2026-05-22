@@ -21,12 +21,12 @@ public final class AudioSettingsProviderMock: AudioSettingsProviderType, @unchec
         self.settings = settings
     }
 
-    public func current() async -> AudioSettings {
+    public var current: AudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
+    public func update(_ transform: (inout AudioSettings) -> Void) {
         transform(&settings)
         calls.append(.update)
     }
