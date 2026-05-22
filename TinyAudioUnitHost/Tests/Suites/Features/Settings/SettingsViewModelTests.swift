@@ -197,13 +197,13 @@ struct SettingsViewModelTests {
         audioSettingsMock.settings = .fake(inputDevice: device)
         createSut()
         await sut.accept(action: .task)
-        let updateCallsBefore = audioSettingsMock.calls.filter { $0 == .update }.count
-        let reloadCallsBefore = engineMock.calls.count
+        let savesBefore = audioSettingsMock.calls.filter { if case .save = $0 { true } else { false } }.count
+        let reloadsBefore = engineMock.calls.count
 
         await sut.accept(action: .inputDevicePickerAction(.selectDevice(device)))
 
-        #expect(audioSettingsMock.calls.filter { $0 == .update }.count == updateCallsBefore)
-        #expect(engineMock.calls.count == reloadCallsBefore)
+        #expect(audioSettingsMock.calls.filter { if case .save = $0 { true } else { false } }.count == savesBefore)
+        #expect(engineMock.calls.count == reloadsBefore)
     }
 
     @Test

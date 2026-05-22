@@ -147,19 +147,15 @@ struct AudioSettingsProviderTests {
         #expect(rawStoreMock.calls == [.current])
     }
 
-    // MARK: - update
+    // MARK: - save
 
     @Test
-    mutating func update_persistsTransformedDeviceUIDs() async {
+    mutating func save_persistsDeviceUIDs() {
         let inDevice = AudioDevice.fake(id: 1, uid: "in-uid")
         let outDevice = AudioDevice.fake(id: 2, uid: "out-uid")
-        devicesProviderMock.devicesResult = [inDevice, outDevice]
         createSut()
 
-        sut.update { settings in
-            settings.inputDevice = inDevice
-            settings.outputDevice = outDevice
-        }
+        sut.save(.fake(inputDevice: inDevice, outputDevice: outDevice))
 
         let raw = rawStoreMock.settings
         #expect(raw.input?.uid == "in-uid")
@@ -167,94 +163,49 @@ struct AudioSettingsProviderTests {
     }
 
     @Test
-    mutating func update_clearingDevice_persistsNilEntry() async {
-        let device = AudioDevice.fake(uid: "in-uid", inputChannels: [.init(id: 1, name: "Channel 1")])
-        devicesProviderMock.devicesResult = [device]
-        rawStoreMock.settings = .fake(input: .fake(uid: "in-uid", selectedChannels: [1]))
+    mutating func save_nilDevice_persistsNilEntry() {
         createSut()
 
-        sut.update { settings in
-            settings.inputDevice = nil
-            settings.inputChannel = nil
-        }
+        sut.save(.empty)
 
         let raw = rawStoreMock.settings
         #expect(raw.input == nil)
+        #expect(raw.output == nil)
     }
 
     @Test
-    mutating func update_persistsMonoChannelID() async {
+    mutating func save_persistsMonoChannelID() {
         let channel = AudioChannel(id: 7, name: "Channel 7")
         let device = AudioDevice.fake(uid: "in-uid", inputChannels: [channel])
-        devicesProviderMock.devicesResult = [device]
         createSut()
 
-        sut.update { settings in
-            settings.inputDevice = device
-            settings.inputChannel = .mono(channel)
-        }
+        sut.save(.fake(inputDevice: device, inputChannel: .mono(channel)))
 
         let raw = rawStoreMock.settings
         #expect(raw.input?.selectedChannels == [7])
     }
 
     @Test
-    mutating func update_persistsStereoChannelIDs() async {
+    mutating func save_persistsStereoChannelIDs() {
         let left = AudioChannel(id: 1, name: "Channel 1")
         let right = AudioChannel(id: 2, name: "Channel 2")
         let device = AudioDevice.fake(uid: "out-uid", outputChannels: [left, right])
-        devicesProviderMock.devicesResult = [device]
         createSut()
 
-        sut.update { settings in
-            settings.outputDevice = device
-            settings.outputChannel = .stereo(l: left, r: right)
-        }
+        sut.save(.fake(outputDevice: device, outputChannel: .stereo(l: left, r: right)))
 
         let raw = rawStoreMock.settings
         #expect(raw.output?.selectedChannels == [1, 2])
     }
 
     @Test
-    mutating func update_persistsBufferAndSampleRate() async {
+    mutating func save_persistsBufferAndSampleRate() {
         createSut()
 
-        sut.update { settings in
-            settings.bufferSize = 512
-            settings.sampleRate = 96_000
-        }
+        sut.save(.fake(bufferSize: 512, sampleRate: 96_000))
 
         let raw = rawStoreMock.settings
         #expect(raw.bufferSize == 512)
         #expect(raw.sampleRate == 96_000)
-    }
-
-    @Test
-    mutating func update_readsCurrentBeforePersisting() async {
-        createSut()
-
-        sut.update { _ in }
-
-        #expect(rawStoreMock.calls == [.current, .update])
-    }
-
-    @Test
-    mutating func update_resolvesExistingSettings_thenAppliesTransform() async {
-        let device = AudioDevice.fake(id: 1, uid: "in-uid", inputChannels: [.init(id: 1, name: "Channel 1")])
-        devicesProviderMock.devicesResult = [device]
-        rawStoreMock.settings = .fake(
-            input: .fake(uid: "in-uid", selectedChannels: [1]),
-            bufferSize: 128
-        )
-        createSut()
-
-        sut.update { settings in
-            settings.bufferSize = 256
-        }
-
-        let raw = rawStoreMock.settings
-        #expect(raw.input?.uid == "in-uid")
-        #expect(raw.input?.selectedChannels == [1])
-        #expect(raw.bufferSize == 256)
     }
 }

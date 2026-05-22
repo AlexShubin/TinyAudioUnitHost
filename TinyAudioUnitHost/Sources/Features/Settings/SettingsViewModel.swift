@@ -136,18 +136,14 @@ final class SettingsViewModel: SettingsViewModelType {
     }
 
     private func persist() {
-        let input = inputState
-        let output = outputState
-        let buffer = bufferSize
-        let rate = sampleRate
-        audioSettings.update { settings in
-            settings.inputDevice = input.selectedDevice
-            settings.inputChannel = input.selectedChannel
-            settings.outputDevice = output.selectedDevice
-            settings.outputChannel = output.selectedChannel
-            settings.bufferSize = buffer
-            settings.sampleRate = rate
-        }
+        audioSettings.save(AudioSettings(
+            inputDevice: inputState.selectedDevice,
+            outputDevice: outputState.selectedDevice,
+            inputChannel: inputState.selectedChannel,
+            outputChannel: outputState.selectedChannel,
+            bufferSize: bufferSize,
+            sampleRate: sampleRate
+        ))
     }
 
     private func applyToEngine() async {

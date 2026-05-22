@@ -7,14 +7,14 @@
 //
 
 public struct AudioSettings: Sendable, Equatable {
-    public var inputDevice: AudioDevice?
-    public var outputDevice: AudioDevice?
-    public var inputChannel: SelectedChannel?
-    public var outputChannel: SelectedChannel?
-    public var bufferSize: UInt32?
-    public var sampleRate: Float64?
-    public var savedInput: SavedDevice?
-    public var savedOutput: SavedDevice?
+    public let inputDevice: AudioDevice?
+    public let outputDevice: AudioDevice?
+    public let inputChannel: SelectedChannel?
+    public let outputChannel: SelectedChannel?
+    public let bufferSize: UInt32?
+    public let sampleRate: Float64?
+    public let savedInput: SavedDevice?
+    public let savedOutput: SavedDevice?
 
     public init(
         inputDevice: AudioDevice? = nil,

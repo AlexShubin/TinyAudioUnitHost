@@ -11,7 +11,7 @@ import AudioSettingsKit
 public final class AudioSettingsProviderMock: AudioSettingsProviderType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case current
-        case update
+        case save(AudioSettings)
     }
 
     public private(set) var calls: [Calls] = []
@@ -26,8 +26,8 @@ public final class AudioSettingsProviderMock: AudioSettingsProviderType, @unchec
         return settings
     }
 
-    public func update(_ transform: (inout AudioSettings) -> Void) {
-        transform(&settings)
-        calls.append(.update)
+    public func save(_ settings: AudioSettings) {
+        self.settings = settings
+        calls.append(.save(settings))
     }
 }

@@ -10,7 +10,7 @@ import StorageKit
 
 public protocol AudioSettingsProviderType: Sendable {
     var current: AudioSettings { get }
-    func update(_ transform: (inout AudioSettings) -> Void)
+    func save(_ settings: AudioSettings)
 }
 
 public struct AudioSettingsProvider: AudioSettingsProviderType {
@@ -29,25 +29,21 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         resolve()
     }
 
-    public func update(_ transform: (inout AudioSettings) -> Void) {
-        var copy = resolve()
-        transform(&copy)
-        let inputChannelIDs = copy.inputChannel?.channels.map(\.id) ?? []
-        let outputChannelIDs = copy.outputChannel?.channels.map(\.id) ?? []
-        let nextInput = copy.inputDevice.map { device in
+    public func save(_ settings: AudioSettings) {
+        let inputChannelIDs = settings.inputChannel?.channels.map(\.id) ?? []
+        let outputChannelIDs = settings.outputChannel?.channels.map(\.id) ?? []
+        let nextInput = settings.inputDevice.map { device in
             RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: inputChannelIDs)
         }
-        let nextOutput = copy.outputDevice.map { device in
+        let nextOutput = settings.outputDevice.map { device in
             RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: outputChannelIDs)
         }
-        let bufferSize = copy.bufferSize
-        let sampleRate = copy.sampleRate
-        rawStore.update { raw in
-            raw.input = nextInput
-            raw.output = nextOutput
-            raw.bufferSize = bufferSize
-            raw.sampleRate = sampleRate
-        }
+        rawStore.save(RawAudioSettings(
+            input: nextInput,
+            output: nextOutput,
+            bufferSize: settings.bufferSize,
+            sampleRate: settings.sampleRate
+        ))
     }
 
     private func resolve() -> AudioSettings {

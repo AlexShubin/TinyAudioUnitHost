@@ -8,7 +8,7 @@
 
 public protocol RawSettingsStoreType: Sendable {
     var current: RawAudioSettings { get }
-    func update(_ transform: (inout RawAudioSettings) -> Void)
+    func save(_ settings: RawAudioSettings)
 }
 
 struct RawSettingsStore: RawSettingsStoreType {
@@ -23,9 +23,7 @@ struct RawSettingsStore: RawSettingsStoreType {
         fileStorage.read(RawAudioSettings.self, at: Self.path) ?? .empty
     }
 
-    func update(_ transform: (inout RawAudioSettings) -> Void) {
-        var settings = current
-        transform(&settings)
+    func save(_ settings: RawAudioSettings) {
         fileStorage.write(settings, at: Self.path)
     }
 }

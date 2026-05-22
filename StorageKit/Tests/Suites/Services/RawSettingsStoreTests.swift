@@ -48,10 +48,10 @@ struct RawSettingsStoreTests {
     }
 
     @Test
-    mutating func update_appliesTransformAndPersists() throws {
+    mutating func save_writesToStorage() throws {
         createSut()
 
-        sut.update { $0.bufferSize = 512 }
+        sut.save(.fake(bufferSize: 512))
 
         #expect(sut.current.bufferSize == 512)
         let persisted = try #require(fileStorageMock.storage["audio_settings"] as? RawAudioSettings)
