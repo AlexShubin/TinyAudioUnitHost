@@ -46,6 +46,6 @@ struct SetupRefresherTests {
         deviceListListenerMock.finish()
         try? await task.value
 
-        #expect(await setupCheckerMock.calls == [.refresh])
+        #expect(setupCheckerMock.calls == [.refresh])
     }
 }

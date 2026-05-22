@@ -48,6 +48,6 @@ struct EngineReloaderTests {
         workspaceNotificationCenterMock.finish(NSWorkspace.didWakeNotification)
         try? await task.value
 
-        #expect(await engineMock.calls == [.reload])
+        #expect(engineMock.calls == [.reload])
     }
 }

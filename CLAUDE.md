@@ -176,7 +176,7 @@ Mocks for `*Type` protocols live in one of two places depending on scope:
 Default shape:
 
 ```swift
-public actor AudioSettingsStoreMock: AudioSettingsStoreType {
+public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Sendable {
     public enum Calls: Equatable {
         case update
         case current
@@ -189,12 +189,12 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
         self.settings = settings
     }
 
-    public func current() -> AudioSettings {
+    public func current() async -> AudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) {
+    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
         transform(&settings)
         calls.append(.update)
     }
@@ -203,10 +203,10 @@ public actor AudioSettingsStoreMock: AudioSettingsStoreType {
 
 - One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
-- Configure stub state and return-value overrides via init params with defaults.
-- Actor mocks may add one `set<Field>(_:)` method per init parameter, alongside the protocol surface. These setters mirror what `init` already accepts, do **not** append to `calls`, and are reserved for test setup — they let a test adjust starting state mid-fixture without recording a sut-driven call. Use them to (a) reach an actor whose protocol has no in-place setter, or (b) keep the `calls` log clean when the protocol *does* have a setter (`update`, etc.) but the test is using it for setup rather than to exercise the sut. Protocol methods always record; setters never do.
-- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept.
-- For class-bound protocols (`: AnyObject`), use `final class` instead of `actor`. Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
+- Configure stub state and return-value overrides via init params with defaults; tests mutate them directly (`mock.settings = ...`). No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
+- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept. One exception: a non-`setX` helper that performs a real side effect tests need (e.g. yielding on a stream) — name it for the action (`emit`, `broadcast`), not as a setter.
+- Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
+- Default to `final class @unchecked Sendable` for *every* mock. The protocol's `async` declarations stay on the methods so call sites still look right (`await mock.current()`); only test-side property reads/writes become sync (`mock.calls`, `mock.settings = ...`). The trade-off vs `actor`: you lose compiler-enforced isolation. In practice the established `await sut.someCall(); #expect(mock.calls == ...)` pattern has a sync point in the `await`, so the race window is theoretical. Reserve `actor` for mocks that *simulate genuinely concurrent state* — readers and writers running on multiple isolations whose interleaving you want the compiler to police. None of the current mocks meet that bar.
 
 ## Fake pattern
 

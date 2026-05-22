@@ -10,7 +10,7 @@ import AudioUnitsKit
 import EngineKit
 import Foundation
 
-public actor EngineMock: EngineType {
+public final class EngineMock: EngineType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case load(AudioUnitComponent, Data?)
         case reload
@@ -36,13 +36,5 @@ public actor EngineMock: EngineType {
     public func reload() async throws(EngineLoadError) {
         calls.append(.reload)
         if let reloadError { throw reloadError }
-    }
-
-    public func setLoadResult(_ value: Result<LoadedAudioUnit, EngineLoadError>) {
-        loadResult = value
-    }
-
-    public func setReloadError(_ value: EngineLoadError?) {
-        reloadError = value
     }
 }

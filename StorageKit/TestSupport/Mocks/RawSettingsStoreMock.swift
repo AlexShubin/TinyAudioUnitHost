@@ -8,7 +8,7 @@
 
 import StorageKit
 
-public actor RawSettingsStoreMock: RawSettingsStoreType {
+public final class RawSettingsStoreMock: RawSettingsStoreType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case update
         case current
@@ -21,17 +21,13 @@ public actor RawSettingsStoreMock: RawSettingsStoreType {
         self.settings = settings
     }
 
-    public func current() -> RawAudioSettings {
+    public func current() async -> RawAudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout RawAudioSettings) -> Void) {
+    public func update(_ transform: @Sendable (inout RawAudioSettings) -> Void) async {
         transform(&settings)
         calls.append(.update)
-    }
-
-    public func setSettings(_ value: RawAudioSettings) {
-        settings = value
     }
 }

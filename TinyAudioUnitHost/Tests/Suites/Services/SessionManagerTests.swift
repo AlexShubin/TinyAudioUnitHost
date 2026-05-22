@@ -62,7 +62,7 @@ struct SessionManagerTests {
 
         #expect(sut.content == .loaded(loaded))
         #expect(sut.activeName == "foo")
-        #expect(await engineMock.calls == [.load(component, Data([0x01]))])
+        #expect(engineMock.calls == [.load(component, Data([0x01]))])
     }
 
     @Test
@@ -74,7 +74,7 @@ struct SessionManagerTests {
 
         #expect(sut.content == .empty)
         #expect(sut.activeName == nil)
-        #expect(await engineMock.calls == [])
+        #expect(engineMock.calls == [])
     }
 
     @Test
@@ -115,7 +115,7 @@ struct SessionManagerTests {
         await sut.start()
         await awaitChange { sut.content == .unmet([.microphonePermission]) }
 
-        await setupCheckerMock.emit([])
+        setupCheckerMock.emit([])
 
         await awaitChange { sut.content == .loaded(loaded) }
         #expect(sut.content == .loaded(loaded))
@@ -135,7 +135,7 @@ struct SessionManagerTests {
         await sut.start()
         await awaitChange { sut.content == .loaded(loaded) }
 
-        await setupCheckerMock.emit([.noOutputDevice])
+        setupCheckerMock.emit([.noOutputDevice])
 
         await awaitChange { sut.content == .unmet([.noOutputDevice]) }
         #expect(sut.content == .unmet([.noOutputDevice]))
@@ -153,7 +153,7 @@ struct SessionManagerTests {
         await sut.loadComponent(component)
 
         #expect(sut.content == .loaded(loaded))
-        #expect(await engineMock.calls == [.load(component, nil)])
+        #expect(engineMock.calls == [.load(component, nil)])
     }
 
     @Test
@@ -186,7 +186,7 @@ struct SessionManagerTests {
         #expect(sut.activeName == "foo")
         #expect(sut.content == .loaded(loaded))
         #expect(presetProviderMock.calls.contains(.setActive("foo")))
-        #expect(await engineMock.calls == [.load(component, Data([0x07]))])
+        #expect(engineMock.calls == [.load(component, Data([0x07]))])
     }
 
     @Test
@@ -197,7 +197,7 @@ struct SessionManagerTests {
 
         #expect(sut.activeName == "ghost")
         #expect(sut.content == .failed("Couldn't load this preset."))
-        #expect(await engineMock.calls == [])
+        #expect(engineMock.calls == [])
     }
 
     // MARK: - saveCurrentPreset
@@ -241,7 +241,7 @@ struct SessionManagerTests {
 
         await sut.restoreActivePreset()
 
-        #expect(await engineMock.calls == [])
+        #expect(engineMock.calls == [])
         #expect(eventBusMock.calls.isEmpty)
     }
 

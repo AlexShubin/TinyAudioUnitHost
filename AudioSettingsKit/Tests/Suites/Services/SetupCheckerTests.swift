@@ -132,7 +132,7 @@ struct SetupCheckerTests {
 
         await sut.refresh()
 
-        await audioSettingsMock.setSettings(.empty)
+        audioSettingsMock.settings = .empty
         await sut.refresh()
         #expect(await iterator.next() == [.noOutputDevice])
     }

@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 
-public actor AudioSettingsProviderMock: AudioSettingsProviderType {
+public final class AudioSettingsProviderMock: AudioSettingsProviderType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case current
         case update
@@ -21,17 +21,13 @@ public actor AudioSettingsProviderMock: AudioSettingsProviderType {
         self.settings = settings
     }
 
-    public func current() -> AudioSettings {
+    public func current() async -> AudioSettings {
         calls.append(.current)
         return settings
     }
 
-    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) {
+    public func update(_ transform: @Sendable (inout AudioSettings) -> Void) async {
         transform(&settings)
         calls.append(.update)
-    }
-
-    public func setSettings(_ value: AudioSettings) {
-        settings = value
     }
 }

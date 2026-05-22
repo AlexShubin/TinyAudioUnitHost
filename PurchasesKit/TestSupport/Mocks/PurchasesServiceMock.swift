@@ -9,7 +9,7 @@
 import Foundation
 import PurchasesKit
 
-public actor PurchasesServiceMock: PurchasesServiceType {
+public final class PurchasesServiceMock: PurchasesServiceType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case productInfo
         case purchase
@@ -43,7 +43,7 @@ public actor PurchasesServiceMock: PurchasesServiceType {
         }
     }
 
-    public func makeIsProStream() -> AsyncStream<Bool> {
+    public func makeIsProStream() async -> AsyncStream<Bool> {
         let (stream, continuation) = AsyncStream<Bool>.makeStream()
         self.continuation = continuation
         continuation.yield(currentIsPro)
@@ -63,20 +63,8 @@ public actor PurchasesServiceMock: PurchasesServiceType {
         return restoreResult
     }
 
-    public func setIsPro(_ value: Bool) {
+    public func emitIsPro(_ value: Bool) {
         broadcastIsPro(value)
-    }
-
-    public func setProductInfo(_ value: ProProductInfo?) {
-        currentProductInfo = value
-    }
-
-    public func setPurchaseResult(_ value: PurchaseResult) {
-        purchaseResult = value
-    }
-
-    public func setRestoreResult(_ value: PurchaseResult) {
-        restoreResult = value
     }
 
     private func broadcastIsPro(_ value: Bool) {

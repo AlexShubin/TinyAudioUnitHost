@@ -47,7 +47,7 @@ struct PurchasesViewModelTests {
         let sut = sut!
         await awaitChange { sut.isPro == false }
 
-        await serviceMock.setIsPro(true)
+        serviceMock.emitIsPro(true)
         await awaitChange { sut.isPro == true }
 
         #expect(sut.isPro == true)

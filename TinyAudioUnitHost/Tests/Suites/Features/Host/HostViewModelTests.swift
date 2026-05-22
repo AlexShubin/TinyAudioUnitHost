@@ -173,7 +173,7 @@ struct HostViewModelTests {
         let sut = sut!
         await awaitChange { sut.isStarFilled == false }
 
-        await purchasesServiceMock.setIsPro(true)
+        purchasesServiceMock.emitIsPro(true)
         await awaitChange { sut.isStarFilled == true }
 
         #expect(sut.isStarFilled == true)
