@@ -1,5 +1,5 @@
 //
-//  HostCommandsViewModelTests.swift
+//  AppCommandsViewModelTests.swift
 //  TinyAudioUnitHostTests
 //
 //  Created by Alex Shubin on 21.05.26.
@@ -13,10 +13,10 @@ import Testing
 
 @MainActor
 @Suite
-struct HostCommandsViewModelTests {
+struct AppCommandsViewModelTests {
     var sessionMock: SessionManagerMock!
     var eventBusMock: SessionEventBusMock!
-    var sut: HostCommandsViewModelType!
+    var sut: AppCommandsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
@@ -24,7 +24,7 @@ struct HostCommandsViewModelTests {
     }
 
     mutating func createSut() {
-        sut = HostCommandsViewModel(session: sessionMock, eventBus: eventBusMock)
+        sut = AppCommandsViewModel(session: sessionMock, eventBus: eventBusMock)
     }
 
     // MARK: - actions

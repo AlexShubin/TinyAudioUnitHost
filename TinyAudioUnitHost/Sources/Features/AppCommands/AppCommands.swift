@@ -1,5 +1,5 @@
 //
-//  HostCommands.swift
+//  AppCommands.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 15.05.26.
@@ -8,8 +8,8 @@
 
 import SwiftUI
 
-struct HostCommands: Commands {
-    let viewModel: HostCommandsViewModelType
+struct AppCommands: Commands {
+    let viewModel: AppCommandsViewModelType
 
     var body: some Commands {
         CommandGroup(replacing: .saveItem) {
@@ -19,7 +19,7 @@ struct HostCommands: Commands {
 }
 
 private struct SavePresetMenu: View {
-    @State var viewModel: HostCommandsViewModelType
+    @State var viewModel: AppCommandsViewModelType
 
     var body: some View {
         Button("Save Preset") {

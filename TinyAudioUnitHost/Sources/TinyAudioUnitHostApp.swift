@@ -30,7 +30,7 @@ struct TinyAudioUnitHostApp: App {
         }
         .windowResizability(.contentSize)
         .commands {
-            HostCommands(viewModel: dependencies.makeHostCommandsViewModel())
+            AppCommands(viewModel: dependencies.makeAppCommandsViewModel())
         }
 
         Settings {

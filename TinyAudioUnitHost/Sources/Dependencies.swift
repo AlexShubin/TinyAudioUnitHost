@@ -61,8 +61,8 @@ struct Dependencies: Sendable {
         )
     }
 
-    @MainActor func makeHostCommandsViewModel() -> HostCommandsViewModelType {
-        HostCommandsViewModel(
+    @MainActor func makeAppCommandsViewModel() -> AppCommandsViewModelType {
+        AppCommandsViewModel(
             session: session,
             eventBus: eventBus
         )

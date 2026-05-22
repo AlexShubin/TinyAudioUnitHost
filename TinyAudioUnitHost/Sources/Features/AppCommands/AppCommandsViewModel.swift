@@ -1,5 +1,5 @@
 //
-//  HostCommandsViewModel.swift
+//  AppCommandsViewModel.swift
 //  TinyAudioUnitHost
 //
 //  Created by Alex Shubin on 20.05.26.
@@ -10,21 +10,21 @@ import Foundation
 import Observation
 
 @MainActor
-protocol HostCommandsViewModelType: AnyObject, Observable {
+protocol AppCommandsViewModelType: AnyObject, Observable {
     var isSaveButtonDisabled: Bool { get }
     var isRestoreButtonDisabled: Bool { get }
     var isSaveAsButtonDisabled: Bool { get }
-    func accept(action: HostCommandsAction) async
+    func accept(action: AppCommandsAction) async
 }
 
-enum HostCommandsAction: Sendable, Equatable {
+enum AppCommandsAction: Sendable, Equatable {
     case save
     case restore
     case saveAs
 }
 
 @MainActor @Observable
-final class HostCommandsViewModel: HostCommandsViewModelType {
+final class AppCommandsViewModel: AppCommandsViewModelType {
     var isSaveButtonDisabled: Bool { session.activeName == nil || !session.content.isLoaded }
     var isRestoreButtonDisabled: Bool { session.activeName == nil || !session.content.isOperable }
     var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
@@ -40,7 +40,7 @@ final class HostCommandsViewModel: HostCommandsViewModelType {
         self.eventBus = eventBus
     }
 
-    func accept(action: HostCommandsAction) async {
+    func accept(action: AppCommandsAction) async {
         switch action {
         case .save:
             session.saveCurrentPreset()
