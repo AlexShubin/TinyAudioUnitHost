@@ -91,29 +91,21 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func presets_freeUser_slicesToFirstTwo() async {
-        sessionMock.setPresets([
-            Preset.fake(name: "a"),
-            Preset.fake(name: "b"),
-            Preset.fake(name: "c"),
-        ])
+        sessionMock.setPresets(["a", "b", "c"])
         createSut()
 
-        #expect(sut.presets.map(\.name) == ["a", "b"])
+        #expect(sut.presets == ["a", "b"])
     }
 
     @Test
     mutating func presets_proUser_returnsAll() async {
         purchasesServiceMock = PurchasesServiceMock(isPro: true)
-        sessionMock.setPresets([
-            Preset.fake(name: "a"),
-            Preset.fake(name: "b"),
-            Preset.fake(name: "c"),
-        ])
+        sessionMock.setPresets(["a", "b", "c"])
         createSut()
         let sut = sut!
         await awaitChange { sut.presets.count == 3 }
 
-        #expect(sut.presets.map(\.name) == ["a", "b", "c"])
+        #expect(sut.presets == ["a", "b", "c"])
     }
 
     // MARK: - selected / deleteTapped (forwarding)
@@ -141,7 +133,7 @@ struct PresetsViewModelTests {
     @Test
     mutating func saveAsTapped_pro_presentsSaveAsDialog() async {
         purchasesServiceMock = PurchasesServiceMock(isPro: true)
-        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b"), Preset.fake(name: "c")])
+        sessionMock.setPresets(["a", "b", "c"])
         createSut()
         let sut = sut!
         await awaitChange { sut.presets.count == 3 }
@@ -154,7 +146,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsTapped_freeBelowCap_presentsSaveAsDialog() async {
-        sessionMock.setPresets([Preset.fake(name: "a")])
+        sessionMock.setPresets(["a"])
         createSut()
 
         await sut.accept(action: .saveAsTapped)
@@ -165,7 +157,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsTapped_freeAtCap_opensProUpgrade() async {
-        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b")])
+        sessionMock.setPresets(["a", "b"])
         createSut()
 
         await sut.accept(action: .saveAsTapped)
@@ -199,7 +191,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsRequestedEvent_freeBelowCap_presentsSaveAsDialog() async {
-        sessionMock.setPresets([Preset.fake(name: "a")])
+        sessionMock.setPresets(["a"])
         createSut()
         let sut = sut!
 
@@ -211,7 +203,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsRequestedEvent_freeAtCap_opensProUpgrade() async {
-        sessionMock.setPresets([Preset.fake(name: "a"), Preset.fake(name: "b")])
+        sessionMock.setPresets(["a", "b"])
         createSut()
         let sut = sut!
 
@@ -224,7 +216,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func savedEvent_isIgnored() async {
-        sessionMock.setPresets([Preset.fake(name: "a")])
+        sessionMock.setPresets(["a"])
         createSut()
         let sut = sut!
 

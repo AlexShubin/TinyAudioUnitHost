@@ -17,15 +17,15 @@ struct PresetsView: View {
     var body: some View {
         List(selection: selectionBinding) {
             Section {
-                ForEach(viewModel.presets, id: \.name) { preset in
-                    Text(preset.name)
-                        .tag(preset.name)
+                ForEach(viewModel.presets, id: \.self) { preset in
+                    Text(preset)
+                        .tag(preset)
                         .contextMenu {
                             Button("Rename") {
-                                Task { await viewModel.accept(action: .renameTapped(name: preset.name)) }
+                                Task { await viewModel.accept(action: .renameTapped(name: preset)) }
                             }
                             Button("Delete", role: .destructive) {
-                                Task { await viewModel.accept(action: .deleteTapped(name: preset.name)) }
+                                Task { await viewModel.accept(action: .deleteTapped(name: preset)) }
                             }
                         }
                 }

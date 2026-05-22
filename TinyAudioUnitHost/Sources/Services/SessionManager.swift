@@ -17,7 +17,7 @@ import PresetKit
 protocol SessionManagerType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
     var activeName: String? { get }
-    var presets: [Preset] { get }
+    var presets: [String] { get }
 
     func start() async
     func loadComponent(_ component: AudioUnitComponent) async
@@ -55,7 +55,7 @@ enum HostContent: Sendable, Equatable {
 final class SessionManager: SessionManagerType {
     private(set) var content: HostContent = .loading
     private(set) var activeName: String?
-    private(set) var presets: [Preset] = []
+    private(set) var presets: [String] = []
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
@@ -89,6 +89,7 @@ final class SessionManager: SessionManagerType {
             }
         }
         await setupChecker.refresh()
+        presets = presetProvider.presets
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
@@ -99,12 +100,7 @@ final class SessionManager: SessionManagerType {
     func selectPreset(name: String) async {
         presetProvider.setActive(name)
         activeName = name
-        if let preset = presetProvider.load(name: name) {
-            content = .loading
-            await load(component: preset.component, state: preset.state)
-        } else {
-            content = .empty
-        }
+        await loadActivePreset()
     }
 
     func saveCurrentPreset() {
@@ -157,6 +153,7 @@ final class SessionManager: SessionManagerType {
         }
         switch content {
         case .loading, .unmet:
+            activeName = presetProvider.activeName
             await loadActivePreset()
         case .empty, .loaded, .failed:
             break
@@ -164,15 +161,14 @@ final class SessionManager: SessionManagerType {
     }
 
     private func loadActivePreset() async {
-        presets = presetProvider.presets
-        let storedActive = presetProvider.activeName
-        if let storedActive, let preset = presetProvider.load(name: storedActive) {
-            activeName = storedActive
+        guard let active = activeName else {
+            content = .empty
+            return
+        }
+        if let preset = presetProvider.load(name: active) {
             await load(component: preset.component, state: preset.state)
         } else {
-            if storedActive != nil { presetProvider.setActive(nil) }
-            activeName = nil
-            content = .empty
+            content = .failed("Couldn't load this preset.")
         }
     }
 

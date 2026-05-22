@@ -27,13 +27,13 @@ final class SessionManagerMock: SessionManagerType {
 
     private(set) var content: HostContent = .empty
     private(set) var activeName: String?
-    private(set) var presets: [Preset] = []
+    private(set) var presets: [String] = []
     private(set) var calls: [Calls] = []
 
     init(
         content: HostContent = .empty,
         activeName: String? = nil,
-        presets: [Preset] = []
+        presets: [String] = []
     ) {
         self.content = content
         self.activeName = activeName
@@ -42,7 +42,7 @@ final class SessionManagerMock: SessionManagerType {
 
     func setContent(_ value: HostContent) { content = value }
     func setActiveName(_ value: String?) { activeName = value }
-    func setPresets(_ value: [Preset]) { presets = value }
+    func setPresets(_ value: [String]) { presets = value }
 
     func start() async { calls.append(.start) }
     func loadComponent(_ component: AudioUnitComponent) async { calls.append(.loadComponent(component)) }

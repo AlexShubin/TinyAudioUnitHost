@@ -13,7 +13,7 @@ import PurchasesKit
 
 @MainActor
 protocol PresetsViewModelType: AnyObject, Observable {
-    var presets: [Preset] { get }
+    var presets: [String] { get }
     var activeName: String? { get }
     var isInteractionDisabled: Bool { get }
     var isSaveAsButtonDisabled: Bool { get }
@@ -37,7 +37,7 @@ final class PresetsViewModel: PresetsViewModelType {
     private(set) var presentedPresetNameDialog: PresetNameDialogMode?
     private(set) var openProWindowRequest: UUID?
 
-    var presets: [Preset] {
+    var presets: [String] {
         isPro ? session.presets : Array(session.presets.prefix(Self.freeTierPresetLimit))
     }
     var activeName: String? { session.activeName }

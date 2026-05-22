@@ -78,16 +78,16 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func start_unmetEmpty_storedActiveStale_clearsActive() async {
+    mutating func start_unmetEmpty_storedActiveStale_keepsActiveAndFails() async {
         presetProviderMock = PresetProviderMock(activeName: "ghost")
         createSut()
 
         await sut.start()
-        await awaitChange { sut.content == .empty }
+        await awaitChange { sut.content == .failed("Couldn't load this preset.") }
 
-        #expect(sut.content == .empty)
-        #expect(sut.activeName == nil)
-        #expect(presetProviderMock.calls.contains(.setActive(nil)))
+        #expect(sut.content == .failed("Couldn't load this preset."))
+        #expect(sut.activeName == "ghost")
+        #expect(!presetProviderMock.calls.contains(.setActive(nil)))
     }
 
     @Test
@@ -190,13 +190,13 @@ struct SessionManagerTests {
     }
 
     @Test
-    mutating func selectPreset_missing_clearsContent() async {
+    mutating func selectPreset_missing_setsFailedContent() async {
         createSut()
 
         await sut.selectPreset(name: "ghost")
 
         #expect(sut.activeName == "ghost")
-        #expect(sut.content == .empty)
+        #expect(sut.content == .failed("Couldn't load this preset."))
         #expect(await engineMock.calls == [])
     }
 
@@ -305,7 +305,7 @@ struct SessionManagerTests {
         await sut.start()
         await awaitChange { sut.content == .empty }
 
-        #expect(sut.presets.map(\.name).sorted() == ["a", "b", "c"])
+        #expect(sut.presets.sorted() == ["a", "b", "c"])
     }
 
     // MARK: - renamePreset

@@ -44,7 +44,7 @@ struct PresetProviderTests {
     }
 
     @Test
-    mutating func presets_returnsResolvedPresets() {
+    mutating func presets_returnsStoredNames() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         rawStoreMock.presets = [
             "MyPreset": rawPreset(matching: component, state: Data([0x01])),
@@ -52,11 +52,11 @@ struct PresetProviderTests {
         libraryMock.components = [component]
         createSut()
 
-        #expect(sut.presets == [Preset(name: "MyPreset", component: component, state: Data([0x01]))])
+        #expect(sut.presets == ["MyPreset"])
     }
 
     @Test
-    mutating func presets_componentNotInLibrary_skipsThatPreset() {
+    mutating func presets_componentNotInLibrary_stillListsName() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         rawStoreMock.presets = [
             "Resolved": rawPreset(matching: component, state: Data()),
@@ -65,7 +65,7 @@ struct PresetProviderTests {
         libraryMock.components = [component]
         createSut()
 
-        #expect(sut.presets.map(\.name) == ["Resolved"])
+        #expect(sut.presets.sorted() == ["Orphan", "Resolved"])
     }
 
     // MARK: - activeName

@@ -33,10 +33,10 @@ public final class PresetProviderMock: PresetProviderType, @unchecked Sendable {
         self.currentActiveName = activeName
     }
 
-    public var presets: [Preset] {
+    public var presets: [String] {
         calls.append(.presets)
-        return storedPresets.values.sorted {
-            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        return storedPresets.keys.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
     }
 

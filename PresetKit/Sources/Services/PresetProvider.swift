@@ -11,7 +11,7 @@ import Foundation
 import StorageKit
 
 public protocol PresetProviderType: Sendable {
-    var presets: [Preset] { get }
+    var presets: [String] { get }
     var activeName: String? { get }
     func setActive(_ name: String?)
     func load(name: String) -> Preset?
@@ -32,10 +32,8 @@ struct PresetProvider: PresetProviderType {
         self.library = library
     }
 
-    var presets: [Preset] {
-        rawStore.names.compactMap { name in
-            rawStore.load(name: name).flatMap { domainPreset(from: $0, name: name) }
-        }
+    var presets: [String] {
+        rawStore.names
     }
 
     var activeName: String? {
