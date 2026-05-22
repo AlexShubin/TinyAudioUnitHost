@@ -39,6 +39,7 @@ struct SetupChecklistView: View {
                     VStack(alignment: .center, spacing: 2) {
                         Text("Turn on “\(savedName)”")
                             .font(.body)
+                            .foregroundStyle(.secondary)
                         SettingsLink {
                             Label("…or choose another device", systemImage: "speaker.wave.2")
                         }
