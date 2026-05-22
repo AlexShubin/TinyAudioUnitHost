@@ -91,6 +91,13 @@ struct Dependencies: Sendable {
     @MainActor func makePurchasesViewModel() -> PurchasesViewModelType {
         PurchasesViewModel(purchasesService: purchases.purchasesService)
     }
+
+    @MainActor func makeMainWindowViewModel() -> MainWindowViewModelType {
+        MainWindowViewModel(
+            engineReloader: engine.engineReloader,
+            setupRefresher: audioSettings.setupRefresher
+        )
+    }
 }
 
 // MARK: - Environment

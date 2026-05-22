@@ -16,16 +16,7 @@ struct TinyAudioUnitHostApp: App {
     var body: some Scene {
         Window("Tiny Audio Unit Host", id: "host") {
             withTestsDisabled {
-                NavigationSplitView {
-                    PresetsView(viewModel: dependencies.makePresetsViewModel())
-                        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-                } detail: {
-                    HostView(viewModel: dependencies.makeHostViewModel())
-                }
-                .task {
-                    dependencies.engine.engineReloader.startListening()
-                    dependencies.audioSettings.setupRefresher.startListening()
-                }
+                MainWindowView(viewModel: dependencies.makeMainWindowViewModel())
             }
         }
         .windowResizability(.contentSize)
