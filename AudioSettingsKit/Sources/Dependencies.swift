@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Common
 import Foundation
 import StorageKit
 
@@ -34,7 +33,6 @@ public struct Dependencies: Sendable {
             setupChecker: setupChecker,
             setupRefresher: SetupRefresher(
                 setupChecker: setupChecker,
-                notificationCenter: NotificationCenter.default,
                 deviceListListener: DeviceListChangeListener()
             )
         )
