@@ -34,7 +34,8 @@ public struct Dependencies: Sendable {
             setupChecker: setupChecker,
             setupRefresher: SetupRefresher(
                 setupChecker: setupChecker,
-                notificationCenter: NotificationCenter.default
+                notificationCenter: NotificationCenter.default,
+                deviceListListener: DeviceListChangeListener()
             )
         )
     }()

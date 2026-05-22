@@ -12,10 +12,10 @@
 /// this device — 0 means the device was saved but no channels were ever chosen.
 public struct SavedDevice: Sendable, Equatable, Hashable {
     public let uid: String
-    public let name: String?
+    public let name: String
     public let selectedChannelCount: Int
 
-    public init(uid: String, name: String? = nil, selectedChannelCount: Int = 0) {
+    public init(uid: String, name: String, selectedChannelCount: Int) {
         self.uid = uid
         self.name = name
         self.selectedChannelCount = selectedChannelCount

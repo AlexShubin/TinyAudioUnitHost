@@ -12,7 +12,7 @@ import Foundation
 public enum SetupRequirement: Sendable, Equatable, Hashable {
     case microphonePermission
     case noOutputDevice
-    case savedOutputDeviceUnavailable(name: String?)
+    case savedOutputDeviceUnavailable(name: String)
 }
 
 public protocol SetupCheckerType: Sendable {

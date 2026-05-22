@@ -7,7 +7,6 @@
 //
 
 import AppKit
-import AVFoundation
 import Common
 import Foundation
 
@@ -17,24 +16,28 @@ public protocol SetupRefresherType: Sendable {
 }
 
 final class SetupRefresher: SetupRefresherType {
-    private static let triggers: [Notification.Name] = [
-        NSApplication.didBecomeActiveNotification,
-        .AVAudioEngineConfigurationChange
-    ]
-
     private let setupChecker: SetupCheckerType
     private let notificationCenter: NotificationCenterType
+    private let deviceListListener: DeviceListChangeListenerType
 
-    init(setupChecker: SetupCheckerType, notificationCenter: NotificationCenterType) {
+    init(
+        setupChecker: SetupCheckerType,
+        notificationCenter: NotificationCenterType,
+        deviceListListener: DeviceListChangeListenerType
+    ) {
         self.setupChecker = setupChecker
         self.notificationCenter = notificationCenter
+        self.deviceListListener = deviceListListener
     }
 
     @discardableResult
     func startListening() -> [Task<Void, Error>] {
-        Self.triggers.map { name in
-            let stream = notificationCenter.stream(for: name)
-            return Task { [setupChecker] in
+        let streams: [AsyncStream<Void>] = [
+            notificationCenter.stream(for: NSApplication.didBecomeActiveNotification),
+            deviceListListener.stream()
+        ]
+        return streams.map { stream in
+            Task { [setupChecker] in
                 for await _ in stream {
                     await setupChecker.refresh()
                 }

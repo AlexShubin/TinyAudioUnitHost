@@ -35,7 +35,7 @@ public extension AudioSettings {
 public extension SavedDevice {
     static func fake(
         uid: String = "saved-uid",
-        name: String? = "Saved Device",
+        name: String = "Saved Device",
         selectedChannelCount: Int = 2
     ) -> SavedDevice {
         SavedDevice(uid: uid, name: name, selectedChannelCount: selectedChannelCount)

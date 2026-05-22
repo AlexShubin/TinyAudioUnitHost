@@ -162,12 +162,12 @@ struct AudioSettingsProviderTests {
         }
 
         let raw = await rawStoreMock.settings
-        #expect(raw.input.uid == "in-uid")
-        #expect(raw.output.uid == "out-uid")
+        #expect(raw.input?.uid == "in-uid")
+        #expect(raw.output?.uid == "out-uid")
     }
 
     @Test
-    mutating func update_clearingDevice_persistsNilUIDAndEmptyChannels() async {
+    mutating func update_clearingDevice_persistsNilEntry() async {
         let device = AudioDevice.fake(uid: "in-uid", inputChannels: [.init(id: 1, name: "Channel 1")])
         devicesProviderMock.devicesResult = [device]
         await rawStoreMock.setSettings(.fake(input: .fake(uid: "in-uid", selectedChannels: [1])))
@@ -179,31 +179,40 @@ struct AudioSettingsProviderTests {
         }
 
         let raw = await rawStoreMock.settings
-        #expect(raw.input.uid == nil)
-        #expect(raw.input.selectedChannels == [])
+        #expect(raw.input == nil)
     }
 
     @Test
     mutating func update_persistsMonoChannelID() async {
         let channel = AudioChannel(id: 7, name: "Channel 7")
+        let device = AudioDevice.fake(uid: "in-uid", inputChannels: [channel])
+        devicesProviderMock.devicesResult = [device]
         createSut()
 
-        await sut.update { $0.inputChannel = .mono(channel) }
+        await sut.update { settings in
+            settings.inputDevice = device
+            settings.inputChannel = .mono(channel)
+        }
 
         let raw = await rawStoreMock.settings
-        #expect(raw.input.selectedChannels == [7])
+        #expect(raw.input?.selectedChannels == [7])
     }
 
     @Test
     mutating func update_persistsStereoChannelIDs() async {
         let left = AudioChannel(id: 1, name: "Channel 1")
         let right = AudioChannel(id: 2, name: "Channel 2")
+        let device = AudioDevice.fake(uid: "out-uid", outputChannels: [left, right])
+        devicesProviderMock.devicesResult = [device]
         createSut()
 
-        await sut.update { $0.outputChannel = .stereo(l: left, r: right) }
+        await sut.update { settings in
+            settings.outputDevice = device
+            settings.outputChannel = .stereo(l: left, r: right)
+        }
 
         let raw = await rawStoreMock.settings
-        #expect(raw.output.selectedChannels == [1, 2])
+        #expect(raw.output?.selectedChannels == [1, 2])
     }
 
     @Test
@@ -244,8 +253,8 @@ struct AudioSettingsProviderTests {
         }
 
         let raw = await rawStoreMock.settings
-        #expect(raw.input.uid == "in-uid")
-        #expect(raw.input.selectedChannels == [1])
+        #expect(raw.input?.uid == "in-uid")
+        #expect(raw.input?.selectedChannels == [1])
         #expect(raw.bufferSize == 256)
     }
 }

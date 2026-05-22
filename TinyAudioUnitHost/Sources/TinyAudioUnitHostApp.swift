@@ -23,8 +23,7 @@ struct TinyAudioUnitHostApp: App {
                     HostView(viewModel: dependencies.makeHostViewModel())
                 }
                 .task {
-                    dependencies.engine.engineReloader.startListening(to: .audioEngineConfigurationChange)
-                    dependencies.engine.engineReloader.startListening(to: .workspaceDidWake)
+                    dependencies.engine.engineReloader.startListening()
                     dependencies.audioSettings.setupRefresher.startListening()
                 }
             }

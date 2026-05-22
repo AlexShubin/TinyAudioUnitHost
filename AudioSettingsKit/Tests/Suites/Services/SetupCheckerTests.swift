@@ -95,20 +95,6 @@ struct SetupCheckerTests {
     }
 
     @Test
-    mutating func refresh_savedOutputButOfflineAndUnnamed_yieldsRequirementWithNilName() async {
-        audioSettingsMock = AudioSettingsProviderMock(
-            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: nil, selectedChannelCount: 1))
-        )
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
-        createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
-
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.savedOutputDeviceUnavailable(name: nil)])
-    }
-
-    @Test
     mutating func refresh_savedOutputWithoutChannels_yieldsNoOutputDevice() async {
         audioSettingsMock = AudioSettingsProviderMock(
             settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 0))
