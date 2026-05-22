@@ -13,6 +13,8 @@ public struct AudioSettings: Sendable, Equatable {
     public var outputChannel: SelectedChannel?
     public var bufferSize: UInt32?
     public var sampleRate: Float64?
+    public var savedInput: SavedDevice?
+    public var savedOutput: SavedDevice?
 
     public init(
         inputDevice: AudioDevice? = nil,
@@ -20,7 +22,9 @@ public struct AudioSettings: Sendable, Equatable {
         inputChannel: SelectedChannel? = nil,
         outputChannel: SelectedChannel? = nil,
         bufferSize: UInt32? = nil,
-        sampleRate: Float64? = nil
+        sampleRate: Float64? = nil,
+        savedInput: SavedDevice? = nil,
+        savedOutput: SavedDevice? = nil
     ) {
         self.inputDevice = inputDevice
         self.outputDevice = outputDevice
@@ -28,6 +32,8 @@ public struct AudioSettings: Sendable, Equatable {
         self.outputChannel = outputChannel
         self.bufferSize = bufferSize
         self.sampleRate = sampleRate
+        self.savedInput = savedInput
+        self.savedOutput = savedOutput
     }
 
     public static let empty = AudioSettings()

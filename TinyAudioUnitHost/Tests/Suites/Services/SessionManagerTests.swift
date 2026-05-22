@@ -135,10 +135,10 @@ struct SessionManagerTests {
         await sut.start()
         await awaitChange { sut.content == .loaded(loaded) }
 
-        await setupCheckerMock.emit([.outputDevice])
+        await setupCheckerMock.emit([.noOutputDevice])
 
-        await awaitChange { sut.content == .unmet([.outputDevice]) }
-        #expect(sut.content == .unmet([.outputDevice]))
+        await awaitChange { sut.content == .unmet([.noOutputDevice]) }
+        #expect(sut.content == .unmet([.noOutputDevice]))
     }
 
     // MARK: - loadComponent

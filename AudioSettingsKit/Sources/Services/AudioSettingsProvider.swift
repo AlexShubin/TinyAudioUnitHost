@@ -33,15 +33,19 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
         var copy = await resolve()
         transform(&copy)
         let inputUID = copy.inputDevice?.uid
+        let inputName = copy.inputDevice?.name
         let inputChannels = copy.inputChannel?.channels.map(\.id) ?? []
         let outputUID = copy.outputDevice?.uid
+        let outputName = copy.outputDevice?.name
         let outputChannels = copy.outputChannel?.channels.map(\.id) ?? []
         let bufferSize = copy.bufferSize
         let sampleRate = copy.sampleRate
         await rawStore.update { raw in
             raw.input.uid = inputUID
+            raw.input.name = inputName
             raw.input.selectedChannels = inputChannels
             raw.output.uid = outputUID
+            raw.output.name = outputName
             raw.output.selectedChannels = outputChannels
             raw.bufferSize = bufferSize
             raw.sampleRate = sampleRate
@@ -67,8 +71,18 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
             inputChannel: inputChannel,
             outputChannel: outputChannel,
             bufferSize: raw.bufferSize,
-            sampleRate: raw.sampleRate
+            sampleRate: raw.sampleRate,
+            savedInput: raw.input.saved,
+            savedOutput: raw.output.saved
         )
+    }
+}
+
+private extension RawDeviceSettings {
+    var saved: SavedDevice? {
+        uid.map { uid in
+            SavedDevice(uid: uid, name: name, selectedChannelCount: selectedChannels.count)
+        }
     }
 }
 

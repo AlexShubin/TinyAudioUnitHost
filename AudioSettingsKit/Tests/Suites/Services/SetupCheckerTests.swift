@@ -69,7 +69,7 @@ struct SetupCheckerTests {
     }
 
     @Test
-    mutating func refresh_noOutputChannel_yieldsOutputDeviceRequirement() async {
+    mutating func refresh_noOutputChannelAndNoSavedOutput_yieldsNoOutputDevice() async {
         audioSettingsMock = AudioSettingsProviderMock(settings: .empty)
         captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
         createSut()
@@ -77,7 +77,49 @@ struct SetupCheckerTests {
 
         await sut.refresh()
 
-        #expect(await iterator.next() == [.outputDevice])
+        #expect(await iterator.next() == [.noOutputDevice])
+    }
+
+    @Test
+    mutating func refresh_savedOutputButOffline_yieldsSavedOutputDeviceUnavailableWithName() async {
+        audioSettingsMock = AudioSettingsProviderMock(
+            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 2))
+        )
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+        createSut()
+        var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
+
+        #expect(await iterator.next() == [.savedOutputDeviceUnavailable(name: "Apollo x8")])
+    }
+
+    @Test
+    mutating func refresh_savedOutputButOfflineAndUnnamed_yieldsRequirementWithNilName() async {
+        audioSettingsMock = AudioSettingsProviderMock(
+            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: nil, selectedChannelCount: 1))
+        )
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+        createSut()
+        var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
+
+        #expect(await iterator.next() == [.savedOutputDeviceUnavailable(name: nil)])
+    }
+
+    @Test
+    mutating func refresh_savedOutputWithoutChannels_yieldsNoOutputDevice() async {
+        audioSettingsMock = AudioSettingsProviderMock(
+            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 0))
+        )
+        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+        createSut()
+        var iterator = sut.unmetStream.makeAsyncIterator()
+
+        await sut.refresh()
+
+        #expect(await iterator.next() == [.noOutputDevice])
     }
 
     @Test
@@ -89,7 +131,7 @@ struct SetupCheckerTests {
 
         await sut.refresh()
 
-        #expect(await iterator.next() == [.microphonePermission, .outputDevice])
+        #expect(await iterator.next() == [.microphonePermission, .noOutputDevice])
     }
 
     @Test
@@ -106,6 +148,6 @@ struct SetupCheckerTests {
 
         await audioSettingsMock.setSettings(.empty)
         await sut.refresh()
-        #expect(await iterator.next() == [.outputDevice])
+        #expect(await iterator.next() == [.noOutputDevice])
     }
 }

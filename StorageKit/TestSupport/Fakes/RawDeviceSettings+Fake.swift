@@ -11,8 +11,9 @@ import StorageKit
 public extension RawDeviceSettings {
     static func fake(
         uid: String? = nil,
+        name: String? = nil,
         selectedChannels: [UInt32] = []
     ) -> RawDeviceSettings {
-        RawDeviceSettings(uid: uid, selectedChannels: selectedChannels)
+        RawDeviceSettings(uid: uid, name: name, selectedChannels: selectedChannels)
     }
 }

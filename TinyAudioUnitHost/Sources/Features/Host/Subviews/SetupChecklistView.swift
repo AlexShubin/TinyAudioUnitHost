@@ -35,7 +35,16 @@ struct SetupChecklistView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if unmet.contains(.outputDevice) {
+                if let savedName = unmet.savedOutputDeviceName {
+                    VStack(alignment: .center, spacing: 2) {
+                        Text(savedName.map { "Turn on “\($0)”" } ?? "Turn on your saved audio interface")
+                            .font(.body)
+                        SettingsLink {
+                            Label("…or choose another device", systemImage: "speaker.wave.2")
+                        }
+                        .buttonStyle(.link)
+                    }
+                } else if unmet.contains(.noOutputDevice) {
                     SettingsLink {
                         Label("Choose audio devices…", systemImage: "speaker.wave.2")
                     }
@@ -43,5 +52,19 @@ struct SetupChecklistView: View {
                 }
             }
         }
+    }
+}
+
+private extension Set<SetupRequirement> {
+    /// `.some(name)` when a saved-but-offline output device requirement is
+    /// present. The inner `String?` is the device name and may itself be nil
+    /// (e.g. legacy persisted data with no name).
+    var savedOutputDeviceName: String?? {
+        for requirement in self {
+            if case .savedOutputDeviceUnavailable(let name) = requirement {
+                return .some(name)
+            }
+        }
+        return nil
     }
 }

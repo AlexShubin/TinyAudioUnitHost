@@ -8,6 +8,7 @@
 
 import AppKit
 import AudioSettingsKitTestSupport
+import AVFoundation
 import CommonTestSupport
 import Testing
 @testable import AudioSettingsKit
@@ -28,22 +29,39 @@ struct SetupRefresherTests {
     }
 
     @Test
-    mutating func startListening_subscribesToDidBecomeActive() {
+    mutating func startListening_subscribesToBothTriggers() {
         createSut()
 
-        sut.startListening()
+        _ = sut.startListening()
 
-        #expect(notificationCenterMock.calls == [.stream(NSApplication.didBecomeActiveNotification)])
+        #expect(notificationCenterMock.calls == [
+            .stream(NSApplication.didBecomeActiveNotification),
+            .stream(.AVAudioEngineConfigurationChange)
+        ])
     }
 
     @Test
     mutating func startListening_emittedActivation_refreshesSetup() async {
         createSut()
 
-        let task = sut.startListening()
+        let tasks = sut.startListening()
         notificationCenterMock.emit(NSApplication.didBecomeActiveNotification)
         notificationCenterMock.finish(NSApplication.didBecomeActiveNotification)
-        try? await task.value
+        notificationCenterMock.finish(.AVAudioEngineConfigurationChange)
+        for task in tasks { try? await task.value }
+
+        #expect(await setupCheckerMock.calls == [.refresh])
+    }
+
+    @Test
+    mutating func startListening_emittedConfigurationChange_refreshesSetup() async {
+        createSut()
+
+        let tasks = sut.startListening()
+        notificationCenterMock.emit(.AVAudioEngineConfigurationChange)
+        notificationCenterMock.finish(.AVAudioEngineConfigurationChange)
+        notificationCenterMock.finish(NSApplication.didBecomeActiveNotification)
+        for task in tasks { try? await task.value }
 
         #expect(await setupCheckerMock.calls == [.refresh])
     }

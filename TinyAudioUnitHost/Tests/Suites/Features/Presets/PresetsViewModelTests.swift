@@ -57,7 +57,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func isInteractionDisabled_contentUnmet_isTrue() async {
-        sessionMock.setContent(.unmet([.outputDevice]))
+        sessionMock.setContent(.unmet([.noOutputDevice]))
         createSut()
 
         #expect(sut.isInteractionDisabled == true)

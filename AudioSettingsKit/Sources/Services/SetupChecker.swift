@@ -11,7 +11,8 @@ import Foundation
 
 public enum SetupRequirement: Sendable, Equatable, Hashable {
     case microphonePermission
-    case outputDevice
+    case noOutputDevice
+    case savedOutputDeviceUnavailable(name: String?)
 }
 
 public protocol SetupCheckerType: Sendable {
@@ -50,8 +51,15 @@ public final actor SetupChecker: SetupCheckerType {
         if captureDevice.authorizationStatus(for: .audio) != .authorized {
             next.insert(.microphonePermission)
         }
-        if await audioSettings.current().outputChannel == nil {
-            next.insert(.outputDevice)
+        let settings = await audioSettings.current()
+        if settings.outputChannel == nil {
+            // Treat "saved without channels" the same as "never configured" —
+            // the user still needs to finish picking, not turn on a device.
+            if let saved = settings.savedOutput, saved.selectedChannelCount > 0 {
+                next.insert(.savedOutputDeviceUnavailable(name: saved.name))
+            } else {
+                next.insert(.noOutputDevice)
+            }
         }
         if let unmet, unmet == next { return }
         unmet = next
