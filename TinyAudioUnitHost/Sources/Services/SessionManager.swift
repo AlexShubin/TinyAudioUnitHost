@@ -100,6 +100,7 @@ final class SessionManager: SessionManagerType {
     func selectPreset(name: String) async {
         presetProvider.setActive(name)
         activeName = name
+        content = .loading
         await loadActivePreset()
     }
 
