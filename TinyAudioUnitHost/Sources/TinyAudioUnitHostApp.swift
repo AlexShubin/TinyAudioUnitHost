@@ -15,38 +15,32 @@ struct TinyAudioUnitHostApp: App {
 
     var body: some Scene {
         Window("Tiny Audio Unit Host", id: "host") {
-            WithTestsDisabled {
+            if !isRunningTests {
                 MainWindowView(viewModel: dependencies.makeMainWindowViewModel())
             }
         }
         .windowResizability(.contentSize)
         .commands {
-            AppCommands(viewModel: dependencies.makeAppCommandsViewModel())
+            if !isRunningTests {
+                AppCommands(viewModel: dependencies.makeAppCommandsViewModel())
+            }
         }
 
         Settings {
-            SettingsView(viewModel: dependencies.makeSettingsViewModel())
+            if !isRunningTests {
+                SettingsView(viewModel: dependencies.makeSettingsViewModel())
+            }
         }
 
         Window("Tiny Audio Unit Host Pro", id: "purchases") {
-            PurchasesView(viewModel: dependencies.makePurchasesViewModel())
+            if !isRunningTests {
+                PurchasesView(viewModel: dependencies.makePurchasesViewModel())
+            }
         }
         .windowResizability(.contentSize)
     }
 }
 
-private struct WithTestsDisabled<Content: View>: View {
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        if isRunningTests {
-            EmptyView()
-        } else {
-            content()
-        }
-    }
-
-    private var isRunningTests: Bool {
-        NSClassFromString("XCTestCase") != nil
-    }
+private var isRunningTests: Bool {
+    NSClassFromString("XCTestCase") != nil
 }

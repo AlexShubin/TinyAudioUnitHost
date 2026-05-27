@@ -1,7 +1,7 @@
 import ProjectDescription
 
 let appVersion = "1.1"
-let buildNumber = "1"
+let buildNumber = "4"
 
 let project = Project(
     name: "TinyAudioUnitHost",
@@ -100,7 +100,10 @@ let project = Project(
             name: "TinyAudioUnitHost",
             shared: true,
             buildAction: .buildAction(targets: ["TinyAudioUnitHost"]),
-            testAction: .targets(["TinyAudioUnitHostTests"]),
+            testAction: .targets(
+                ["TinyAudioUnitHostTests"],
+                options: .options(coverage: true)
+            ),
             runAction: .runAction(
                 options: .options(
                     storeKitConfigurationPath: .relativeToManifest("../PurchasesKit/Products.storekit")
