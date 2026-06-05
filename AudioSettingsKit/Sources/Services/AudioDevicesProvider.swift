@@ -6,11 +6,9 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreAudio
-
 public protocol AudioDevicesProviderType: Sendable {
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
-    func device(id: AudioDeviceID) -> AudioDevice?
+    func device(id: UInt32) -> AudioDevice?
 }
 
 public enum AudioDeviceFilter: Sendable, Equatable {
@@ -23,10 +21,14 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
     private static let candidateBufferSizes: [UInt32] = [16, 32, 64, 128, 256, 512]
     private static let candidateSampleRates: [Float64] = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000]
 
+    private let gateway: CoreAudioGatewayType
+
+    init(gateway: CoreAudioGatewayType) {
+        self.gateway = gateway
+    }
+
     func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
-        let ids: [AudioDeviceID] = AudioObjectID(kAudioObjectSystemObject)
-            .getArray(selector: kAudioHardwarePropertyDevices)
-        return ids.compactMap(device(id:)).filter { device in
+        gateway.allDeviceIDs.compactMap(device(id:)).filter { device in
             switch filter {
             case .all: true
             case .input: !device.inputChannels.isEmpty && !device.isHiddenFromPicker
@@ -35,53 +37,45 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         }
     }
 
-    func device(id: AudioDeviceID) -> AudioDevice? {
-        guard let uid = id.getString(selector: kAudioDevicePropertyDeviceUID),
-              let name = id.getString(selector: kAudioObjectPropertyName)
+    func device(id: UInt32) -> AudioDevice? {
+        guard let uid = gateway.deviceUID(of: id),
+              let name = gateway.deviceName(of: id)
         else { return nil }
-        let inputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeInput)
-        let outputChannelCount = channelCount(deviceID: id, scope: kAudioDevicePropertyScopeOutput)
         return AudioDevice(id: id,
                            uid: uid,
                            name: name,
-                           inputChannels: channels(count: inputChannelCount),
-                           outputChannels: channels(count: outputChannelCount),
+                           inputChannels: channels(deviceID: id, scope: .input),
+                           outputChannels: channels(deviceID: id, scope: .output),
                            availableBufferSizes: bufferSizes(deviceID: id),
                            availableSampleRates: sampleRates(deviceID: id))
     }
 
-    private func channels(count: Int) -> [AudioChannel] {
+    private func channels(deviceID: UInt32, scope: AudioDeviceScope) -> [AudioChannel] {
+        let count = channelCount(deviceID: deviceID, scope: scope)
         guard count > 0 else { return [] }
-        return (1...count).map { AudioChannel(id: UInt32($0), name: "Channel \($0)") }
-    }
-
-    private func channelCount(deviceID: AudioDeviceID, scope: AudioObjectPropertyScope) -> Int {
-        let streamIDs: [AudioStreamID] = deviceID.getArray(selector: kAudioDevicePropertyStreams,
-                                                           scope: scope)
-        return streamIDs.reduce(0) { total, streamID in
-            let format: AudioStreamBasicDescription? = streamID.getProperty(
-                selector: kAudioStreamPropertyPhysicalFormat,
-                defaultValue: AudioStreamBasicDescription()
-            )
-            return total + Int(format?.mChannelsPerFrame ?? 0)
+        return (1...count).map { index in
+            let channel = UInt32(index)
+            let name = gateway.channelName(of: deviceID, scope: scope, channel: channel) ?? "Channel \(index)"
+            return AudioChannel(id: channel, name: name)
         }
     }
 
-    private func bufferSizes(deviceID: AudioDeviceID) -> [UInt32] {
-        guard let range: AudioValueRange = deviceID.getProperty(
-            selector: kAudioDevicePropertyBufferFrameSizeRange,
-            defaultValue: AudioValueRange()
-        ) else { return [] }
-        return Self.candidateBufferSizes.filter {
-            Double($0) >= range.mMinimum && Double($0) <= range.mMaximum
+    private func channelCount(deviceID: UInt32, scope: AudioDeviceScope) -> Int {
+        gateway.streamIDs(of: deviceID, scope: scope).reduce(0) { total, streamID in
+            total + gateway.channelsPerFrame(of: streamID)
         }
     }
 
-    private func sampleRates(deviceID: AudioDeviceID) -> [Float64] {
-        let ranges: [AudioValueRange] = deviceID.getArray(selector: kAudioDevicePropertyAvailableNominalSampleRates)
+    private func bufferSizes(deviceID: UInt32) -> [UInt32] {
+        guard let range = gateway.bufferSizeRange(of: deviceID) else { return [] }
+        return Self.candidateBufferSizes.filter { range.contains(Double($0)) }
+    }
+
+    private func sampleRates(deviceID: UInt32) -> [Float64] {
+        let ranges = gateway.sampleRateRanges(of: deviceID)
         guard !ranges.isEmpty else { return [] }
         return Self.candidateSampleRates.filter { rate in
-            ranges.contains { rate >= $0.mMinimum && rate <= $0.mMaximum }
+            ranges.contains { $0.contains(rate) }
         }
     }
 }

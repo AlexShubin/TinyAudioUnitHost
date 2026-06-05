@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import Synchronization
 
 public protocol NotificationCenterType: Sendable {
     func stream(for name: Notification.Name) -> AsyncStream<Void>
@@ -16,15 +15,11 @@ public protocol NotificationCenterType: Sendable {
 extension NotificationCenter: NotificationCenterType {
     public func stream(for name: Notification.Name) -> AsyncStream<Void> {
         AsyncStream { continuation in
-            let observer = Mutex(
-                self.addObserver(forName: name, object: nil, queue: nil) { _ in
-                    continuation.yield()
-                }
-            )
+            nonisolated(unsafe) let observer = self.addObserver(forName: name, object: nil, queue: nil) { _ in
+                continuation.yield()
+            }
             continuation.onTermination = { [self] _ in
-                observer.withLock {
-                    self.removeObserver($0)
-                }
+                self.removeObserver(observer)
             }
         }
     }

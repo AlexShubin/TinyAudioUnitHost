@@ -10,9 +10,6 @@ import CoreAudio
 import Foundation
 
 public protocol DeviceListChangeListenerType: Sendable {
-    /// Yields whenever CoreAudio reports a change to the system device list
-    /// (e.g. an interface is powered on/off, USB plug/unplug). Fires regardless
-    /// of whether an AVAudioEngine is active — unlike `AVAudioEngineConfigurationChange`.
     func stream() -> AsyncStream<Void>
 }
 
@@ -25,17 +22,36 @@ struct DeviceListChangeListener: DeviceListChangeListenerType {
 
     func stream() -> AsyncStream<Void> {
         AsyncStream { continuation in
-            let block: AudioObjectPropertyListenerBlock = { _, _ in
+            nonisolated(unsafe) let block: AudioObjectPropertyListenerBlock = { _, _ in
                 continuation.yield()
             }
-            var address = Self.address
-            let status = AudioObjectAddPropertyListenerBlock(
-                AudioObjectID(kAudioObjectSystemObject),
-                &address,
-                nil,
-                block
-            )
-            if status != noErr { continuation.finish() }
+            if addPropertyListener(block) != noErr {
+                continuation.finish()
+                return
+            }
+            continuation.onTermination = { _ in
+                removePropertyListener(block)
+            }
         }
+    }
+
+    private func addPropertyListener(_ block: @escaping AudioObjectPropertyListenerBlock) -> OSStatus {
+        var address = Self.address
+        return AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            nil,
+            block
+        )
+    }
+
+    private func removePropertyListener(_ block: @escaping AudioObjectPropertyListenerBlock) {
+        var address = Self.address
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            nil,
+            block
+        )
     }
 }

@@ -7,21 +7,20 @@
 //
 
 import AudioSettingsKit
-import CoreAudio
 
 public final class AudioDevicesProviderMock: AudioDevicesProviderType, @unchecked Sendable {
     public enum Calls: Equatable {
         case devices(AudioDeviceFilter)
-        case device(AudioDeviceID)
+        case device(UInt32)
     }
 
     public private(set) var calls: [Calls] = []
     public var devicesResult: [AudioDevice]
-    public var deviceByID: [AudioDeviceID: AudioDevice]
+    public var deviceByID: [UInt32: AudioDevice]
 
     public init(
         devicesResult: [AudioDevice] = [],
-        deviceByID: [AudioDeviceID: AudioDevice] = [:]
+        deviceByID: [UInt32: AudioDevice] = [:]
     ) {
         self.devicesResult = devicesResult
         self.deviceByID = deviceByID
@@ -32,7 +31,7 @@ public final class AudioDevicesProviderMock: AudioDevicesProviderType, @unchecke
         return devicesResult
     }
 
-    public func device(id: AudioDeviceID) -> AudioDevice? {
+    public func device(id: UInt32) -> AudioDevice? {
         calls.append(.device(id))
         return deviceByID[id]
     }

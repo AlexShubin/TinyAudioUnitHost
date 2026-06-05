@@ -74,7 +74,7 @@ struct PurchasesView: View {
             Button {
                 Task { await viewModel.accept(action: .buyTapped) }
             } label: {
-                if viewModel.isPurchasing {
+                if viewModel.purchaseButtonState == .purchasing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -84,7 +84,7 @@ struct PurchasesView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.isUpgradeButtonDisabled)
+            .disabled(viewModel.purchaseButtonState != .enabled)
 
             Button("Restore Purchase") {
                 Task { await viewModel.accept(action: .restoreTapped) }

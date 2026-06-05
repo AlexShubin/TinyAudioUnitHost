@@ -6,11 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreAudio
+import Foundation
 
 protocol AggregateDeviceFactoryType: Sendable {
-    func create(inputUID: String, outputUID: String) -> AudioDeviceID?
-    func destroy(id: AudioDeviceID)
+    func create(inputUID: String, outputUID: String) -> UInt32?
+    func destroy(id: UInt32)
     func destroyOrphans()
 }
 
@@ -18,42 +18,34 @@ struct AggregateDeviceFactory: AggregateDeviceFactoryType {
     static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
 
     private let devicesProvider: AudioDevicesProviderType
+    private let gateway: CoreAudioGatewayType
 
-    init(devicesProvider: AudioDevicesProviderType) {
+    init(devicesProvider: AudioDevicesProviderType, gateway: CoreAudioGatewayType) {
         self.devicesProvider = devicesProvider
+        self.gateway = gateway
     }
 
-    func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
-        let subDevices: [[String: Any]] = [
-            [kAudioSubDeviceUIDKey as String: inputUID],
-            [kAudioSubDeviceUIDKey as String: outputUID],
-        ]
-
+    func create(inputUID: String, outputUID: String) -> UInt32? {
         // Per-create unique UID: destroy is asynchronous, so reusing a fixed
         // UID across rapid reconnect cycles can race.
         let uid = Self.uidPrefix + UUID().uuidString
-
-        let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey as String: "TinyAudioUnitHost Aggregate",
-            kAudioAggregateDeviceUIDKey as String: uid,
-            kAudioAggregateDeviceIsPrivateKey as String: 1,
-            kAudioAggregateDeviceIsStackedKey as String: 0,
-            kAudioAggregateDeviceMainSubDeviceKey as String: outputUID,
-            kAudioAggregateDeviceSubDeviceListKey as String: subDevices,
-        ]
-
-        var aggregateID: AudioDeviceID = 0
-        let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
-        return status == noErr ? aggregateID : nil
+        return gateway.createAggregateDevice(
+            name: "TinyAudioUnitHost Aggregate",
+            uid: uid,
+            isPrivate: true,
+            isStacked: false,
+            mainSubDeviceUID: outputUID,
+            subDeviceUIDs: [inputUID, outputUID]
+        )
     }
 
-    func destroy(id: AudioDeviceID) {
-        AudioHardwareDestroyAggregateDevice(id)
+    func destroy(id: UInt32) {
+        gateway.destroyAggregateDevice(id: id)
     }
 
     func destroyOrphans() {
         devicesProvider.devices(.all)
             .filter { $0.uid.hasPrefix(Self.uidPrefix) }
-            .forEach { AudioHardwareDestroyAggregateDevice($0.id) }
+            .forEach { gateway.destroyAggregateDevice(id: $0.id) }
     }
 }

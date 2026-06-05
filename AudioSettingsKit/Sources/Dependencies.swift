@@ -17,13 +17,13 @@ public struct Dependencies: Sendable {
     public let setupRefresher: SetupRefresherType
 
     public static let live: Dependencies = {
-        let devicesProvider = AudioDevicesProvider()
+        let devicesProvider = AudioDevicesProvider(gateway: CoreAudioGateway())
         let rawStore = StorageKit.Dependencies.live.rawSettingsStore
         let audioSettingsProvider = AudioSettingsProvider(rawStore: rawStore, devicesProvider: devicesProvider)
         let targetSettingsProvider = TargetSettingsProvider(
             audioSettings: audioSettingsProvider,
             devicesProvider: devicesProvider,
-            factory: AggregateDeviceFactory(devicesProvider: devicesProvider)
+            factory: AggregateDeviceFactory(devicesProvider: devicesProvider, gateway: CoreAudioGateway())
         )
         let setupChecker = SetupChecker(audioSettings: audioSettingsProvider)
         return Dependencies(

@@ -28,7 +28,7 @@ final actor Engine: EngineType {
     private let inputMixer: AVAudioMixerNode
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
-    private let coreMidiManager: CoreMidiManagerType
+    private let midiManager: MidiManagerType
     private let targetSettingsProvider: TargetSettingsProviderType
     private var currentAVAudioUnit: AVAudioUnit?
 
@@ -37,14 +37,14 @@ final actor Engine: EngineType {
         inputMixer: AVAudioMixerNode,
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
-        coreMidiManager: CoreMidiManagerType,
+        midiManager: MidiManagerType,
         targetSettingsProvider: TargetSettingsProviderType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
-        self.coreMidiManager = coreMidiManager
+        self.midiManager = midiManager
         self.targetSettingsProvider = targetSettingsProvider
         engine.attach(inputMixer)
     }
@@ -52,7 +52,7 @@ final actor Engine: EngineType {
     func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
         engine.stop()
         disconnect()
-        await coreMidiManager.teardownMIDI()
+        await midiManager.teardownMIDI()
 
         let loaded = try await loadAudioUnit(component)
         if let state { loaded.audioUnit.fullState = state }
@@ -66,7 +66,7 @@ final actor Engine: EngineType {
         logging { try engine.start() }
 
         if let avAudioUnit = currentAVAudioUnit {
-            await coreMidiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
+            await midiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
         }
 
         return loaded

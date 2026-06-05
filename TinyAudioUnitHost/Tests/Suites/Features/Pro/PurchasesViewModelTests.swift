@@ -137,8 +137,7 @@ struct PurchasesViewModelTests {
 
         await sut.accept(action: .buyTapped)
 
-        #expect(sut.isPurchasing == false)
-        #expect(sut.isUpgradeButtonDisabled == false)
+        #expect(sut.purchaseButtonState == .enabled)
         #expect(sut.isRestoreButtonDisabled == false)
     }
 
@@ -173,7 +172,7 @@ struct PurchasesViewModelTests {
 
         await sut.accept(action: .restoreTapped)
 
-        #expect(sut.isPurchasing == false)
+        #expect(sut.purchaseButtonState == .enabled)
         #expect(sut.isRestoreButtonDisabled == false)
     }
 

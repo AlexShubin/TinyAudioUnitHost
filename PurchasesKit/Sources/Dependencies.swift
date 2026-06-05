@@ -10,6 +10,6 @@ public struct Dependencies: Sendable {
     public let purchasesService: PurchasesServiceType
 
     public static let live = Dependencies(
-        purchasesService: PurchasesService()
+        purchasesService: PurchasesService(gateway: StoreKitGateway())
     )
 }

@@ -67,12 +67,7 @@ struct DevicePickerView: View {
             }
             .frame(height: 100)
         } header: {
-            HStack(spacing: 4) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.secondary)
-                    .help("Hardware channel names are on the way.")
-                Text(channelsLabel)
-            }
+            Text(channelsLabel)
         }
     }
 

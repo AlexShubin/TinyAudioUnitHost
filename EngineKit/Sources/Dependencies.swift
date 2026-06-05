@@ -14,14 +14,16 @@ import Common
 public struct Dependencies: Sendable {
     public let engine: EngineType
     public let engineReloader: EngineReloaderType
+    public let midiManager: MidiManagerType
 
     public static let live: Dependencies = {
+        let midiManager = MidiManager()
         let engine = Engine(
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),
             avAudioUnitFactory: AVAudioUnitFactory(),
             coreAudioGateway: CoreAudioGateway(),
-            coreMidiManager: CoreMidiManager(),
+            midiManager: midiManager,
             targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider
         )
         return Dependencies(
@@ -29,7 +31,8 @@ public struct Dependencies: Sendable {
             engineReloader: EngineReloader(
                 engine: engine,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
-            )
+            ),
+            midiManager: midiManager
         )
     }()
 }

@@ -15,16 +15,15 @@ protocol PurchasesViewModelType: AnyObject, Observable {
     var isPro: Bool { get }
     var priceLabel: String? { get }
     var errorMessage: String? { get }
-    var isPurchasing: Bool { get }
-    var isUpgradeButtonDisabled: Bool { get }
+    var purchaseButtonState: PurchaseButtonState { get }
     var isRestoreButtonDisabled: Bool { get }
     func accept(action: PurchasesViewAction) async
 }
 
-enum PurchasesPhase: Sendable, Equatable {
-    case idle
+enum PurchaseButtonState: Sendable, Equatable {
+    case enabled
     case purchasing
-    case restoring
+    case disabled
 }
 
 enum PurchasesViewAction: Sendable, Equatable {
@@ -36,14 +35,10 @@ enum PurchasesViewAction: Sendable, Equatable {
 @MainActor @Observable
 final class PurchasesViewModel: PurchasesViewModelType {
     private(set) var isPro: Bool = false
-    private(set) var productInfo: ProProductInfo?
-    private(set) var phase: PurchasesPhase = .idle
+    private(set) var priceLabel: String?
+    private(set) var purchaseButtonState: PurchaseButtonState = .enabled
+    private(set) var isRestoreButtonDisabled: Bool = false
     private(set) var errorMessage: String?
-
-    var priceLabel: String? { productInfo?.displayPrice }
-    var isPurchasing: Bool { phase == .purchasing }
-    var isUpgradeButtonDisabled: Bool { phase != .idle }
-    var isRestoreButtonDisabled: Bool { phase == .restoring }
 
     @ObservationIgnored private let purchasesService: PurchasesServiceType
     @ObservationIgnored private var isProListener: Task<Void, Never>?
@@ -64,19 +59,23 @@ final class PurchasesViewModel: PurchasesViewModelType {
     func accept(action: PurchasesViewAction) async {
         switch action {
         case .task:
-            productInfo = await purchasesService.productInfo
+            priceLabel = await purchasesService.productInfo?.displayPrice
         case .buyTapped:
-            phase = .purchasing
+            purchaseButtonState = .purchasing
+            isRestoreButtonDisabled = true
             errorMessage = nil
             let result = await purchasesService.purchase()
             errorMessage = message(for: result)
-            phase = .idle
+            purchaseButtonState = .enabled
+            isRestoreButtonDisabled = false
         case .restoreTapped:
-            phase = .restoring
+            purchaseButtonState = .disabled
+            isRestoreButtonDisabled = true
             errorMessage = nil
             let result = await purchasesService.restore()
             errorMessage = message(for: result)
-            phase = .idle
+            purchaseButtonState = .enabled
+            isRestoreButtonDisabled = false
         }
     }
 

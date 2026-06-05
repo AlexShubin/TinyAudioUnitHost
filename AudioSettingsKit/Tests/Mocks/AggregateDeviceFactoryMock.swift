@@ -6,29 +6,28 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreAudio
 @testable import AudioSettingsKit
 
 final class AggregateDeviceFactoryMock: AggregateDeviceFactoryType, @unchecked Sendable {
     enum Calls: Equatable {
         case create(inputUID: String, outputUID: String)
-        case destroy(AudioDeviceID)
+        case destroy(UInt32)
         case destroyOrphans
     }
 
     private(set) var calls: [Calls] = []
-    var createResult: AudioDeviceID?
+    var createResult: UInt32?
 
-    init(createResult: AudioDeviceID? = nil) {
+    init(createResult: UInt32? = nil) {
         self.createResult = createResult
     }
 
-    func create(inputUID: String, outputUID: String) -> AudioDeviceID? {
+    func create(inputUID: String, outputUID: String) -> UInt32? {
         calls.append(.create(inputUID: inputUID, outputUID: outputUID))
         return createResult
     }
 
-    func destroy(id: AudioDeviceID) {
+    func destroy(id: UInt32) {
         calls.append(.destroy(id))
     }
 

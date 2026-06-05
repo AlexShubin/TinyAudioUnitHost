@@ -11,6 +11,7 @@ import AudioSettingsKitTestSupport
 import AudioToolbox
 import AudioUnitsKit
 import AVFoundation
+import EngineKitTestSupport
 import Testing
 @testable import EngineKit
 
@@ -20,7 +21,7 @@ struct EngineTests {
     nonisolated(unsafe) var inputMixerMock: AVAudioMixerNode!
     var avAudioUnitFactoryMock: AVAudioUnitFactoryMock!
     var coreAudioGatewayMock: CoreAudioGatewayMock!
-    var coreMidiManagerMock: CoreMidiManagerMock!
+    var midiManagerMock: MidiManagerMock!
     var targetSettingsProviderMock: TargetSettingsProviderMock!
     var sut: EngineType!
 
@@ -29,7 +30,7 @@ struct EngineTests {
         inputMixerMock = AVAudioMixerNode()
         avAudioUnitFactoryMock = AVAudioUnitFactoryMock()
         coreAudioGatewayMock = CoreAudioGatewayMock()
-        coreMidiManagerMock = CoreMidiManagerMock()
+        midiManagerMock = MidiManagerMock()
         targetSettingsProviderMock = TargetSettingsProviderMock()
     }
 
@@ -39,7 +40,7 @@ struct EngineTests {
             inputMixer: inputMixerMock,
             avAudioUnitFactory: avAudioUnitFactoryMock,
             coreAudioGateway: coreAudioGatewayMock,
-            coreMidiManager: coreMidiManagerMock,
+            midiManager: midiManagerMock,
             targetSettingsProvider: targetSettingsProviderMock
         )
     }
@@ -65,7 +66,7 @@ struct EngineTests {
 
         #expect(thrown as? EngineLoadError == .audioUnitInstantiationFailed)
         #expect(avAudioUnitFactoryMock.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
-        #expect(coreMidiManagerMock.calls == [.teardownMIDI])
+        #expect(midiManagerMock.calls == [.teardownMIDI])
         #expect(!avEngineMock.calls.contains(.start))
     }
 
@@ -87,7 +88,7 @@ struct EngineTests {
             .attach(avAudioUnit),
             .start
         ])
-        #expect(coreMidiManagerMock.calls == [.teardownMIDI, .setupMIDI(avAudioUnit.auAudioUnit)])
+        #expect(midiManagerMock.calls == [.teardownMIDI, .setupMIDI(avAudioUnit.auAudioUnit)])
     }
 
     @Test
@@ -138,7 +139,7 @@ struct EngineTests {
             .attach(secondAU),
             .start
         ])
-        #expect(coreMidiManagerMock.calls == [
+        #expect(midiManagerMock.calls == [
             .teardownMIDI, .setupMIDI(firstAU.auAudioUnit),
             .teardownMIDI, .setupMIDI(secondAU.auAudioUnit)
         ])
@@ -316,7 +317,7 @@ struct EngineTests {
         try? await sut.reload()
 
         #expect(avAudioUnitFactoryMock.calls.isEmpty)
-        #expect(coreMidiManagerMock.calls.isEmpty)
+        #expect(midiManagerMock.calls.isEmpty)
     }
 
 }

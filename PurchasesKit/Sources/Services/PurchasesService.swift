@@ -7,28 +7,26 @@
 //
 
 import Foundation
-import StoreKit
 
 public protocol PurchasesServiceType: Sendable {
     var productInfo: ProProductInfo? { get async }
     func makeIsProStream() async -> AsyncStream<Bool>
     func purchase() async -> PurchaseResult
     func restore() async -> PurchaseResult
+    @discardableResult
+    func startListening() -> Task<Void, Error>
 }
 
 final actor PurchasesService: PurchasesServiceType {
     static let proProductID = "com.alexshubin.TinyAudioUnitHost.pro"
 
-    private var cachedProduct: Product?
-    private var updatesTask: Task<Void, Never>?
+    private let gateway: StoreKitGatewayType
+    private var cachedProduct: (any StoreProductType)?
     private var currentIsPro: Bool?
     private var subscribers: [UUID: AsyncStream<Bool>.Continuation] = [:]
 
-    init() {
-        Task {
-            await self.startListeningForUpdates()
-            await self.refreshIsPro()
-        }
+    init(gateway: StoreKitGatewayType) {
+        self.gateway = gateway
     }
 
     var productInfo: ProProductInfo? {
@@ -59,37 +57,45 @@ final actor PurchasesService: PurchasesServiceType {
 
     func purchase() async -> PurchaseResult {
         guard let product = await fetchProduct() else { return .productUnavailable }
-        do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                switch verification {
-                case .verified(let transaction):
-                    await transaction.finish()
-                    await refreshIsPro()
-                    return .success
-                case .unverified:
-                    return .verificationFailed
-                }
-            case .userCancelled:
-                return .userCancelled
-            case .pending:
-                return .pending
-            @unknown default:
-                return .unknownError("Unknown purchase result")
-            }
-        } catch {
-            return .unknownError(error.localizedDescription)
+        switch await product.purchase() {
+        case .verified(let transaction):
+            await transaction.finish()
+            await refreshIsPro()
+            return .success
+        case .unverified:
+            return .verificationFailed
+        case .userCancelled:
+            return .userCancelled
+        case .pending:
+            return .pending
+        case .unknown:
+            return .unknownError("Unknown purchase result")
+        case .failed(let message):
+            return .unknownError(message)
         }
     }
 
     func restore() async -> PurchaseResult {
         do {
-            try await AppStore.sync()
+            try await gateway.syncWithAppStore()
             await refreshIsPro()
             return .success
         } catch {
-            return .unknownError(error.localizedDescription)
+            return .unknownError(error.message)
+        }
+    }
+
+    @discardableResult
+    nonisolated func startListening() -> Task<Void, Error> {
+        let gateway = self.gateway
+        return Task { [weak self] in
+            await self?.refreshIsPro()
+            for await result in gateway.transactionUpdates() {
+                if case .verified(let transaction) = result {
+                    await transaction.finish()
+                    await self?.refreshIsPro()
+                }
+            }
         }
     }
 
@@ -99,19 +105,14 @@ final actor PurchasesService: PurchasesServiceType {
         subscribers.removeValue(forKey: id)
     }
 
-    private func fetchProduct() async -> Product? {
+    private func fetchProduct() async -> (any StoreProductType)? {
         if let cachedProduct { return cachedProduct }
-        do {
-            let products = try await Product.products(for: [Self.proProductID])
-            cachedProduct = products.first
-            return cachedProduct
-        } catch {
-            return nil
-        }
+        cachedProduct = try? await gateway.products(for: [Self.proProductID]).first
+        return cachedProduct
     }
 
     private func checkEntitlements() async -> Bool {
-        for await result in Transaction.currentEntitlements {
+        for await result in gateway.currentEntitlements() {
             if case .verified(let transaction) = result,
                transaction.productID == Self.proProductID {
                 return true
@@ -126,20 +127,6 @@ final actor PurchasesService: PurchasesServiceType {
         currentIsPro = next
         for continuation in subscribers.values {
             continuation.yield(next)
-        }
-    }
-
-    /// Consume Transaction.updates so out-of-band transactions (promo purchases,
-    /// ask-to-buy approvals, etc.) get acknowledged, and refresh pro status so
-    /// subscribers see the new entitlement.
-    private func startListeningForUpdates() {
-        updatesTask = Task { [weak self] in
-            for await result in Transaction.updates {
-                if case .verified(let transaction) = result {
-                    await transaction.finish()
-                    await self?.refreshIsPro()
-                }
-            }
         }
     }
 }

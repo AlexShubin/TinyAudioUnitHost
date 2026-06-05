@@ -9,6 +9,7 @@
 import AudioSettingsKit
 import EngineKit
 import Observation
+import PurchasesKit
 
 @MainActor
 protocol MainWindowViewModelType: AnyObject, Observable {
@@ -21,22 +22,30 @@ enum MainWindowViewAction: Sendable, Equatable {
 
 @MainActor @Observable
 final class MainWindowViewModel: MainWindowViewModelType {
+    @ObservationIgnored private let midiManager: MidiManagerType
     @ObservationIgnored private let engineReloader: EngineReloaderType
     @ObservationIgnored private let setupRefresher: SetupRefresherType
+    @ObservationIgnored private let purchasesService: PurchasesServiceType
 
     init(
+        midiManager: MidiManagerType,
         engineReloader: EngineReloaderType,
-        setupRefresher: SetupRefresherType
+        setupRefresher: SetupRefresherType,
+        purchasesService: PurchasesServiceType
     ) {
+        self.midiManager = midiManager
         self.engineReloader = engineReloader
         self.setupRefresher = setupRefresher
+        self.purchasesService = purchasesService
     }
 
     func accept(action: MainWindowViewAction) async {
         switch action {
         case .task:
+            midiManager.startListening()
             engineReloader.startListening()
             setupRefresher.startListening()
+            purchasesService.startListening()
         }
     }
 }
