@@ -11,6 +11,7 @@ import CoreAudioKit
 
 public protocol AUAudioUnitType: AnyObject, Sendable {
     var fullState: Data? { get set }
+    var scheduleMIDIEventListBlock: AUMIDIEventListBlock? { get }
 
     @MainActor
     func requestViewController() async -> NSViewController?
@@ -26,6 +27,10 @@ public final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
     public var fullState: Data? {
         get { au.fullState?.binaryPlist }
         set { au.fullState = newValue?.asStringAnyDictionary }
+    }
+
+    public var scheduleMIDIEventListBlock: AUMIDIEventListBlock? {
+        au.scheduleMIDIEventListBlock
     }
 
     @MainActor

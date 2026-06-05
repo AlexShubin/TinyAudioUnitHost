@@ -8,10 +8,12 @@
 
 import AppKit
 import AudioUnitsKit
+import CoreAudioKit
 import Foundation
 
 public final class AUAudioUnitMock: AUAudioUnitType, @unchecked Sendable {
     public var fullState: Data?
+    public var scheduleMIDIEventListBlock: AUMIDIEventListBlock?
 
     public init(fullState: Data? = nil) {
         self.fullState = fullState
