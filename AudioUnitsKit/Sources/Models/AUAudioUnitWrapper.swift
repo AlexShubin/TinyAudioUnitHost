@@ -1,5 +1,5 @@
 //
-//  AUAudioUnitType.swift
+//  AUAudioUnitWrapper.swift
 //  AudioUnitsKit
 //
 //  Created by Alex Shubin on 06.05.26.
@@ -9,15 +9,11 @@
 import AppKit
 import CoreAudioKit
 
-public protocol AUAudioUnitType: AnyObject, Sendable {
-    var fullState: Data? { get set }
-    var scheduleMIDIEventListBlock: AUMIDIEventListBlock? { get }
+public final class AUAudioUnitWrapper: Equatable {
+    public static func == (lhs: AUAudioUnitWrapper, rhs: AUAudioUnitWrapper) -> Bool {
+        lhs.au == rhs.au
+    }
 
-    @MainActor
-    func requestViewController() async -> NSViewController?
-}
-
-public final class AUAudioUnitWrapper: AUAudioUnitType, @unchecked Sendable {
     private let au: AUAudioUnit
 
     public init(_ au: AUAudioUnit) {

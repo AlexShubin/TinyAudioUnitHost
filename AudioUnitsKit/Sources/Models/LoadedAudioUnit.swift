@@ -8,20 +8,15 @@
 
 import AppKit
 
-public struct LoadedAudioUnit: Sendable, Equatable {
+public struct LoadedAudioUnit: Equatable, Sendable {
     public let component: AudioUnitComponent
-    public let audioUnit: AUAudioUnitType
+    public nonisolated(unsafe) let audioUnit: AUAudioUnitWrapper
 
     public init(
         component: AudioUnitComponent,
-        audioUnit: AUAudioUnitType
+        audioUnit: AUAudioUnitWrapper
     ) {
         self.component = component
         self.audioUnit = audioUnit
-    }
-
-
-    public static func == (lhs: LoadedAudioUnit, rhs: LoadedAudioUnit) -> Bool {
-        lhs.component == rhs.component && lhs.audioUnit === rhs.audioUnit
     }
 }
