@@ -26,7 +26,7 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
         return Task {}
     }
 
-    public func setupMIDI(for audioUnit: AUAudioUnitType) async {
+    public func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
         calls.append(.setupMIDI)
     }
 

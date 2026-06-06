@@ -7,7 +7,6 @@
 //
 
 import AudioUnitsKit
-import AudioUnitsKitTestSupport
 import Testing
 @testable import EngineKit
 
@@ -32,7 +31,7 @@ struct MidiManagerTests {
         coreMidiGatewayMock.createInputPortResult = 2
         coreMidiGatewayMock.sources = [10, 20]
         createSut()
-        let audioUnit = AUAudioUnitMock()
+        let audioUnit = AUAudioUnitWrapper()
 
         await sut.setupMIDI(for: audioUnit)
 
@@ -50,7 +49,7 @@ struct MidiManagerTests {
         coreMidiGatewayMock.createClientResult = nil
         createSut()
 
-        await sut.setupMIDI(for: AUAudioUnitMock())
+        await sut.setupMIDI(for: AUAudioUnitWrapper())
 
         #expect(coreMidiGatewayMock.calls == [.createClient("TinyAUHost")])
     }
@@ -61,7 +60,7 @@ struct MidiManagerTests {
         coreMidiGatewayMock.sources = [10]
         createSut()
 
-        await sut.setupMIDI(for: AUAudioUnitMock())
+        await sut.setupMIDI(for: AUAudioUnitWrapper())
 
         #expect(coreMidiGatewayMock.calls == [
             .createClient("TinyAUHost"),
@@ -77,7 +76,7 @@ struct MidiManagerTests {
         coreMidiGatewayMock.sources = []
         createSut()
 
-        await sut.setupMIDI(for: AUAudioUnitMock())
+        await sut.setupMIDI(for: AUAudioUnitWrapper())
         await sut.teardownMIDI()
 
         #expect(coreMidiGatewayMock.calls == [
@@ -94,7 +93,7 @@ struct MidiManagerTests {
         coreMidiGatewayMock.createInputPortResult = 2
         coreMidiGatewayMock.sources = [10]
         createSut()
-        await sut.setupMIDI(for: AUAudioUnitMock())
+        await sut.setupMIDI(for: AUAudioUnitWrapper())
 
         let task = sut.startListening()
         coreMidiGatewayMock.emitSetupChanged()

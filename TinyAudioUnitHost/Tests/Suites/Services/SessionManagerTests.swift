@@ -215,8 +215,8 @@ struct SessionManagerTests {
     @Test
     mutating func saveCurrentPreset_happyPath_savesAndPostsSavedEvent() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xBE, 0xEF]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         presetProviderMock = PresetProviderMock(
             presets: ["foo": Preset(name: "foo", component: component, state: Data())],
             activeName: "foo"
@@ -279,8 +279,8 @@ struct SessionManagerTests {
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndPosts() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xAA]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xAA]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.loadComponent(component)

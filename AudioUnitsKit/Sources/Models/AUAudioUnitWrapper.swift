@@ -11,27 +11,36 @@ import AppKit
 
 public final class AUAudioUnitWrapper: Equatable, Sendable {
     public static func == (lhs: AUAudioUnitWrapper, rhs: AUAudioUnitWrapper) -> Bool {
-        lhs.au == rhs.au
+        lhs === rhs
     }
 
-    private let au: AUAudioUnit
+    private let au: AUAudioUnit?
+    private let detachedState: Data?
 
     public init(_ au: AUAudioUnit) {
         self.au = au
+        self.detachedState = nil
+    }
+
+    /// Headless wrapper with no live audio unit, for tests that only need a `fullState` value.
+    public init(fullState: Data? = nil) {
+        self.au = nil
+        self.detachedState = fullState
     }
 
     public var fullState: Data? {
-        get { au.fullState?.binaryPlist }
-        set { au.fullState = newValue?.asStringAnyDictionary }
+        get { au?.fullState?.binaryPlist ?? detachedState }
+        set { au?.fullState = newValue?.asStringAnyDictionary }
     }
 
     public var scheduleMIDIEventListBlock: AUMIDIEventListBlock? {
-        au.scheduleMIDIEventListBlock
+        au?.scheduleMIDIEventListBlock
     }
 
     @MainActor
     public func requestViewController() async -> NSViewController? {
-        await withCheckedContinuation { continuation in
+        guard let au else { return nil }
+        return await withCheckedContinuation { continuation in
             au.requestViewController { continuation.resume(returning: $0) }
         }
     }

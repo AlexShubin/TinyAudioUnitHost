@@ -12,7 +12,7 @@ import Foundation
 public extension LoadedAudioUnit {
     static func fake(
         component: AudioUnitComponent = .fake(),
-        audioUnit: AUAudioUnitType = AUAudioUnitMock(fullState: Data())
+        audioUnit: AUAudioUnitWrapper = AUAudioUnitWrapper(fullState: Data())
     ) -> LoadedAudioUnit {
         LoadedAudioUnit(component: component, audioUnit: audioUnit)
     }
