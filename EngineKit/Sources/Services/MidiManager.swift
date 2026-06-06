@@ -28,7 +28,7 @@ actor MidiManager: MidiManagerType {
     @discardableResult
     nonisolated func startListening() -> Task<Void, Error> {
         Task {
-            guard let setupChanges = await self.ensureClient() else { return }
+            guard let setupChanges = await self.startClient() else { return }
             for await _ in setupChanges {
                 await self.connectAllMIDISources()
             }
@@ -36,7 +36,7 @@ actor MidiManager: MidiManagerType {
     }
 
     func setupMIDI(for audioUnit: AUAudioUnitWrapper) {
-        guard ensureClient() != nil else { return }
+        guard startClient() != nil else { return }
 
         guard let port = coreMidiGateway.createInputPort(
             client: midiClient,
@@ -54,7 +54,7 @@ actor MidiManager: MidiManagerType {
     }
 
     @discardableResult
-    private func ensureClient() -> AsyncStream<Void>? {
+    private func startClient() -> AsyncStream<Void>? {
         if let setupChanges { return setupChanges }
         guard let (client, stream) = coreMidiGateway.createClient(name: "TinyAUHost") else { return nil }
         midiClient = client
