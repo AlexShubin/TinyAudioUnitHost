@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import PresetKit
 import SwiftUI
 
 struct HostView: View {
@@ -84,7 +83,6 @@ struct HostView: View {
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
-        //.menuIndicator(.hidden)
         .disabled(viewModel.isAudioUnitPickerDisabled)
     }
 
