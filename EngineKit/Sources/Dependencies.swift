@@ -17,7 +17,7 @@ public struct Dependencies: Sendable {
     public let midiManager: MidiManagerType
 
     public static let live: Dependencies = {
-        let midiManager = MidiManager()
+        let midiManager = MidiManager(coreMidiGateway: CoreMidiGateway())
         let engine = Engine(
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),

@@ -6,66 +6,66 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import CoreMIDI
-// AUAudioUnit's RT-safe surface (scheduleMIDIEventListBlock) is thread-safe
-// per Apple, but the type isn't Sendable. We only touch it inside a CoreMIDI
-// block; the reference doesn't escape this actor beyond that block.
-@preconcurrency import AVFoundation
+import AudioUnitsKit
 
 public protocol MidiManagerType: Sendable {
     @discardableResult
     func startListening() -> Task<Void, Error>
-    func setupMIDI(for audioUnit: AUAudioUnit) async
+    func setupMIDI(for audioUnit: AUAudioUnitType) async
     func teardownMIDI() async
 }
 
 actor MidiManager: MidiManagerType {
-    private var midiClient: MIDIClientRef = 0
-    private var midiInputPort: MIDIPortRef = 0
+    private let coreMidiGateway: CoreMidiGatewayType
+    private var midiClient: UInt32 = 0
+    private var midiInputPort: UInt32 = 0
+    private var setupChanges: AsyncStream<Void>?
+
+    init(coreMidiGateway: CoreMidiGatewayType) {
+        self.coreMidiGateway = coreMidiGateway
+    }
 
     @discardableResult
     nonisolated func startListening() -> Task<Void, Error> {
-        Task { await self.startListeningToSetupChangedIfNeeded() }
+        Task {
+            guard let setupChanges = await self.ensureClient() else { return }
+            for await _ in setupChanges {
+                await self.connectAllMIDISources()
+            }
+        }
     }
 
-    func setupMIDI(for audioUnit: AUAudioUnit) {
-        startListeningToSetupChangedIfNeeded()
-        guard midiClient != 0 else { return }
+    func setupMIDI(for audioUnit: AUAudioUnitType) {
+        guard ensureClient() != nil else { return }
 
-        let status = MIDIInputPortCreateWithProtocol(
-            midiClient,
-            "Input" as CFString,
-            ._1_0,
-            &midiInputPort
-        ) { eventList, _ in
-            _ = audioUnit.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
-        }
-        guard status == noErr else { return }
+        guard let port = coreMidiGateway.createInputPort(
+            client: midiClient,
+            name: "Input",
+            audioUnit: audioUnit
+        ) else { return }
+        midiInputPort = port
 
         connectAllMIDISources()
     }
 
     func teardownMIDI() {
-        MIDIPortDispose(midiInputPort)
+        coreMidiGateway.disposePort(midiInputPort)
         midiInputPort = 0
     }
 
-    private func startListeningToSetupChangedIfNeeded() {
-        guard midiClient == 0 else { return }
-        let status = MIDIClientCreateWithBlock("TinyAUHost" as CFString, &midiClient) { [weak self] notification in
-            if notification.pointee.messageID == .msgSetupChanged {
-                Task { await self?.connectAllMIDISources() }
-            }
-        }
-        if status != noErr { midiClient = 0 }
+    @discardableResult
+    private func ensureClient() -> AsyncStream<Void>? {
+        if let setupChanges { return setupChanges }
+        guard let (client, stream) = coreMidiGateway.createClient(name: "TinyAUHost") else { return nil }
+        midiClient = client
+        setupChanges = stream
+        return stream
     }
 
     private func connectAllMIDISources() {
         guard midiInputPort != 0 else { return }
-        let sourceCount = MIDIGetNumberOfSources()
-        for i in 0..<sourceCount {
-            let source = MIDIGetSource(i)
-            MIDIPortConnectSource(midiInputPort, source, nil)
+        for index in 0..<coreMidiGateway.sourceCount {
+            coreMidiGateway.connect(source: coreMidiGateway.source(at: index), to: midiInputPort)
         }
     }
 }

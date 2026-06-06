@@ -11,10 +11,7 @@ import AudioUnitsKit
 import CoreMIDI
 
 protocol CoreMidiGatewayType: Sendable {
-    func createClient(
-        name: String,
-        onSetupChanged: @escaping @Sendable () -> Void
-    ) -> UInt32?
+    func createClient(name: String) -> (client: UInt32, setupChanges: AsyncStream<Void>)?
     func createInputPort(
         client: UInt32,
         name: String,
@@ -27,17 +24,19 @@ protocol CoreMidiGatewayType: Sendable {
 }
 
 struct CoreMidiGateway: CoreMidiGatewayType {
-    func createClient(
-        name: String,
-        onSetupChanged: @escaping @Sendable () -> Void
-    ) -> UInt32? {
+    func createClient(name: String) -> (client: UInt32, setupChanges: AsyncStream<Void>)? {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
         var client: MIDIClientRef = 0
         let status = MIDIClientCreateWithBlock(name as CFString, &client) { notification in
             if notification.pointee.messageID == .msgSetupChanged {
-                onSetupChanged()
+                continuation.yield()
             }
         }
-        return status == noErr ? client : nil
+        guard status == noErr else {
+            continuation.finish()
+            return nil
+        }
+        return (client, stream)
     }
 
     func createInputPort(
@@ -52,7 +51,7 @@ struct CoreMidiGateway: CoreMidiGatewayType {
             ._1_0,
             &port
         ) { eventList, _ in
-            audioUnit.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
+            _ = audioUnit.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
         }
         return status == noErr ? port : nil
     }

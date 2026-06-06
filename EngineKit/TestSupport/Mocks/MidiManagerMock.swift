@@ -6,14 +6,25 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-@preconcurrency import AVFoundation
+import AudioUnitsKit
 import EngineKit
 
 public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
     public enum Calls: Equatable {
         case startListening
-        case setupMIDI(AUAudioUnit)
+        case setupMIDI(AUAudioUnitType)
         case teardownMIDI
+
+        public static func == (lhs: Calls, rhs: Calls) -> Bool {
+            switch (lhs, rhs) {
+            case (.startListening, .startListening), (.teardownMIDI, .teardownMIDI):
+                true
+            case let (.setupMIDI(lhsUnit), .setupMIDI(rhsUnit)):
+                lhsUnit === rhsUnit
+            default:
+                false
+            }
+        }
     }
 
     public private(set) var calls: [Calls] = []
@@ -26,7 +37,7 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
         return Task {}
     }
 
-    public func setupMIDI(for audioUnit: AUAudioUnit) async {
+    public func setupMIDI(for audioUnit: AUAudioUnitType) async {
         calls.append(.setupMIDI(audioUnit))
     }
 

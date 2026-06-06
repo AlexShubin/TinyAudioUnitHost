@@ -23,15 +23,12 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     var createInputPortResult: UInt32? = 1
     var sources: [UInt32] = []
     private(set) var createInputPortAudioUnit: AUAudioUnitType?
-    private var onSetupChanged: (@Sendable () -> Void)?
+    private let setupChanges = AsyncStream<Void>.makeStream()
 
-    func createClient(
-        name: String,
-        onSetupChanged: @escaping @Sendable () -> Void
-    ) -> UInt32? {
-        self.onSetupChanged = onSetupChanged
+    func createClient(name: String) -> (client: UInt32, setupChanges: AsyncStream<Void>)? {
         calls.append(.createClient(name))
-        return createClientResult
+        guard let createClientResult else { return nil }
+        return (createClientResult, setupChanges.stream)
     }
 
     func createInputPort(
@@ -62,6 +59,10 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     }
 
     func emitSetupChanged() {
-        onSetupChanged?()
+        setupChanges.continuation.yield()
+    }
+
+    func finishSetupChanges() {
+        setupChanges.continuation.finish()
     }
 }

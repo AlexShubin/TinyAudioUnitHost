@@ -65,9 +65,7 @@ final actor Engine: EngineType {
         }
         logging { try engine.start() }
 
-        if let avAudioUnit = currentAVAudioUnit {
-            await midiManager.setupMIDI(for: avAudioUnit.auAudioUnit)
-        }
+        await midiManager.setupMIDI(for: loaded.audioUnit)
 
         return loaded
     }
