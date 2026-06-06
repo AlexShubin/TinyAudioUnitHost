@@ -24,21 +24,34 @@ public final class AUAudioUnitWrapper: Equatable, Sendable {
     }
 
     private let au: AUAudioUnit?
+
+    #if DEBUG
     private let detachedState: Data?
+    #endif
 
     public init(_ au: AUAudioUnit) {
         self.au = au
+        #if DEBUG
         self.detachedState = nil
+        #endif
     }
 
+    #if DEBUG
     /// Headless stand-in with no live audio unit, for tests that only need a `fullState` value.
     public init(fullState: Data? = nil) {
         self.au = nil
         self.detachedState = fullState
     }
+    #endif
 
     public var fullState: Data? {
-        get { au?.fullState?.binaryPlist ?? detachedState }
+        get {
+            #if DEBUG
+            au?.fullState?.binaryPlist ?? detachedState
+            #else
+            au?.fullState?.binaryPlist
+            #endif
+        }
         set { au?.fullState = newValue?.asStringAnyDictionary }
     }
 
