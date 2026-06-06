@@ -7,9 +7,9 @@
 //
 
 import AppKit
-import CoreAudioKit
+@preconcurrency import CoreAudioKit
 
-public final class AUAudioUnitWrapper: Equatable {
+public final class AUAudioUnitWrapper: Equatable, Sendable {
     public static func == (lhs: AUAudioUnitWrapper, rhs: AUAudioUnitWrapper) -> Bool {
         lhs.au == rhs.au
     }

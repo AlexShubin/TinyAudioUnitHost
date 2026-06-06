@@ -10,7 +10,7 @@ import AppKit
 
 public struct LoadedAudioUnit: Equatable, Sendable {
     public let component: AudioUnitComponent
-    public nonisolated(unsafe) let audioUnit: AUAudioUnitWrapper
+    public let audioUnit: AUAudioUnitWrapper
 
     public init(
         component: AudioUnitComponent,
