@@ -12,7 +12,7 @@ import EngineKit
 public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
     public enum Calls: Equatable {
         case startListening
-        case setupMIDI
+        case setupMIDI(AUAudioUnitWrapper)
         case teardownMIDI
     }
 
@@ -27,7 +27,7 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
     }
 
     public func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
-        calls.append(.setupMIDI)
+        calls.append(.setupMIDI(audioUnit))
     }
 
     public func teardownMIDI() async {
