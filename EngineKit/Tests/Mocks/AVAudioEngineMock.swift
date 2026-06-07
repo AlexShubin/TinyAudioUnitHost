@@ -25,23 +25,10 @@ final class AVAudioEngineMock: AVAudioEngineType, @unchecked Sendable {
     }
 
     private(set) var calls: [Calls] = []
-    var startError: Error?
 
     var inputAudioUnit: AudioUnit?
     var outputAudioUnit: AudioUnit?
-    var hardwareOutputFormat: AVAudioFormat
-
-    init(
-        inputAudioUnit: AudioUnit? = nil,
-        outputAudioUnit: AudioUnit? = nil,
-        hardwareOutputFormat: AVAudioFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!,
-        startError: Error? = nil
-    ) {
-        self.inputAudioUnit = inputAudioUnit
-        self.outputAudioUnit = outputAudioUnit
-        self.hardwareOutputFormat = hardwareOutputFormat
-        self.startError = startError
-    }
+    var hardwareOutputFormat: AVAudioFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
 
     func attach(_ node: AVAudioNode) {
         calls.append(.attach(node))
@@ -51,6 +38,7 @@ final class AVAudioEngineMock: AVAudioEngineType, @unchecked Sendable {
         calls.append(.detach(node))
     }
 
+    var startError: Error?
     func start() throws {
         calls.append(.start)
         if let startError {

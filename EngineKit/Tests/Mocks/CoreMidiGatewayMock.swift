@@ -12,42 +12,41 @@ import AudioUnitsKit
 final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case createClient(String)
-        case createInputPort(UInt32, String)
+        case createInputPort(UInt32, String, AUAudioUnitWrapper)
         case source(Int)
         case connect(UInt32, UInt32)
         case disposePort(UInt32)
     }
 
     private(set) var calls: [Calls] = []
-    var createClientResult: UInt32? = 1
-    var createInputPortResult: UInt32? = 1
-    var sources: [UInt32] = []
-    private(set) var createInputPortAudioUnit: AUAudioUnitWrapper?
-    private let setupChanges = AsyncStream<Void>.makeStream()
 
+    var createClientResult: UInt32? = 1
+    var setupChangesStream = AsyncStream<Void>.makeStream()
     func createClient(name: String) -> (client: UInt32, setupChanges: AsyncStream<Void>)? {
         calls.append(.createClient(name))
         guard let createClientResult else { return nil }
-        return (createClientResult, setupChanges.stream)
+        return (createClientResult, setupChangesStream.stream)
     }
 
+    var createInputPortResult: UInt32? = 1
     func createInputPort(
         client: UInt32,
         name: String,
         audioUnit: AUAudioUnitWrapper
     ) -> UInt32? {
-        createInputPortAudioUnit = audioUnit
-        calls.append(.createInputPort(client, name))
+        calls.append(.createInputPort(client, name, audioUnit))
         return createInputPortResult
     }
 
+    var sourceCountResult: Int = 0
     var sourceCount: Int {
-        sources.count
+        sourceCountResult
     }
 
+    var sourceResult: UInt32 = 0
     func source(at index: Int) -> UInt32 {
         calls.append(.source(index))
-        return sources[index]
+        return sourceResult
     }
 
     func connect(source: UInt32, to port: UInt32) {
@@ -56,13 +55,5 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
 
     func disposePort(_ port: UInt32) {
         calls.append(.disposePort(port))
-    }
-
-    func emitSetupChanged() {
-        setupChanges.continuation.yield()
-    }
-
-    func finishSetupChanges() {
-        setupChanges.continuation.finish()
     }
 }

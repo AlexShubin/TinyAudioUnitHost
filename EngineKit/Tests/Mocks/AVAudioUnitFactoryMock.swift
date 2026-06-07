@@ -15,12 +15,8 @@ final class AVAudioUnitFactoryMock: AVAudioUnitFactoryType, @unchecked Sendable 
     }
 
     private(set) var calls: [Calls] = []
+
     var instantiateResult: Result<AVAudioUnit, Error>?
-
-    init(instantiateResult: Result<AVAudioUnit, Error>? = nil) {
-        self.instantiateResult = instantiateResult
-    }
-
     func instantiate(
         with description: AudioComponentDescription,
         options: AudioComponentInstantiationOptions

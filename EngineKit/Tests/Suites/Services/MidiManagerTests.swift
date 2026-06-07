@@ -29,7 +29,8 @@ struct MidiManagerTests {
     mutating func setupMIDI_createsClientAndInputPort_andConnectsAllSources() async {
         coreMidiGatewayMock.createClientResult = 1
         coreMidiGatewayMock.createInputPortResult = 2
-        coreMidiGatewayMock.sources = [10, 20]
+        coreMidiGatewayMock.sourceCountResult = 2
+        coreMidiGatewayMock.sourceResult = 10
         createSut()
         let audioUnit = AUAudioUnitWrapper()
 
@@ -37,11 +38,10 @@ struct MidiManagerTests {
 
         #expect(coreMidiGatewayMock.calls == [
             .createClient("TinyAUHost"),
-            .createInputPort(1, "Input"),
+            .createInputPort(1, "Input", audioUnit),
             .source(0), .connect(10, 2),
-            .source(1), .connect(20, 2)
+            .source(1), .connect(10, 2)
         ])
-        #expect(coreMidiGatewayMock.createInputPortAudioUnit === audioUnit)
     }
 
     @Test
@@ -57,14 +57,16 @@ struct MidiManagerTests {
     @Test
     mutating func setupMIDI_inputPortCreationFails_doesNotConnectSources() async {
         coreMidiGatewayMock.createInputPortResult = nil
-        coreMidiGatewayMock.sources = [10]
+        coreMidiGatewayMock.sourceCountResult = 1
+        coreMidiGatewayMock.sourceResult = 10
         createSut()
+        let audioUnit = AUAudioUnitWrapper()
 
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        await sut.setupMIDI(for: audioUnit)
 
         #expect(coreMidiGatewayMock.calls == [
             .createClient("TinyAUHost"),
-            .createInputPort(1, "Input")
+            .createInputPort(1, "Input", audioUnit)
         ])
     }
 
@@ -73,15 +75,15 @@ struct MidiManagerTests {
     @Test
     mutating func teardownMIDI_disposesInputPort() async {
         coreMidiGatewayMock.createInputPortResult = 2
-        coreMidiGatewayMock.sources = []
         createSut()
+        let audioUnit = AUAudioUnitWrapper()
 
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        await sut.setupMIDI(for: audioUnit)
         await sut.teardownMIDI()
 
         #expect(coreMidiGatewayMock.calls == [
             .createClient("TinyAUHost"),
-            .createInputPort(1, "Input"),
+            .createInputPort(1, "Input", audioUnit),
             .disposePort(2)
         ])
     }
@@ -91,18 +93,20 @@ struct MidiManagerTests {
     @Test
     mutating func startListening_setupChangedAfterSetup_reconnectsAllSources() async {
         coreMidiGatewayMock.createInputPortResult = 2
-        coreMidiGatewayMock.sources = [10]
+        coreMidiGatewayMock.sourceCountResult = 1
+        coreMidiGatewayMock.sourceResult = 10
         createSut()
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        let audioUnit = AUAudioUnitWrapper()
+        await sut.setupMIDI(for: audioUnit)
 
         let task = sut.startListening()
-        coreMidiGatewayMock.emitSetupChanged()
-        coreMidiGatewayMock.finishSetupChanges()
+        coreMidiGatewayMock.setupChangesStream.continuation.yield()
+        coreMidiGatewayMock.setupChangesStream.continuation.finish()
         try? await task.value
 
         #expect(coreMidiGatewayMock.calls == [
             .createClient("TinyAUHost"),
-            .createInputPort(1, "Input"),
+            .createInputPort(1, "Input", audioUnit),
             .source(0), .connect(10, 2),
             .source(0), .connect(10, 2)
         ])
@@ -110,12 +114,13 @@ struct MidiManagerTests {
 
     @Test
     mutating func startListening_setupChangedBeforeSetup_doesNotConnect() async {
-        coreMidiGatewayMock.sources = [10]
+        coreMidiGatewayMock.sourceCountResult = 1
+        coreMidiGatewayMock.sourceResult = 10
         createSut()
 
         let task = sut.startListening()
-        coreMidiGatewayMock.emitSetupChanged()
-        coreMidiGatewayMock.finishSetupChanges()
+        coreMidiGatewayMock.setupChangesStream.continuation.yield()
+        coreMidiGatewayMock.setupChangesStream.continuation.finish()
         try? await task.value
 
         #expect(coreMidiGatewayMock.calls == [.createClient("TinyAUHost")])

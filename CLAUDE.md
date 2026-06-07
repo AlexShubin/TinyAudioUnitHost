@@ -199,12 +199,8 @@ public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Se
     }
 
     public private(set) var calls: [Calls] = []
-    public var settings: AudioSettings
 
-    public init(settings: AudioSettings = .empty) {
-        self.settings = settings
-    }
-
+    public var settings: AudioSettings = .empty
     public func current() async -> AudioSettings {
         calls.append(.current)
         return settings
@@ -217,11 +213,36 @@ public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Se
 }
 ```
 
+A `<method>Result` stub and a `<thing>Stream` read the same way — each stub adjacent to its method:
+
+```swift
+final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
+    enum Calls: Equatable {
+        case createInputPort(UInt32, String, AUAudioUnitWrapper)
+    }
+
+    private(set) var calls: [Calls] = []
+
+    var createInputPortResult: UInt32? = 1
+    func createInputPort(client: UInt32, name: String, audioUnit: AUAudioUnitWrapper) -> UInt32? {
+        calls.append(.createInputPort(client, name, audioUnit))
+        return createInputPortResult
+    }
+
+    var setupChangesStream = AsyncStream<Void>.makeStream()
+    func setupChanges() -> AsyncStream<Void> {
+        setupChangesStream.stream
+    }
+}
+```
+
 - One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
-- Configure stub state and return-value overrides via init params with defaults; tests mutate them directly (`mock.settings = ...`). No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
+- **No `init`: each stub is a mutable `var` with an inline default, declared directly above the method it feeds.** A `final class @unchecked Sendable` whose stored properties are all defaulted gets a synthesized no-arg `init()`, so tests construct it with `()` and configure only what they need by direct assignment (`mock.settings = ...`, `mock.createClientResult = nil`) in the concrete test. Don't clump stubs at the top — keeping each `var` next to its method makes the stub and the value it produces read together. No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
+- **Name each stub after its method: `<method>Result` for a returned value, `<method>Error` for a thrown one** (`createClientResult`, `createInputPortResult`, `setEnableIOError`). One stub per method, never a shared `result` — methods that wrap distinct foreign calls each get their own, even when the shapes match, because each underlying call can independently succeed or fail.
+- **A streamed return is a stored `AsyncStream.makeStream()` named `<thing>Stream`** (`setupChangesStream`). The method returns its `.stream`; the test drives it through the continuation directly — `mock.setupChangesStream.continuation.yield(...)` / `.finish()`. Don't wrap the continuation in `emit`/`broadcast` helpers; expose it and let the test call it.
 - **A mock returns one configured result per method, not a result computed from the call's arguments.** Expose the return as a flat stub (`deviceUIDResult: String?`, `createResult: AudioDeviceID?`); the call's arguments go into `calls` for assertion, not into a lookup that picks the return. No `switch` on a parameter, no input-keyed dictionary, no branching in the method body — that's SUT logic leaking into the mock, and every test override would silently replace it. Exception: when a single test genuinely must return *different* values for *different* inputs within one call sequence, an input-keyed collection (`deviceByID: [UInt32: AudioDevice]`) is acceptable — reach for it only when a flat result truly can't express the scenario, never by default.
-- No `clearCalls()`. No fields beyond what `init` accepts. No mutators that don't correspond to a config-time concept. One exception: a non-`setX` helper that performs a real side effect tests need (e.g. yielding on a stream) — name it for the action (`emit`, `broadcast`), not as a setter.
+- No `clearCalls()`. No mutators that don't correspond to a config-time stub. Side effects a test needs to trigger (e.g. emitting on a stream) go through the exposed primitive directly — the stream's `continuation` — not a bespoke helper method.
 - Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
 - Default to `final class @unchecked Sendable` for *every* mock. The protocol's `async` declarations stay on the methods so call sites still look right (`await mock.current()`); only test-side property reads/writes become sync (`mock.calls`, `mock.settings = ...`). The trade-off vs `actor`: you lose compiler-enforced isolation. In practice the established `await sut.someCall(); #expect(mock.calls == ...)` pattern has a sync point in the `await`, so the race window is theoretical. Reserve `actor` for mocks that *simulate genuinely concurrent state* — readers and writers running on multiple isolations whose interleaving you want the compiler to police. None of the current mocks meet that bar.
 
