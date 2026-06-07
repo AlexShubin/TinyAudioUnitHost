@@ -99,7 +99,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func presets_proUser_returnsAll() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         sessionMock.setPresets(["a", "b", "c"])
         createSut()
         let sut = sut!
@@ -132,7 +132,7 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsTapped_pro_presentsSaveAsDialog() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         sessionMock.setPresets(["a", "b", "c"])
         createSut()
         let sut = sut!

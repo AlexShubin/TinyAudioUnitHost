@@ -157,7 +157,7 @@ struct HostViewModelTests {
 
     @Test
     mutating func isStarFilled_followsPurchasesProStream() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         createSut()
         let sut = sut!
 
@@ -168,12 +168,11 @@ struct HostViewModelTests {
 
     @Test
     mutating func isStarFilled_updatesWhenProBroadcastChanges() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
         createSut()
         let sut = sut!
         await awaitChange { sut.isStarFilled == false }
 
-        purchasesServiceMock.emitIsPro(true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         await awaitChange { sut.isStarFilled == true }
 
         #expect(sut.isStarFilled == true)

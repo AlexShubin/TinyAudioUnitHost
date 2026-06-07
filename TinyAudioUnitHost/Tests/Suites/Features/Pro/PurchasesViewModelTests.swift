@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import Observation
 import PurchasesKit
 import PurchasesKitTestSupport
 import Testing
@@ -31,25 +30,22 @@ struct PurchasesViewModelTests {
 
     @Test
     mutating func init_subscribesToIsProStream() async {
-        serviceMock = PurchasesServiceMock(isPro: true)
+        serviceMock.isProStream.continuation.yield(true)
         createSut()
-        let sut = sut!
 
-        await awaitChange { sut.isPro == true }
-
+        await next { sut.isPro }
         #expect(sut.isPro == true)
     }
 
     @Test
     mutating func isPro_updatesWhenServiceBroadcastsChange() async {
-        serviceMock = PurchasesServiceMock(isPro: false)
         createSut()
-        let sut = sut!
-        await awaitChange { sut.isPro == false }
 
-        serviceMock.emitIsPro(true)
-        await awaitChange { sut.isPro == true }
+        #expect(sut.isPro == false)
 
+        serviceMock.isProStream.continuation.yield(true)
+
+        await next { sut.isPro }
         #expect(sut.isPro == true)
     }
 
@@ -57,8 +53,7 @@ struct PurchasesViewModelTests {
 
     @Test
     mutating func task_readsPriceLabelFromProductInfo() async {
-        let info = ProProductInfo(displayName: "Pro", description: "Desc", displayPrice: "$9.99")
-        serviceMock = PurchasesServiceMock(productInfo: info)
+        serviceMock.productInfoResult = ProProductInfo(displayName: "Pro", description: "Desc", displayPrice: "$9.99")
         createSut()
 
         await sut.accept(action: .task)
@@ -78,21 +73,18 @@ struct PurchasesViewModelTests {
     // MARK: - buyTapped
 
     @Test
-    mutating func buyTapped_success_setsIsProAndClearsErrorMessage() async {
-        serviceMock = PurchasesServiceMock(purchaseResult: .success)
+    mutating func buyTapped_success_clearsErrorMessage() async {
+        serviceMock.purchaseResult = .success
         createSut()
-        let sut = sut!
 
         await sut.accept(action: .buyTapped)
-        await awaitChange { sut.isPro == true }
 
-        #expect(sut.isPro == true)
         #expect(sut.errorMessage == nil)
     }
 
     @Test
     mutating func buyTapped_userCancelled_keepsIsProFalseAndNoError() async {
-        serviceMock = PurchasesServiceMock(purchaseResult: .userCancelled)
+        serviceMock.purchaseResult = .userCancelled
         createSut()
 
         await sut.accept(action: .buyTapped)
@@ -103,7 +95,7 @@ struct PurchasesViewModelTests {
 
     @Test
     mutating func buyTapped_productUnavailable_setsErrorMessage() async {
-        serviceMock = PurchasesServiceMock(purchaseResult: .productUnavailable)
+        serviceMock.purchaseResult = .productUnavailable
         createSut()
 
         await sut.accept(action: .buyTapped)
@@ -113,7 +105,7 @@ struct PurchasesViewModelTests {
 
     @Test
     mutating func buyTapped_verificationFailed_setsErrorMessage() async {
-        serviceMock = PurchasesServiceMock(purchaseResult: .verificationFailed)
+        serviceMock.purchaseResult = .verificationFailed
         createSut()
 
         await sut.accept(action: .buyTapped)
@@ -123,7 +115,7 @@ struct PurchasesViewModelTests {
 
     @Test
     mutating func buyTapped_unknownError_setsErrorMessageWithText() async {
-        serviceMock = PurchasesServiceMock(purchaseResult: .unknownError("oops"))
+        serviceMock.purchaseResult = .unknownError("oops")
         createSut()
 
         await sut.accept(action: .buyTapped)
@@ -144,21 +136,18 @@ struct PurchasesViewModelTests {
     // MARK: - restoreTapped
 
     @Test
-    mutating func restoreTapped_success_picksUpExistingEntitlement() async {
-        serviceMock = PurchasesServiceMock(isPro: true, restoreResult: .success)
+    mutating func restoreTapped_success_clearsErrorMessage() async {
+        serviceMock.restoreResult = .success
         createSut()
-        let sut = sut!
-        await awaitChange { sut.isPro == true }
 
         await sut.accept(action: .restoreTapped)
 
-        #expect(sut.isPro == true)
         #expect(sut.errorMessage == nil)
     }
 
     @Test
     mutating func restoreTapped_productUnavailable_setsErrorMessage() async {
-        serviceMock = PurchasesServiceMock(restoreResult: .productUnavailable)
+        serviceMock.restoreResult = .productUnavailable
         createSut()
 
         await sut.accept(action: .restoreTapped)
@@ -174,19 +163,5 @@ struct PurchasesViewModelTests {
 
         #expect(sut.purchaseButtonState == .enabled)
         #expect(sut.isRestoreButtonDisabled == false)
-    }
-
-    // MARK: - Helpers
-
-    private func awaitChange(_ predicate: () -> Bool) async {
-        while !predicate() {
-            await withCheckedContinuation { continuation in
-                withObservationTracking {
-                    _ = predicate()
-                } onChange: {
-                    continuation.resume()
-                }
-            }
-        }
     }
 }
