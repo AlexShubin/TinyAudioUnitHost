@@ -16,15 +16,12 @@ final class AVAudioUnitFactoryMock: AVAudioUnitFactoryType, @unchecked Sendable 
 
     private(set) var calls: [Calls] = []
 
-    var instantiateResult: Result<AVAudioUnit, Error>?
+    var instantiateResult: Result<AVAudioUnit, Error> = .failure(NSError(domain: "AVAudioUnitFactoryMock", code: -1))
     func instantiate(
         with description: AudioComponentDescription,
         options: AudioComponentInstantiationOptions
     ) async throws -> AVAudioUnit {
         calls.append(.instantiate(description, options))
-        guard let instantiateResult else {
-            throw NSError(domain: "AVAudioUnitFactoryMock", code: -1)
-        }
         return try instantiateResult.get()
     }
 }
