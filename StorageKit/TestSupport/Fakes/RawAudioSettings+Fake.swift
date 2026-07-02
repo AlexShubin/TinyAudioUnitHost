@@ -13,8 +13,15 @@ public extension RawAudioSettings {
         input: RawDeviceSettings? = nil,
         output: RawDeviceSettings? = nil,
         bufferSize: UInt32? = nil,
-        sampleRate: Float64? = nil
+        sampleRate: Float64? = nil,
+        selectedMidiUIDs: [Int32] = []
     ) -> RawAudioSettings {
-        RawAudioSettings(input: input, output: output, bufferSize: bufferSize, sampleRate: sampleRate)
+        RawAudioSettings(
+            input: input,
+            output: output,
+            bufferSize: bufferSize,
+            sampleRate: sampleRate,
+            selectedMidiUIDs: selectedMidiUIDs
+        )
     }
 }
