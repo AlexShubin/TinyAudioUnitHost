@@ -21,7 +21,11 @@ public struct Dependencies: Sendable {
         let devicesProvider = AudioDevicesProvider(gateway: CoreAudioGateway())
         let midiDevicesProvider = MidiDevicesProvider(gateway: CoreMidiGateway())
         let rawStore = StorageKit.Dependencies.live.rawSettingsStore
-        let audioSettingsProvider = AudioSettingsProvider(rawStore: rawStore, devicesProvider: devicesProvider)
+        let audioSettingsProvider = AudioSettingsProvider(
+            rawStore: rawStore,
+            devicesProvider: devicesProvider,
+            midiDevicesProvider: midiDevicesProvider
+        )
         let targetSettingsProvider = TargetSettingsProvider(
             audioSettings: audioSettingsProvider,
             devicesProvider: devicesProvider,

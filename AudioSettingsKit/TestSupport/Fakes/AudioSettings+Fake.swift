@@ -17,7 +17,8 @@ public extension AudioSettings {
         bufferSize: UInt32? = nil,
         sampleRate: Float64? = nil,
         savedInput: SavedDevice? = nil,
-        savedOutput: SavedDevice? = nil
+        savedOutput: SavedDevice? = nil,
+        selectedMidiDevices: Set<MidiDevice> = []
     ) -> AudioSettings {
         AudioSettings(
             inputDevice: inputDevice,
@@ -27,7 +28,8 @@ public extension AudioSettings {
             bufferSize: bufferSize,
             sampleRate: sampleRate,
             savedInput: savedInput,
-            savedOutput: savedOutput
+            savedOutput: savedOutput,
+            selectedMidiDevices: selectedMidiDevices
         )
     }
 }
