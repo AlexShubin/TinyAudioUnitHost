@@ -59,15 +59,15 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
     public func save(_ settings: AudioSettings) {
         let inputChannelIDs = settings.inputChannel?.channels.map(\.id) ?? []
         let outputChannelIDs = settings.outputChannel?.channels.map(\.id) ?? []
-        let nextInput = settings.inputDevice.map { device in
+        let input = settings.inputDevice.map { device in
             RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: inputChannelIDs)
         }
-        let nextOutput = settings.outputDevice.map { device in
+        let output = settings.outputDevice.map { device in
             RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: outputChannelIDs)
         }
         rawStore.save(RawAudioSettings(
-            input: nextInput,
-            output: nextOutput,
+            input: input,
+            output: output,
             bufferSize: settings.bufferSize,
             sampleRate: settings.sampleRate,
             selectedMidiUIDs: settings.selectedMidiDevices.map(\.uid).sorted()

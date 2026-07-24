@@ -9,35 +9,27 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    let viewModel: AppCommandsViewModelType
+    @State var viewModel: AppCommandsViewModelType
 
     var body: some Commands {
         CommandGroup(replacing: .saveItem) {
-            SavePresetMenu(viewModel: viewModel)
-        }
-    }
-}
+            Button("Save Preset") {
+                Task { await viewModel.accept(action: .save) }
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(viewModel.isSaveButtonDisabled)
 
-private struct SavePresetMenu: View {
-    @State var viewModel: AppCommandsViewModelType
+            Button("Save Preset As…") {
+                Task { await viewModel.accept(action: .saveAs) }
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(viewModel.isSaveAsButtonDisabled)
 
-    var body: some View {
-        Button("Save Preset") {
-            Task { await viewModel.accept(action: .save) }
+            Button("Restore Preset") {
+                Task { await viewModel.accept(action: .restore) }
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(viewModel.isRestoreButtonDisabled)
         }
-        .keyboardShortcut("s", modifiers: .command)
-        .disabled(viewModel.isSaveButtonDisabled)
-
-        Button("Save Preset As…") {
-            Task { await viewModel.accept(action: .saveAs) }
-        }
-        .keyboardShortcut("s", modifiers: [.command, .shift])
-        .disabled(viewModel.isSaveAsButtonDisabled)
-
-        Button("Restore Preset") {
-            Task { await viewModel.accept(action: .restore) }
-        }
-        .keyboardShortcut("r", modifiers: .command)
-        .disabled(viewModel.isRestoreButtonDisabled)
     }
 }
