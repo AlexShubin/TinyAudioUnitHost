@@ -17,9 +17,8 @@ protocol CoreMidiGatewayType: Sendable {
         name: String,
         audioUnit: AUAudioUnitWrapper
     ) -> UInt32?
-    var sourceCount: Int { get }
-    func source(at index: Int) -> UInt32
     func connect(source: UInt32, to port: UInt32)
+    func disconnect(source: UInt32, from port: UInt32)
     func disposePort(_ port: UInt32)
 }
 
@@ -56,16 +55,12 @@ struct CoreMidiGateway: CoreMidiGatewayType {
         return status == noErr ? port : nil
     }
 
-    var sourceCount: Int {
-        MIDIGetNumberOfSources()
-    }
-
-    func source(at index: Int) -> UInt32 {
-        MIDIGetSource(index)
-    }
-
     func connect(source: UInt32, to port: UInt32) {
         MIDIPortConnectSource(port, source, nil)
+    }
+
+    func disconnect(source: UInt32, from port: UInt32) {
+        MIDIPortDisconnectSource(port, source)
     }
 
     func disposePort(_ port: UInt32) {

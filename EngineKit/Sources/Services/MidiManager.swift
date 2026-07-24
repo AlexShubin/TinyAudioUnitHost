@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
 
 public protocol MidiManagerType: Sendable {
@@ -13,16 +14,23 @@ public protocol MidiManagerType: Sendable {
     func startListening() -> Task<Void, Error>
     func setupMIDI(for audioUnit: AUAudioUnitWrapper) async
     func teardownMIDI() async
+    func reconnectMIDISources() async
 }
 
 actor MidiManager: MidiManagerType {
     private let coreMidiGateway: CoreMidiGatewayType
+    private let audioSettings: AudioSettingsProviderType
     private var midiClient: UInt32 = 0
     private var midiInputPort: UInt32 = 0
     private var setupChanges: AsyncStream<Void>?
+    private var connectedSources: Set<UInt32> = []
 
-    init(coreMidiGateway: CoreMidiGatewayType) {
+    init(
+        coreMidiGateway: CoreMidiGatewayType,
+        audioSettings: AudioSettingsProviderType
+    ) {
         self.coreMidiGateway = coreMidiGateway
+        self.audioSettings = audioSettings
     }
 
     @discardableResult
@@ -30,7 +38,7 @@ actor MidiManager: MidiManagerType {
         Task {
             guard let setupChanges = await self.startClient() else { return }
             for await _ in setupChanges {
-                await self.connectAllMIDISources()
+                await self.reconnectMIDISources()
             }
         }
     }
@@ -45,12 +53,25 @@ actor MidiManager: MidiManagerType {
         ) else { return }
         midiInputPort = port
 
-        connectAllMIDISources()
+        reconnectMIDISources()
     }
 
     func teardownMIDI() {
         coreMidiGateway.disposePort(midiInputPort)
         midiInputPort = 0
+        connectedSources = []
+    }
+
+    func reconnectMIDISources() {
+        guard midiInputPort != 0 else { return }
+        let selected = Set(audioSettings.current.selectedMidiDevices.map(\.ref))
+        for source in connectedSources.subtracting(selected) {
+            coreMidiGateway.disconnect(source: source, from: midiInputPort)
+        }
+        for source in selected.subtracting(connectedSources) {
+            coreMidiGateway.connect(source: source, to: midiInputPort)
+        }
+        connectedSources = selected
     }
 
     @discardableResult
@@ -60,12 +81,5 @@ actor MidiManager: MidiManagerType {
         midiClient = client
         setupChanges = stream
         return stream
-    }
-
-    private func connectAllMIDISources() {
-        guard midiInputPort != 0 else { return }
-        for index in 0..<coreMidiGateway.sourceCount {
-            coreMidiGateway.connect(source: coreMidiGateway.source(at: index), to: midiInputPort)
-        }
     }
 }

@@ -14,6 +14,7 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
         case startListening
         case setupMIDI(AUAudioUnitWrapper)
         case teardownMIDI
+        case reconnectMIDISources
     }
 
     public private(set) var calls: [Calls] = []
@@ -32,5 +33,9 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
 
     public func teardownMIDI() async {
         calls.append(.teardownMIDI)
+    }
+
+    public func reconnectMIDISources() async {
+        calls.append(.reconnectMIDISources)
     }
 }
