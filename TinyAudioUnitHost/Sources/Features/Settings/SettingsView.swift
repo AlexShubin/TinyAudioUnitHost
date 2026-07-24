@@ -30,6 +30,22 @@ struct SettingsView: View {
                         Task { await viewModel.accept(action: .inputDevicePickerAction(action)) }
                     }
                 )
+                MidiDevicePickerView(
+                    state: viewModel.midiState,
+                    onAction: { action in
+                        Task { await viewModel.accept(action: .midiDevicePickerAction(action)) }
+                    }
+                )
+            }
+            .formStyle(.grouped)
+            Form {
+                DevicePickerView(
+                    kind: .output,
+                    state: viewModel.outputState,
+                    onAction: { action in
+                        Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
+                    }
+                )
                 Picker(
                     "Sample Rate:",
                     selection: Binding<Float64?>(
@@ -60,22 +76,6 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(viewModel.availableBufferSizes.isEmpty)
-            }
-            .formStyle(.grouped)
-            Form {
-                DevicePickerView(
-                    kind: .output,
-                    state: viewModel.outputState,
-                    onAction: { action in
-                        Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
-                    }
-                )
-                MidiDevicePickerView(
-                    state: viewModel.midiState,
-                    onAction: { action in
-                        Task { await viewModel.accept(action: .midiDevicePickerAction(action)) }
-                    }
-                )
             }
             .formStyle(.grouped)
         }
