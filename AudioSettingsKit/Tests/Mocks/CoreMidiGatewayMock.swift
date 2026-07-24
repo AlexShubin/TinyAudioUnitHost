@@ -12,7 +12,7 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case sourceCount
         case source(Int)
-        case name(UInt32)
+        case displayName(UInt32)
         case uid(UInt32)
     }
 
@@ -30,10 +30,10 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
         return sourcesByIndex[index] ?? 0
     }
 
-    var nameBySource: [UInt32: String] = [:]
-    func name(of source: UInt32) -> String? {
-        calls.append(.name(source))
-        return nameBySource[source]
+    var displayNameBySource: [UInt32: String] = [:]
+    func displayName(of source: UInt32) -> String? {
+        calls.append(.displayName(source))
+        return displayNameBySource[source]
     }
 
     var uidBySource: [UInt32: Int32] = [:]

@@ -26,7 +26,7 @@ struct MidiDevicesProviderTests {
     mutating func devices_enumeratesEverySourceIntoDevice() {
         gatewayMock.sourceCountResult = 2
         gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.nameBySource = [10: "Keystep", 20: "Push"]
+        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
         gatewayMock.uidBySource = [10: 100, 20: 200]
         createSut()
 
@@ -40,7 +40,7 @@ struct MidiDevicesProviderTests {
     mutating func devices_skipsSourceMissingUID() {
         gatewayMock.sourceCountResult = 2
         gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.nameBySource = [10: "Keystep", 20: "Push"]
+        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
         gatewayMock.uidBySource = [10: 100] // source 20 has no UID
         createSut()
 
@@ -51,7 +51,7 @@ struct MidiDevicesProviderTests {
     mutating func devices_skipsSourceMissingName() {
         gatewayMock.sourceCountResult = 2
         gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.nameBySource = [10: "Keystep"] // source 20 has no name
+        gatewayMock.displayNameBySource = [10: "Keystep"] // source 20 has no name
         gatewayMock.uidBySource = [10: 100, 20: 200]
         createSut()
 

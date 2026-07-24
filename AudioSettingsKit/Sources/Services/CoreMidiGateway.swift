@@ -11,7 +11,7 @@ import CoreMIDI
 protocol CoreMidiGatewayType: Sendable {
     var sourceCount: Int { get }
     func source(at index: Int) -> UInt32
-    func name(of source: UInt32) -> String?
+    func displayName(of source: UInt32) -> String?
     func uid(of source: UInt32) -> Int32?
 }
 
@@ -24,9 +24,9 @@ struct CoreMidiGateway: CoreMidiGatewayType {
         MIDIGetSource(index)
     }
 
-    func name(of source: UInt32) -> String? {
+    func displayName(of source: UInt32) -> String? {
         var result: Unmanaged<CFString>?
-        guard MIDIObjectGetStringProperty(source, kMIDIPropertyName, &result) == noErr,
+        guard MIDIObjectGetStringProperty(source, kMIDIPropertyDisplayName, &result) == noErr,
               let result
         else { return nil }
         let string = result.takeRetainedValue() as String

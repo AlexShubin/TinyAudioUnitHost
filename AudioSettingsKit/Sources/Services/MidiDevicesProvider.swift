@@ -21,7 +21,7 @@ struct MidiDevicesProvider: MidiDevicesProviderType {
         (0..<gateway.sourceCount).compactMap { index in
             let ref = gateway.source(at: index)
             guard let uid = gateway.uid(of: ref),
-                  let name = gateway.name(of: ref)
+                  let name = gateway.displayName(of: ref)
             else { return nil }
             return MidiDevice(ref: ref, uid: uid, name: name)
         }
