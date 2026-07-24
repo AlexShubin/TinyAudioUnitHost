@@ -13,8 +13,8 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case createClient(String)
         case createInputPort(UInt32, String, AUAudioUnitWrapper)
-        case source(Int)
         case connect(UInt32, UInt32)
+        case disconnect(UInt32, UInt32)
         case disposePort(UInt32)
     }
 
@@ -38,19 +38,12 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
         return createInputPortResult
     }
 
-    var sourceCountResult: Int = 0
-    var sourceCount: Int {
-        sourceCountResult
-    }
-
-    var sourceResult: UInt32 = 0
-    func source(at index: Int) -> UInt32 {
-        calls.append(.source(index))
-        return sourceResult
-    }
-
     func connect(source: UInt32, to port: UInt32) {
         calls.append(.connect(source, port))
+    }
+
+    func disconnect(source: UInt32, from port: UInt32) {
+        calls.append(.disconnect(source, port))
     }
 
     func disposePort(_ port: UInt32) {
