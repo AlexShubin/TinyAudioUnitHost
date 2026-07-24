@@ -31,19 +31,19 @@ struct EngineReloaderTests {
     }
 
     @Test
-    mutating func startListening_subscribesOnWorkspaceCenter() {
+    mutating func start_subscribesOnWorkspaceCenter() {
         createSut()
 
-        sut.startListening()
+        sut.start()
 
         #expect(workspaceNotificationCenterMock.calls == [.stream(NSWorkspace.didWakeNotification)])
     }
 
     @Test
-    mutating func startListening_workspaceDidWakeEmitted_callsEngineReload() async {
+    mutating func start_workspaceDidWakeEmitted_callsEngineReload() async {
         createSut()
 
-        let task = sut.startListening()
+        let task = sut.start()
         workspaceNotificationCenterMock.emit(NSWorkspace.didWakeNotification)
         workspaceNotificationCenterMock.finish(NSWorkspace.didWakeNotification)
         try? await task.value

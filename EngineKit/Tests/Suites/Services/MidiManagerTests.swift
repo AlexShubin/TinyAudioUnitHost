@@ -146,41 +146,4 @@ struct MidiManagerTests {
         #expect(coreMidiGatewayMock.calls.isEmpty)
     }
 
-    // MARK: - startListening
-
-    @Test
-    mutating func startListening_setupChangedAfterSetup_reappliesSelection() async {
-        coreMidiGatewayMock.createInputPortResult = 2
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
-        createSut()
-        let audioUnit = AUAudioUnitWrapper()
-        await sut.setupMIDI(for: audioUnit)
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 20)])
-
-        let task = sut.startListening()
-        coreMidiGatewayMock.setupChangesStream.continuation.yield()
-        coreMidiGatewayMock.setupChangesStream.continuation.finish()
-        try? await task.value
-
-        #expect(coreMidiGatewayMock.calls == [
-            .createClient("TinyAUHost"),
-            .createInputPort(1, "Input", audioUnit),
-            .connect(10, 2),
-            .disconnect(10, 2),
-            .connect(20, 2)
-        ])
-    }
-
-    @Test
-    mutating func startListening_setupChangedBeforeSetup_doesNotConnect() async {
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
-        createSut()
-
-        let task = sut.startListening()
-        coreMidiGatewayMock.setupChangesStream.continuation.yield()
-        coreMidiGatewayMock.setupChangesStream.continuation.finish()
-        try? await task.value
-
-        #expect(coreMidiGatewayMock.calls == [.createClient("TinyAUHost")])
-    }
 }

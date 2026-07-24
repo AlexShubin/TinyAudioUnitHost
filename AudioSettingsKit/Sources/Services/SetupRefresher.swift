@@ -10,7 +10,7 @@ import Foundation
 
 public protocol SetupRefresherType: Sendable {
     @discardableResult
-    func startListening() -> Task<Void, Error>
+    func start() -> Task<Void, Error>
 }
 
 final class SetupRefresher: SetupRefresherType {
@@ -26,7 +26,7 @@ final class SetupRefresher: SetupRefresherType {
     }
 
     @discardableResult
-    func startListening() -> Task<Void, Error> {
+    func start() -> Task<Void, Error> {
         let stream = deviceListListener.stream()
         return Task { [setupChecker] in
             for await _ in stream {

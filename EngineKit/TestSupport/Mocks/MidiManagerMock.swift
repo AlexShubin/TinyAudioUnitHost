@@ -11,7 +11,6 @@ import EngineKit
 
 public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
     public enum Calls: Equatable {
-        case startListening
         case setupMIDI(AUAudioUnitWrapper)
         case teardownMIDI
         case reconnectMIDISources
@@ -20,12 +19,6 @@ public final class MidiManagerMock: MidiManagerType, @unchecked Sendable {
     public private(set) var calls: [Calls] = []
 
     public init() {}
-
-    @discardableResult
-    public func startListening() -> Task<Void, Error> {
-        calls.append(.startListening)
-        return Task {}
-    }
 
     public func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
         calls.append(.setupMIDI(audioUnit))

@@ -9,7 +9,6 @@
 import SwiftUI
 
 struct MainWindowView: View {
-    @State var viewModel: MainWindowViewModelType
     @Environment(\.dependencies) private var dependencies
 
     var body: some View {
@@ -19,6 +18,5 @@ struct MainWindowView: View {
         } detail: {
             HostView(viewModel: dependencies.makeHostViewModel())
         }
-        .task { await viewModel.accept(action: .task) }
     }
 }

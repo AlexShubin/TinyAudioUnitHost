@@ -12,7 +12,7 @@ import Foundation
 
 public protocol EngineReloaderType: Sendable {
     @discardableResult
-    func startListening() -> Task<Void, Error>
+    func start() -> Task<Void, Error>
 }
 
 final class EngineReloader: EngineReloaderType {
@@ -25,7 +25,7 @@ final class EngineReloader: EngineReloaderType {
     }
 
     @discardableResult
-    func startListening() -> Task<Void, Error> {
+    func start() -> Task<Void, Error> {
         let stream = workspaceNotificationCenter.stream(for: NSWorkspace.didWakeNotification)
         return Task { [self] in
             for await _ in stream {

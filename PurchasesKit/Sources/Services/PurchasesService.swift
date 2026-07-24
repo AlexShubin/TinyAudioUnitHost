@@ -14,7 +14,7 @@ public protocol PurchasesServiceType: Sendable {
     func purchase() async -> PurchaseResult
     func restore() async -> PurchaseResult
     @discardableResult
-    func startListening() -> Task<Void, Error>
+    func start() -> Task<Void, Error>
 }
 
 final actor PurchasesService: PurchasesServiceType {
@@ -86,7 +86,7 @@ final actor PurchasesService: PurchasesServiceType {
     }
 
     @discardableResult
-    nonisolated func startListening() -> Task<Void, Error> {
+    nonisolated func start() -> Task<Void, Error> {
         let gateway = self.gateway
         return Task { [weak self] in
             await self?.refreshIsPro()

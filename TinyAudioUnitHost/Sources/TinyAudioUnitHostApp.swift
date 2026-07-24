@@ -16,7 +16,7 @@ struct TinyAudioUnitHostApp: App {
     var body: some Scene {
         Window("Tiny Audio Unit Host", id: "host") {
             if !isRunningTests {
-                MainWindowView(viewModel: dependencies.makeMainWindowViewModel())
+                MainWindowView()
             }
         }
         .windowResizability(.contentSize)
@@ -41,6 +41,6 @@ struct TinyAudioUnitHostApp: App {
     }
 }
 
-private var isRunningTests: Bool {
+var isRunningTests: Bool {
     NSClassFromString("XCTestCase") != nil
 }

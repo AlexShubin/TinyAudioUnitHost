@@ -10,8 +10,6 @@ import AudioSettingsKit
 import AudioUnitsKit
 
 public protocol MidiManagerType: Sendable {
-    @discardableResult
-    func startListening() -> Task<Void, Error>
     func setupMIDI(for audioUnit: AUAudioUnitWrapper) async
     func teardownMIDI() async
     func reconnectMIDISources() async
@@ -22,7 +20,6 @@ actor MidiManager: MidiManagerType {
     private let audioSettings: AudioSettingsProviderType
     private var midiClient: UInt32 = 0
     private var midiInputPort: UInt32 = 0
-    private var setupChanges: AsyncStream<Void>?
     private var connectedSources: Set<UInt32> = []
 
     init(
@@ -33,18 +30,8 @@ actor MidiManager: MidiManagerType {
         self.audioSettings = audioSettings
     }
 
-    @discardableResult
-    nonisolated func startListening() -> Task<Void, Error> {
-        Task {
-            guard let setupChanges = await self.startClient() else { return }
-            for await _ in setupChanges {
-                await self.reconnectMIDISources()
-            }
-        }
-    }
-
     func setupMIDI(for audioUnit: AUAudioUnitWrapper) {
-        guard startClient() != nil else { return }
+        guard startClient() else { return }
 
         guard let port = coreMidiGateway.createInputPort(
             client: midiClient,
@@ -74,12 +61,10 @@ actor MidiManager: MidiManagerType {
         connectedSources = selected
     }
 
-    @discardableResult
-    private func startClient() -> AsyncStream<Void>? {
-        if let setupChanges { return setupChanges }
-        guard let (client, stream) = coreMidiGateway.createClient(name: "TinyAUHost") else { return nil }
+    private func startClient() -> Bool {
+        if midiClient != 0 { return true }
+        guard let (client, _) = coreMidiGateway.createClient(name: "TinyAUHost") else { return false }
         midiClient = client
-        setupChanges = stream
-        return stream
+        return true
     }
 }

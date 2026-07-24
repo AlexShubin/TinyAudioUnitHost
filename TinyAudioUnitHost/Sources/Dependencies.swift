@@ -94,14 +94,6 @@ struct Dependencies: Sendable {
         PurchasesViewModel(purchasesService: purchases.purchasesService)
     }
 
-    @MainActor func makeMainWindowViewModel() -> MainWindowViewModelType {
-        MainWindowViewModel(
-            midiManager: engine.midiManager,
-            engineReloader: engine.engineReloader,
-            setupRefresher: audioSettings.setupRefresher,
-            purchasesService: purchases.purchasesService
-        )
-    }
 }
 
 // MARK: - Environment

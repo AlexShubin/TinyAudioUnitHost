@@ -14,7 +14,7 @@ public final class PurchasesServiceMock: PurchasesServiceType, @unchecked Sendab
         case productInfo
         case purchase
         case restore
-        case startListening
+        case start
     }
 
     public private(set) var calls: [Calls] = []
@@ -47,8 +47,8 @@ public final class PurchasesServiceMock: PurchasesServiceType, @unchecked Sendab
     }
 
     @discardableResult
-    public func startListening() -> Task<Void, Error> {
-        calls.append(.startListening)
+    public func start() -> Task<Void, Error> {
+        calls.append(.start)
         return Task {}
     }
 }
