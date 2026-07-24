@@ -13,6 +13,7 @@ protocol CoreMidiGatewayType: Sendable {
     func source(at index: Int) -> UInt32
     func displayName(of source: UInt32) -> String?
     func uid(of source: UInt32) -> Int32?
+    func isOffline(_ source: UInt32) -> Bool
 }
 
 struct CoreMidiGateway: CoreMidiGatewayType {
@@ -38,5 +39,12 @@ struct CoreMidiGateway: CoreMidiGatewayType {
         guard MIDIObjectGetIntegerProperty(source, kMIDIPropertyUniqueID, &value) == noErr
         else { return nil }
         return value
+    }
+
+    func isOffline(_ source: UInt32) -> Bool {
+        var value: Int32 = 0
+        guard MIDIObjectGetIntegerProperty(source, kMIDIPropertyOffline, &value) == noErr
+        else { return false }
+        return value != 0
     }
 }

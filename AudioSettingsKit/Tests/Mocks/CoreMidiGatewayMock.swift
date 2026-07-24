@@ -14,6 +14,7 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
         case source(Int)
         case displayName(UInt32)
         case uid(UInt32)
+        case isOffline(UInt32)
     }
 
     private(set) var calls: [Calls] = []
@@ -40,5 +41,11 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
     func uid(of source: UInt32) -> Int32? {
         calls.append(.uid(source))
         return uidBySource[source]
+    }
+
+    var offlineSources: Set<UInt32> = []
+    func isOffline(_ source: UInt32) -> Bool {
+        calls.append(.isOffline(source))
+        return offlineSources.contains(source)
     }
 }
