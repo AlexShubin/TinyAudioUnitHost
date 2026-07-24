@@ -14,6 +14,7 @@ import Observation
 protocol SettingsViewModelType: Observable {
     var inputState: DevicePickerState { get }
     var outputState: DevicePickerState { get }
+    var midiState: MidiDevicePickerState { get }
     var bufferSize: UInt32? { get }
     var availableBufferSizes: [UInt32] { get }
     var sampleRate: Float64? { get }
@@ -25,6 +26,7 @@ protocol SettingsViewModelType: Observable {
 final class SettingsViewModel: SettingsViewModelType {
     private(set) var inputState: DevicePickerState = .empty
     private(set) var outputState: DevicePickerState = .empty
+    private(set) var midiState: MidiDevicePickerState = .empty
     private(set) var bufferSize: UInt32?
     private(set) var availableBufferSizes: [UInt32] = []
     private(set) var sampleRate: Float64?
@@ -33,20 +35,26 @@ final class SettingsViewModel: SettingsViewModelType {
     @ObservationIgnored private let audioSettings: AudioSettingsProviderType
     @ObservationIgnored private let targetSettings: TargetSettingsProviderType
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
+    @ObservationIgnored private let midiDevicesProvider: MidiDevicesProviderType
     @ObservationIgnored private let engine: EngineType
+    @ObservationIgnored private let midiManager: MidiManagerType
     @ObservationIgnored private let setupChecker: SetupCheckerType
 
     init(
         audioSettings: AudioSettingsProviderType,
         targetSettings: TargetSettingsProviderType,
         devicesProvider: AudioDevicesProviderType,
+        midiDevicesProvider: MidiDevicesProviderType,
         engine: EngineType,
+        midiManager: MidiManagerType,
         setupChecker: SetupCheckerType
     ) {
         self.audioSettings = audioSettings
         self.targetSettings = targetSettings
         self.devicesProvider = devicesProvider
+        self.midiDevicesProvider = midiDevicesProvider
         self.engine = engine
+        self.midiManager = midiManager
         self.setupChecker = setupChecker
     }
 
@@ -56,6 +64,10 @@ final class SettingsViewModel: SettingsViewModelType {
             let current = audioSettings.current
             inputState = makePickerState(kind: .input, settings: current)
             outputState = makePickerState(kind: .output, settings: current)
+            midiState = MidiDevicePickerState(
+                devices: midiDevicesProvider.devices,
+                selectedDevices: current.selectedMidiDevices
+            )
             bufferSize = current.bufferSize
             sampleRate = current.sampleRate
             let target = await targetSettings.resolveTarget()
@@ -65,6 +77,14 @@ final class SettingsViewModel: SettingsViewModelType {
             await handle(pickerAction, kind: .input)
         case .outputDevicePickerAction(let pickerAction):
             await handle(pickerAction, kind: .output)
+        case let .midiDevicePickerAction(.setDevice(device, isOn)):
+            if isOn {
+                midiState.selectedDevices.insert(device)
+            } else {
+                midiState.selectedDevices.remove(device)
+            }
+            persist()
+            await midiManager.reconnectMIDISources()
         case .selectBufferSize(let size):
             guard bufferSize != size else { return }
             bufferSize = size
@@ -142,7 +162,8 @@ final class SettingsViewModel: SettingsViewModelType {
             inputChannel: inputState.selectedChannel,
             outputChannel: outputState.selectedChannel,
             bufferSize: bufferSize,
-            sampleRate: sampleRate
+            sampleRate: sampleRate,
+            selectedMidiDevices: midiState.selectedDevices
         ))
     }
 

@@ -12,6 +12,7 @@ enum SettingsViewAction {
     case task
     case inputDevicePickerAction(DevicePickerViewAction)
     case outputDevicePickerAction(DevicePickerViewAction)
+    case midiDevicePickerAction(MidiDevicePickerViewAction)
     case selectBufferSize(UInt32)
     case selectSampleRate(Float64)
 }
@@ -69,16 +70,12 @@ struct SettingsView: View {
                         Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
                     }
                 )
-                Section {
-                    Label {
-                        Text("All MIDI devices are connected — more granular control of the MIDI connections is on the way.")
-                    } icon: {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                MidiDevicePickerView(
+                    state: viewModel.midiState,
+                    onAction: { action in
+                        Task { await viewModel.accept(action: .midiDevicePickerAction(action)) }
                     }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                }
+                )
             }
             .formStyle(.grouped)
         }

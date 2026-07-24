@@ -65,7 +65,7 @@
   3. The main implementation type (the class/struct named after the file).
   4. `private extension`s at the bottom — file-local plumbing on imported types, used only by the implementation above.
 
-  When the file has no protocol, the main type leads.
+  When the file has no protocol, the main type leads and the helper types follow it (e.g. a view file: view first, then its action enum and view-state struct). Items 1–2 only apply when an interface protocol exists.
 
 ## Naming Conventions
 

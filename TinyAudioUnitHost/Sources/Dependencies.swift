@@ -83,7 +83,9 @@ struct Dependencies: Sendable {
             audioSettings: audioSettings.audioSettingsProvider,
             targetSettings: audioSettings.targetSettingsProvider,
             devicesProvider: audioSettings.devicesProvider,
+            midiDevicesProvider: audioSettings.midiDevicesProvider,
             engine: engine.engine,
+            midiManager: engine.midiManager,
             setupChecker: audioSettings.setupChecker
         )
     }
