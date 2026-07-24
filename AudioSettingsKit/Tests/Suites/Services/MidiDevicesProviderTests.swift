@@ -59,6 +59,18 @@ struct MidiDevicesProviderTests {
     }
 
     @Test
+    mutating func devices_skipsOfflineSources() {
+        gatewayMock.sourceCountResult = 2
+        gatewayMock.sourcesByIndex = [0: 10, 1: 20]
+        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
+        gatewayMock.uidBySource = [10: 100, 20: 200]
+        gatewayMock.offlineSources = [20]
+        createSut()
+
+        #expect(sut.devices == [MidiDevice(ref: 10, uid: 100, name: "Keystep")])
+    }
+
+    @Test
     mutating func devices_emptyWhenNoSources() {
         gatewayMock.sourceCountResult = 0
         createSut()
