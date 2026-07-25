@@ -16,17 +16,20 @@ import Testing
 struct AudioSettingsProviderTests {
     var rawStoreMock: RawSettingsStoreMock!
     var devicesProviderMock: AudioDevicesProviderMock!
+    var midiDevicesProviderMock: MidiDevicesProviderMock!
     var sut: AudioSettingsProviderType!
 
     init() {
         rawStoreMock = RawSettingsStoreMock()
         devicesProviderMock = AudioDevicesProviderMock()
+        midiDevicesProviderMock = MidiDevicesProviderMock()
     }
 
     mutating func createSut() {
         sut = AudioSettingsProvider(
             rawStore: rawStoreMock,
-            devicesProvider: devicesProviderMock
+            devicesProvider: devicesProviderMock,
+            midiDevicesProvider: midiDevicesProviderMock
         )
     }
 
@@ -144,7 +147,38 @@ struct AudioSettingsProviderTests {
         _ = sut.current
 
         #expect(devicesProviderMock.calls == [.devices(.all)])
+        #expect(midiDevicesProviderMock.calls == [.devices])
         #expect(rawStoreMock.calls == [.current])
+    }
+
+    // MARK: - MIDI
+
+    @Test
+    mutating func current_resolvesSelectedMidiDevicesByUID() async {
+        let selected = MidiDevice.fake(ref: 10, uid: 100, name: "Keystep")
+        midiDevicesProviderMock.devicesResult = [selected, .fake(ref: 20, uid: 200, name: "Push")]
+        rawStoreMock.settings = .fake(selectedMidiUIDs: [100])
+        createSut()
+
+        #expect(sut.current.selectedMidiDevices == [selected])
+    }
+
+    @Test
+    mutating func current_selectedMidiUIDWithoutLiveSource_isExcluded() async {
+        midiDevicesProviderMock.devicesResult = [.fake(ref: 10, uid: 100)]
+        rawStoreMock.settings = .fake(selectedMidiUIDs: [999])
+        createSut()
+
+        #expect(sut.current.selectedMidiDevices.isEmpty)
+    }
+
+    @Test
+    mutating func save_persistsSelectedMidiUIDsSorted() {
+        createSut()
+
+        sut.save(.fake(selectedMidiDevices: [.fake(uid: 200), .fake(uid: 100)]))
+
+        #expect(rawStoreMock.settings.selectedMidiUIDs == [100, 200])
     }
 
     // MARK: - save

@@ -18,7 +18,9 @@ struct SettingsViewModelTests {
     var audioSettingsMock: AudioSettingsProviderMock!
     var targetSettingsMock: TargetSettingsProviderMock!
     var devicesProviderMock: AudioDevicesProviderMock!
+    var midiDevicesProviderMock: MidiDevicesProviderMock!
     var engineMock: EngineMock!
+    var midiManagerMock: MidiManagerMock!
     var setupCheckerMock: SetupCheckerMock!
     var sut: SettingsViewModelType!
 
@@ -26,7 +28,9 @@ struct SettingsViewModelTests {
         audioSettingsMock = AudioSettingsProviderMock()
         targetSettingsMock = TargetSettingsProviderMock()
         devicesProviderMock = AudioDevicesProviderMock()
+        midiDevicesProviderMock = MidiDevicesProviderMock()
         engineMock = EngineMock()
+        midiManagerMock = MidiManagerMock()
         setupCheckerMock = SetupCheckerMock()
     }
 
@@ -35,7 +39,9 @@ struct SettingsViewModelTests {
             audioSettings: audioSettingsMock,
             targetSettings: targetSettingsMock,
             devicesProvider: devicesProviderMock,
+            midiDevicesProvider: midiDevicesProviderMock,
             engine: engineMock,
+            midiManager: midiManagerMock,
             setupChecker: setupCheckerMock
         )
     }
@@ -255,6 +261,66 @@ struct SettingsViewModelTests {
 
         #expect(sut.outputState.selectedDevice == device)
         #expect(audioSettingsMock.settings.outputDevice == device)
+    }
+
+    // MARK: - MIDI device picker
+
+    @Test
+    mutating func task_populatesMidiStateFromProviderAndSettings() async {
+        let selected = MidiDevice.fake(ref: 10, uid: 100, name: "Keystep")
+        let other = MidiDevice.fake(ref: 20, uid: 200, name: "Push")
+        midiDevicesProviderMock.devicesResult = [selected, other]
+        audioSettingsMock.settings = .fake(selectedMidiDevices: [selected])
+        createSut()
+
+        await sut.accept(action: .task)
+
+        #expect(sut.midiState.devices == [selected, other])
+        #expect(sut.midiState.selectedDevices == [selected])
+    }
+
+    @Test
+    mutating func setMidiDeviceOn_persistsAndReconnects() async {
+        let device = MidiDevice.fake(ref: 10, uid: 100)
+        midiDevicesProviderMock.devicesResult = [device]
+        createSut()
+        await sut.accept(action: .task)
+
+        await sut.accept(action: .midiDevicePickerAction(.setDevice(device, isOn: true)))
+
+        #expect(sut.midiState.selectedDevices == [device])
+        #expect(audioSettingsMock.settings.selectedMidiDevices == [device])
+        #expect(midiManagerMock.calls == [.reconnectMIDISources])
+        #expect(engineMock.calls == [])
+    }
+
+    @Test
+    mutating func setMidiDeviceOff_persistsAndReconnects() async {
+        let device = MidiDevice.fake(ref: 10, uid: 100)
+        midiDevicesProviderMock.devicesResult = [device]
+        audioSettingsMock.settings = .fake(selectedMidiDevices: [device])
+        createSut()
+        await sut.accept(action: .task)
+
+        await sut.accept(action: .midiDevicePickerAction(.setDevice(device, isOn: false)))
+
+        #expect(sut.midiState.selectedDevices == [])
+        #expect(audioSettingsMock.settings.selectedMidiDevices == [])
+        #expect(midiManagerMock.calls == [.reconnectMIDISources])
+    }
+
+    @Test
+    mutating func unrelatedChange_preservesMidiSelectionInPersistedSettings() async {
+        let device = MidiDevice.fake(ref: 10, uid: 100)
+        midiDevicesProviderMock.devicesResult = [device]
+        audioSettingsMock.settings = .fake(bufferSize: 32, selectedMidiDevices: [device])
+        targetSettingsMock.resolveTargetResult = .fake(device: .fake(availableBufferSizes: [32, 64]))
+        createSut()
+        await sut.accept(action: .task)
+
+        await sut.accept(action: .selectBufferSize(64))
+
+        #expect(audioSettingsMock.settings.selectedMidiDevices == [device])
     }
 
     // MARK: - buffer / sample rate

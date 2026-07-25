@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import Observation
 import PresetKit
 import PresetKitTestSupport
 import PurchasesKit
@@ -99,11 +98,10 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func presets_proUser_returnsAll() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         sessionMock.setPresets(["a", "b", "c"])
         createSut()
-        let sut = sut!
-        await awaitChange { sut.presets.count == 3 }
+        await next { sut.presets }
 
         #expect(sut.presets == ["a", "b", "c"])
     }
@@ -132,11 +130,10 @@ struct PresetsViewModelTests {
 
     @Test
     mutating func saveAsTapped_pro_presentsSaveAsDialog() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         sessionMock.setPresets(["a", "b", "c"])
         createSut()
-        let sut = sut!
-        await awaitChange { sut.presets.count == 3 }
+        await next { sut.presets }
 
         await sut.accept(action: .saveAsTapped)
 
@@ -193,10 +190,9 @@ struct PresetsViewModelTests {
     mutating func saveAsRequestedEvent_freeBelowCap_presentsSaveAsDialog() async {
         sessionMock.setPresets(["a"])
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.saveAsRequested)
-        await awaitChange { sut.presentedPresetNameDialog == .saveAs }
+        await next { sut.presentedPresetNameDialog }
 
         #expect(sut.presentedPresetNameDialog == .saveAs)
     }
@@ -205,10 +201,9 @@ struct PresetsViewModelTests {
     mutating func saveAsRequestedEvent_freeAtCap_opensProUpgrade() async {
         sessionMock.setPresets(["a", "b"])
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.saveAsRequested)
-        await awaitChange { sut.openProWindowRequest != nil }
+        await next { sut.openProWindowRequest }
 
         #expect(sut.openProWindowRequest != nil)
         #expect(sut.presentedPresetNameDialog == nil)
@@ -218,28 +213,14 @@ struct PresetsViewModelTests {
     mutating func savedEvent_isIgnored() async {
         sessionMock.setPresets(["a"])
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.saved)
         // Cross-check by emitting a known event that does flip state.
         eventBusMock.post(.saveAsRequested)
-        await awaitChange { sut.presentedPresetNameDialog == .saveAs }
+        await next { sut.presentedPresetNameDialog }
 
         #expect(sut.presentedPresetNameDialog == .saveAs)
         #expect(sut.openProWindowRequest == nil)
     }
 
-    // MARK: - Helpers
-
-    private func awaitChange(_ predicate: () -> Bool) async {
-        while !predicate() {
-            await withCheckedContinuation { continuation in
-                withObservationTracking {
-                    _ = predicate()
-                } onChange: {
-                    continuation.resume()
-                }
-            }
-        }
-    }
 }

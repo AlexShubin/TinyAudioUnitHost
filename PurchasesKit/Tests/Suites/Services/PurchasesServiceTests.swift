@@ -140,23 +140,23 @@ struct PurchasesServiceTests {
         #expect(await iterator.next() == false)
     }
 
-    // MARK: - startListening
+    // MARK: - start
 
     @Test
-    mutating func startListeningRefreshesInitialProStatus() async {
+    mutating func startRefreshesInitialProStatus() async {
         gatewayMock.entitlements = [.verified(StoreTransactionMock(productID: PurchasesService.proProductID))]
         createSut()
-        try? await sut.startListening().value
+        try? await sut.start().value
         var iterator = await sut.makeIsProStream().makeAsyncIterator()
         #expect(await iterator.next() == true)
     }
 
     @Test
-    mutating func startListeningFinishesVerifiedTransactionUpdates() async {
+    mutating func startFinishesVerifiedTransactionUpdates() async {
         let transaction = StoreTransactionMock(productID: PurchasesService.proProductID)
         gatewayMock.updates = [.verified(transaction)]
         createSut()
-        try? await sut.startListening().value
+        try? await sut.start().value
         #expect(transaction.calls == [.finish])
     }
 }

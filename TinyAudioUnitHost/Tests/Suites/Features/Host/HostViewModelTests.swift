@@ -9,7 +9,6 @@
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
-import Observation
 import PresetKit
 import PresetKitTestSupport
 import PurchasesKit
@@ -102,10 +101,9 @@ struct HostViewModelTests {
     @Test
     mutating func savedEvent_setsFeedbackToSaved() async {
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.saved)
-        await awaitChange { sut.feedback?.kind == .saved }
+        await next { sut.feedback }
 
         #expect(sut.feedback?.kind == .saved)
     }
@@ -113,10 +111,9 @@ struct HostViewModelTests {
     @Test
     mutating func restoredEvent_setsFeedbackToRestored() async {
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.restored)
-        await awaitChange { sut.feedback?.kind == .restored }
+        await next { sut.feedback }
 
         #expect(sut.feedback?.kind == .restored)
     }
@@ -124,12 +121,11 @@ struct HostViewModelTests {
     @Test
     mutating func saveAsRequestedEvent_isIgnored() async {
         createSut()
-        let sut = sut!
 
         eventBusMock.post(.saveAsRequested)
         // Cross-check by emitting a known event that does flip state.
         eventBusMock.post(.saved)
-        await awaitChange { sut.feedback?.kind == .saved }
+        await next { sut.feedback }
 
         #expect(sut.feedback?.kind == .saved)
     }
@@ -137,9 +133,8 @@ struct HostViewModelTests {
     @Test
     mutating func feedbackToastTimedOut_clearsFeedback() async {
         createSut()
-        let sut = sut!
         eventBusMock.post(.saved)
-        await awaitChange { sut.feedback != nil }
+        await next { sut.feedback }
 
         await sut.accept(action: .feedbackToastAction(.timedOut))
 
@@ -157,24 +152,21 @@ struct HostViewModelTests {
 
     @Test
     mutating func isStarFilled_followsPurchasesProStream() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: true)
+        purchasesServiceMock.isProStream.continuation.yield(true)
         createSut()
-        let sut = sut!
 
-        await awaitChange { sut.isStarFilled == true }
+        await next { sut.isStarFilled }
 
         #expect(sut.isStarFilled == true)
     }
 
     @Test
     mutating func isStarFilled_updatesWhenProBroadcastChanges() async {
-        purchasesServiceMock = PurchasesServiceMock(isPro: false)
         createSut()
-        let sut = sut!
-        await awaitChange { sut.isStarFilled == false }
+        #expect(sut.isStarFilled == false)
 
-        purchasesServiceMock.emitIsPro(true)
-        await awaitChange { sut.isStarFilled == true }
+        purchasesServiceMock.isProStream.continuation.yield(true)
+        await next { sut.isStarFilled }
 
         #expect(sut.isStarFilled == true)
     }
@@ -299,17 +291,4 @@ struct HostViewModelTests {
         #expect(sut.isRestoreButtonDisabled == false)
     }
 
-    // MARK: - Helpers
-
-    private func awaitChange(_ predicate: () -> Bool) async {
-        while !predicate() {
-            await withCheckedContinuation { continuation in
-                withObservationTracking {
-                    _ = predicate()
-                } onChange: {
-                    continuation.resume()
-                }
-            }
-        }
-    }
 }

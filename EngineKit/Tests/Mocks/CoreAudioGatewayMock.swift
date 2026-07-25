@@ -21,54 +21,38 @@ final class CoreAudioGatewayMock: CoreAudioGatewayType, @unchecked Sendable {
     }
 
     private(set) var calls: [Calls] = []
-    var physicalChannelCountResult: Int?
+
     var setEnableIOError: CoreAudioGatewayError?
-    var setCurrentDeviceError: CoreAudioGatewayError?
-    var setChannelMapError: CoreAudioGatewayError?
-    var setBufferSizeError: CoreAudioGatewayError?
-    var setSampleRateError: CoreAudioGatewayError?
-
-    init(
-        physicalChannelCountResult: Int? = nil,
-        setEnableIOError: CoreAudioGatewayError? = nil,
-        setCurrentDeviceError: CoreAudioGatewayError? = nil,
-        setChannelMapError: CoreAudioGatewayError? = nil,
-        setBufferSizeError: CoreAudioGatewayError? = nil,
-        setSampleRateError: CoreAudioGatewayError? = nil
-    ) {
-        self.physicalChannelCountResult = physicalChannelCountResult
-        self.setEnableIOError = setEnableIOError
-        self.setCurrentDeviceError = setCurrentDeviceError
-        self.setChannelMapError = setChannelMapError
-        self.setBufferSizeError = setBufferSizeError
-        self.setSampleRateError = setSampleRateError
-    }
-
     func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
         calls.append(.setEnableIO(enabled, scope, element, audioUnit))
         if let setEnableIOError { throw setEnableIOError }
     }
 
+    var setCurrentDeviceError: CoreAudioGatewayError?
     func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
         calls.append(.setCurrentDevice(deviceID, audioUnit))
         if let setCurrentDeviceError { throw setCurrentDeviceError }
     }
 
+    var setChannelMapError: CoreAudioGatewayError?
     func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
         calls.append(.setChannelMap(map, element, audioUnit))
         if let setChannelMapError { throw setChannelMapError }
     }
 
+    var physicalChannelCountResult: Int?
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int? {
         calls.append(.physicalChannelCount(audioUnit))
         return physicalChannelCountResult
     }
 
+    var setBufferSizeError: CoreAudioGatewayError?
     func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
         calls.append(.setBufferSize(frames, deviceID))
         if let setBufferSizeError { throw setBufferSizeError }
     }
 
+    var setSampleRateError: CoreAudioGatewayError?
     func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
         calls.append(.setSampleRate(rate, deviceID))
         if let setSampleRateError { throw setSampleRateError }

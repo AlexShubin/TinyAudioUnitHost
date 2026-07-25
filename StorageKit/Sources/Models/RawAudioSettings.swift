@@ -11,17 +11,20 @@ public struct RawAudioSettings: Sendable, Equatable, Codable {
     public let output: RawDeviceSettings?
     public let bufferSize: UInt32?
     public let sampleRate: Float64?
+    public let selectedMidiUIDs: [Int32]
 
     public init(
         input: RawDeviceSettings? = nil,
         output: RawDeviceSettings? = nil,
         bufferSize: UInt32? = nil,
-        sampleRate: Float64? = nil
+        sampleRate: Float64? = nil,
+        selectedMidiUIDs: [Int32] = []
     ) {
         self.input = input
         self.output = output
         self.bufferSize = bufferSize
         self.sampleRate = sampleRate
+        self.selectedMidiUIDs = selectedMidiUIDs
     }
 
     public static let empty = RawAudioSettings()

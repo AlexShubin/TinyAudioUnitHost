@@ -15,9 +15,13 @@ public struct Dependencies: Sendable {
     public let engine: EngineType
     public let engineReloader: EngineReloaderType
     public let midiManager: MidiManagerType
+    public let midiReloader: MidiReloaderType
 
     public static let live: Dependencies = {
-        let midiManager = MidiManager()
+        let midiManager = MidiManager(
+            coreMidiGateway: CoreMidiGateway(),
+            audioSettings: AudioSettingsKit.Dependencies.live.audioSettingsProvider
+        )
         let engine = Engine(
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),
@@ -32,7 +36,11 @@ public struct Dependencies: Sendable {
                 engine: engine,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
             ),
-            midiManager: midiManager
+            midiManager: midiManager,
+            midiReloader: MidiReloader(
+                coreMidiGateway: CoreMidiGateway(),
+                midiManager: midiManager
+            )
         )
     }()
 }

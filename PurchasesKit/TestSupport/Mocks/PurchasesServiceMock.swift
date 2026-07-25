@@ -14,69 +14,41 @@ public final class PurchasesServiceMock: PurchasesServiceType, @unchecked Sendab
         case productInfo
         case purchase
         case restore
-        case startListening
+        case start
     }
 
     public private(set) var calls: [Calls] = []
-    public var currentIsPro: Bool
-    public var currentProductInfo: ProProductInfo?
-    public var purchaseResult: PurchaseResult
-    public var restoreResult: PurchaseResult
 
-    private var continuation: AsyncStream<Bool>.Continuation?
+    public init() {}
 
-    public init(
-        isPro: Bool = false,
-        productInfo: ProProductInfo? = nil,
-        purchaseResult: PurchaseResult = .success,
-        restoreResult: PurchaseResult = .success
-    ) {
-        self.currentIsPro = isPro
-        self.currentProductInfo = productInfo
-        self.purchaseResult = purchaseResult
-        self.restoreResult = restoreResult
-    }
-
+    public var productInfoResult: ProProductInfo?
     public var productInfo: ProProductInfo? {
         get async {
             calls.append(.productInfo)
-            return currentProductInfo
+            return productInfoResult
         }
     }
 
+    public var isProStream = AsyncStream<Bool>.makeStream()
     public func makeIsProStream() async -> AsyncStream<Bool> {
-        let (stream, continuation) = AsyncStream<Bool>.makeStream()
-        self.continuation = continuation
-        continuation.yield(currentIsPro)
-        return stream
+        isProStream.stream
     }
 
+    public var purchaseResult: PurchaseResult = .success
     public func purchase() async -> PurchaseResult {
         calls.append(.purchase)
-        if purchaseResult == .success {
-            broadcastIsPro(true)
-        }
         return purchaseResult
     }
 
+    public var restoreResult: PurchaseResult = .success
     public func restore() async -> PurchaseResult {
         calls.append(.restore)
         return restoreResult
     }
 
     @discardableResult
-    public func startListening() -> Task<Void, Error> {
-        calls.append(.startListening)
+    public func start() -> Task<Void, Error> {
+        calls.append(.start)
         return Task {}
-    }
-
-    public func emitIsPro(_ value: Bool) {
-        broadcastIsPro(value)
-    }
-
-    private func broadcastIsPro(_ value: Bool) {
-        guard currentIsPro != value else { return }
-        currentIsPro = value
-        continuation?.yield(value)
     }
 }

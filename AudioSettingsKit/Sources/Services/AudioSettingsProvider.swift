@@ -16,37 +16,19 @@ public protocol AudioSettingsProviderType: Sendable {
 public struct AudioSettingsProvider: AudioSettingsProviderType {
     private let rawStore: RawSettingsStoreType
     private let devicesProvider: AudioDevicesProviderType
+    private let midiDevicesProvider: MidiDevicesProviderType
 
     public init(
         rawStore: RawSettingsStoreType,
-        devicesProvider: AudioDevicesProviderType
+        devicesProvider: AudioDevicesProviderType,
+        midiDevicesProvider: MidiDevicesProviderType
     ) {
         self.rawStore = rawStore
         self.devicesProvider = devicesProvider
+        self.midiDevicesProvider = midiDevicesProvider
     }
 
     public var current: AudioSettings {
-        resolve()
-    }
-
-    public func save(_ settings: AudioSettings) {
-        let inputChannelIDs = settings.inputChannel?.channels.map(\.id) ?? []
-        let outputChannelIDs = settings.outputChannel?.channels.map(\.id) ?? []
-        let nextInput = settings.inputDevice.map { device in
-            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: inputChannelIDs)
-        }
-        let nextOutput = settings.outputDevice.map { device in
-            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: outputChannelIDs)
-        }
-        rawStore.save(RawAudioSettings(
-            input: nextInput,
-            output: nextOutput,
-            bufferSize: settings.bufferSize,
-            sampleRate: settings.sampleRate
-        ))
-    }
-
-    private func resolve() -> AudioSettings {
         let raw = rawStore.current
         let devices = devicesProvider.devices(.all)
         let inputDevice = raw.input.flatMap { saved in devices.first { $0.uid == saved.uid } }
@@ -59,6 +41,8 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
             ids: raw.output?.selectedChannels ?? [],
             in: outputDevice?.outputChannels ?? []
         )
+        let selectedMidiUIDs = Set(raw.selectedMidiUIDs)
+        let selectedMidiDevices = Set(midiDevicesProvider.devices.filter { selectedMidiUIDs.contains($0.uid) })
         return AudioSettings(
             inputDevice: inputDevice,
             outputDevice: outputDevice,
@@ -67,8 +51,27 @@ public struct AudioSettingsProvider: AudioSettingsProviderType {
             bufferSize: raw.bufferSize,
             sampleRate: raw.sampleRate,
             savedInput: raw.input?.saved,
-            savedOutput: raw.output?.saved
+            savedOutput: raw.output?.saved,
+            selectedMidiDevices: selectedMidiDevices
         )
+    }
+
+    public func save(_ settings: AudioSettings) {
+        let inputChannelIDs = settings.inputChannel?.channels.map(\.id) ?? []
+        let outputChannelIDs = settings.outputChannel?.channels.map(\.id) ?? []
+        let input = settings.inputDevice.map { device in
+            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: inputChannelIDs)
+        }
+        let output = settings.outputDevice.map { device in
+            RawDeviceSettings(uid: device.uid, name: device.name, selectedChannels: outputChannelIDs)
+        }
+        rawStore.save(RawAudioSettings(
+            input: input,
+            output: output,
+            bufferSize: settings.bufferSize,
+            sampleRate: settings.sampleRate,
+            selectedMidiUIDs: settings.selectedMidiDevices.map(\.uid).sorted()
+        ))
     }
 }
 

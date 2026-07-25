@@ -13,7 +13,6 @@ import AudioUnitsKitTestSupport
 import EngineKit
 import EngineKitTestSupport
 import Foundation
-import Observation
 import PresetKit
 import PresetKitTestSupport
 import Testing
@@ -58,8 +57,9 @@ struct SessionManagerTests {
         createSut()
 
         await sut.start()
-        await awaitChange { sut.content == .loaded(loaded) }
+        #expect(sut.content == .loading)
 
+        await next { sut.content }
         #expect(sut.content == .loaded(loaded))
         #expect(sut.activeName == "foo")
         #expect(engineMock.calls == [.load(component, Data([0x01]))])
@@ -70,8 +70,9 @@ struct SessionManagerTests {
         createSut()
 
         await sut.start()
-        await awaitChange { sut.content == .empty }
+        #expect(sut.content == .loading)
 
+        await next { sut.content }
         #expect(sut.content == .empty)
         #expect(sut.activeName == nil)
         #expect(engineMock.calls == [])
@@ -83,8 +84,9 @@ struct SessionManagerTests {
         createSut()
 
         await sut.start()
-        await awaitChange { sut.content == .failed("Couldn't load this preset.") }
+        #expect(sut.content == .loading)
 
+        await next { sut.content }
         #expect(sut.content == .failed("Couldn't load this preset."))
         #expect(sut.activeName == "ghost")
         #expect(!presetProviderMock.calls.contains(.setActive(nil)))
@@ -96,8 +98,9 @@ struct SessionManagerTests {
         createSut()
 
         await sut.start()
-        await awaitChange { sut.content == .unmet([.microphonePermission]) }
+        #expect(sut.content == .loading)
 
+        await next { sut.content }
         #expect(sut.content == .unmet([.microphonePermission]))
     }
 
@@ -113,11 +116,13 @@ struct SessionManagerTests {
         setupCheckerMock = SetupCheckerMock(unmet: [.microphonePermission])
         createSut()
         await sut.start()
-        await awaitChange { sut.content == .unmet([.microphonePermission]) }
+        #expect(sut.content == .loading)
+        await next { sut.content }
+        #expect(sut.content == .unmet([.microphonePermission]))
 
         setupCheckerMock.emit([])
 
-        await awaitChange { sut.content == .loaded(loaded) }
+        await next { sut.content }
         #expect(sut.content == .loaded(loaded))
         #expect(sut.activeName == "foo")
     }
@@ -133,11 +138,13 @@ struct SessionManagerTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.start()
-        await awaitChange { sut.content == .loaded(loaded) }
+        #expect(sut.content == .loading)
+        await next { sut.content }
+        #expect(sut.content == .loaded(loaded))
 
         setupCheckerMock.emit([.noOutputDevice])
 
-        await awaitChange { sut.content == .unmet([.noOutputDevice]) }
+        await next { sut.content }
         #expect(sut.content == .unmet([.noOutputDevice]))
     }
 
@@ -215,8 +222,8 @@ struct SessionManagerTests {
     @Test
     mutating func saveCurrentPreset_happyPath_savesAndPostsSavedEvent() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xBE, 0xEF]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xBE, 0xEF]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         presetProviderMock = PresetProviderMock(
             presets: ["foo": Preset(name: "foo", component: component, state: Data())],
             activeName: "foo"
@@ -224,7 +231,9 @@ struct SessionManagerTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.start()
-        await awaitChange { sut.content == .loaded(loaded) }
+        #expect(sut.content == .loading)
+        await next { sut.content }
+        #expect(sut.content == .loaded(loaded))
 
         sut.saveCurrentPreset()
 
@@ -256,7 +265,9 @@ struct SessionManagerTests {
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.start()
-        await awaitChange { sut.content == .loaded(loaded) }
+        #expect(sut.content == .loading)
+        await next { sut.content }
+        #expect(sut.content == .loaded(loaded))
 
         await sut.restoreActivePreset()
 
@@ -279,8 +290,8 @@ struct SessionManagerTests {
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndPosts() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let auMock = AUAudioUnitMock(fullState: Data([0xAA]))
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: auMock)
+        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xAA]))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         engineMock = EngineMock(loadResult: .success(loaded))
         createSut()
         await sut.loadComponent(component)
@@ -303,7 +314,9 @@ struct SessionManagerTests {
         ])
         createSut()
         await sut.start()
-        await awaitChange { sut.content == .empty }
+        #expect(sut.content == .loading)
+        await next { sut.content }
+        #expect(sut.content == .empty)
 
         #expect(sut.presets.sorted() == ["a", "b", "c"])
     }
@@ -340,19 +353,4 @@ struct SessionManagerTests {
         #expect(sut.activeName == nil)
     }
 
-    // MARK: - Helpers
-
-    /// Loops through observation-tracking waits until the predicate is true.
-    /// The tracker is single-shot, so re-register after each fire.
-    private func awaitChange(_ predicate: () -> Bool) async {
-        while !predicate() {
-            await withCheckedContinuation { continuation in
-                withObservationTracking {
-                    _ = predicate()
-                } onChange: {
-                    continuation.resume()
-                }
-            }
-        }
-    }
 }

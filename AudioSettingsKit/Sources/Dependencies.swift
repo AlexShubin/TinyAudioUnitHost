@@ -13,13 +13,19 @@ public struct Dependencies: Sendable {
     public let audioSettingsProvider: AudioSettingsProviderType
     public let targetSettingsProvider: TargetSettingsProviderType
     public let devicesProvider: AudioDevicesProviderType
+    public let midiDevicesProvider: MidiDevicesProviderType
     public let setupChecker: SetupCheckerType
     public let setupRefresher: SetupRefresherType
 
     public static let live: Dependencies = {
         let devicesProvider = AudioDevicesProvider(gateway: CoreAudioGateway())
+        let midiDevicesProvider = MidiDevicesProvider(gateway: CoreMidiGateway())
         let rawStore = StorageKit.Dependencies.live.rawSettingsStore
-        let audioSettingsProvider = AudioSettingsProvider(rawStore: rawStore, devicesProvider: devicesProvider)
+        let audioSettingsProvider = AudioSettingsProvider(
+            rawStore: rawStore,
+            devicesProvider: devicesProvider,
+            midiDevicesProvider: midiDevicesProvider
+        )
         let targetSettingsProvider = TargetSettingsProvider(
             audioSettings: audioSettingsProvider,
             devicesProvider: devicesProvider,
@@ -30,6 +36,7 @@ public struct Dependencies: Sendable {
             audioSettingsProvider: audioSettingsProvider,
             targetSettingsProvider: targetSettingsProvider,
             devicesProvider: devicesProvider,
+            midiDevicesProvider: midiDevicesProvider,
             setupChecker: setupChecker,
             setupRefresher: SetupRefresher(
                 setupChecker: setupChecker,

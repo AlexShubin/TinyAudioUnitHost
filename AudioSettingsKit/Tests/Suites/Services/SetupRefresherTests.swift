@@ -29,19 +29,19 @@ struct SetupRefresherTests {
     }
 
     @Test
-    mutating func startListening_subscribesToDeviceListChanges() {
+    mutating func start_subscribesToDeviceListChanges() {
         createSut()
 
-        _ = sut.startListening()
+        _ = sut.start()
 
         #expect(deviceListListenerMock.calls == [.stream])
     }
 
     @Test
-    mutating func startListening_emittedDeviceListChange_refreshesSetup() async {
+    mutating func start_emittedDeviceListChange_refreshesSetup() async {
         createSut()
 
-        let task = sut.startListening()
+        let task = sut.start()
         deviceListListenerMock.emit()
         deviceListListenerMock.finish()
         try? await task.value

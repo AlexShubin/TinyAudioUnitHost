@@ -88,7 +88,7 @@ struct EngineTests {
             .attach(avAudioUnit),
             .start
         ])
-        #expect(midiManagerMock.calls == [.teardownMIDI, .setupMIDI(avAudioUnit.auAudioUnit)])
+        #expect(midiManagerMock.calls == [.teardownMIDI, .setupMIDI(result.audioUnit)])
     }
 
     @Test
@@ -118,10 +118,10 @@ struct EngineTests {
         avAudioUnitFactoryMock.instantiateResult = .success(firstAU)
         createSut()
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil)
+        let firstResult = try await sut.load(component: Self.effectComponent, state: nil)
         avAudioUnitFactoryMock.instantiateResult = .success(secondAU)
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil)
+        let secondResult = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(avEngineMock.calls == [
             .attach(inputMixerMock),
@@ -140,8 +140,8 @@ struct EngineTests {
             .start
         ])
         #expect(midiManagerMock.calls == [
-            .teardownMIDI, .setupMIDI(firstAU.auAudioUnit),
-            .teardownMIDI, .setupMIDI(secondAU.auAudioUnit)
+            .teardownMIDI, .setupMIDI(firstResult.audioUnit),
+            .teardownMIDI, .setupMIDI(secondResult.audioUnit)
         ])
         #expect(avAudioUnitFactoryMock.calls == [
             .instantiate(Self.effectDescription, .loadOutOfProcess),

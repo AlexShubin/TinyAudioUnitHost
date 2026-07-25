@@ -9,24 +9,6 @@
 import AudioSettingsKit
 import SwiftUI
 
-enum DevicePickerKind: Sendable, Hashable {
-    case input
-    case output
-}
-
-enum DevicePickerViewAction {
-    case selectDevice(AudioDevice?)
-    case setChannel(AudioChannel, isOn: Bool)
-}
-
-struct DevicePickerState: Sendable, Equatable {
-    var devices: [AudioDevice]
-    var selectedDevice: AudioDevice?
-    var selectedChannel: SelectedChannel?
-
-    static let empty = DevicePickerState(devices: [], selectedDevice: nil, selectedChannel: nil)
-}
-
 struct DevicePickerView: View {
     let kind: DevicePickerKind
     let state: DevicePickerState
@@ -91,4 +73,22 @@ struct DevicePickerView: View {
         case .output: device?.outputChannels ?? []
         }
     }
+}
+
+enum DevicePickerKind: Sendable, Hashable {
+    case input
+    case output
+}
+
+enum DevicePickerViewAction {
+    case selectDevice(AudioDevice?)
+    case setChannel(AudioChannel, isOn: Bool)
+}
+
+struct DevicePickerState: Sendable, Equatable {
+    var devices: [AudioDevice]
+    var selectedDevice: AudioDevice?
+    var selectedChannel: SelectedChannel?
+
+    static let empty = DevicePickerState(devices: [], selectedDevice: nil, selectedChannel: nil)
 }

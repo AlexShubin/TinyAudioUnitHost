@@ -12,6 +12,7 @@ enum SettingsViewAction {
     case task
     case inputDevicePickerAction(DevicePickerViewAction)
     case outputDevicePickerAction(DevicePickerViewAction)
+    case midiDevicePickerAction(MidiDevicePickerViewAction)
     case selectBufferSize(UInt32)
     case selectSampleRate(Float64)
 }
@@ -27,6 +28,22 @@ struct SettingsView: View {
                     state: viewModel.inputState,
                     onAction: { action in
                         Task { await viewModel.accept(action: .inputDevicePickerAction(action)) }
+                    }
+                )
+                MidiDevicePickerView(
+                    state: viewModel.midiState,
+                    onAction: { action in
+                        Task { await viewModel.accept(action: .midiDevicePickerAction(action)) }
+                    }
+                )
+            }
+            .formStyle(.grouped)
+            Form {
+                DevicePickerView(
+                    kind: .output,
+                    state: viewModel.outputState,
+                    onAction: { action in
+                        Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
                     }
                 )
                 Picker(
@@ -59,26 +76,6 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(viewModel.availableBufferSizes.isEmpty)
-            }
-            .formStyle(.grouped)
-            Form {
-                DevicePickerView(
-                    kind: .output,
-                    state: viewModel.outputState,
-                    onAction: { action in
-                        Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
-                    }
-                )
-                Section {
-                    Label {
-                        Text("All MIDI devices are connected — more granular control of the MIDI connections is on the way.")
-                    } icon: {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                }
             }
             .formStyle(.grouped)
         }
