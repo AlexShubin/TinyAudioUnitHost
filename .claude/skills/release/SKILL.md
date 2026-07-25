@@ -5,7 +5,7 @@ description: App Store release flow — start a release branch with version/buil
 
 # Release flow
 
-A release lives on a `release/MAJOR.MINOR.PATCH` branch. The lifecycle: branch → bump immediately → do the work → user uploads/releases via Xcode → squash-merge into main → tag.
+A release lives on a `release/MAJOR.MINOR.PATCH` branch with a PR against main. The lifecycle: branch → bump immediately → open PR → do the work → user uploads/releases via Xcode → squash-merge the PR → tag.
 
 All commits and pushes in this flow follow the project's git rules: explicit per-action permission, every time.
 
@@ -22,6 +22,7 @@ All commits and pushes in this flow follow the project's git rules: explicit per
 2. `git checkout -b release/X.Y.Z`
 3. Immediately bump `appVersion` to `X.Y.Z` and increment `buildNumber` in `TinyAudioUnitHost/Project.swift`, then `mise run generate`.
 4. Commit the bump (e.g. `Bump version to X.Y.Z (build N)`) and push the branch — with permission.
+5. Open the release PR: `gh pr create --base main --title "Release X.Y.Z"`.
 
 ## During the release
 
@@ -32,10 +33,6 @@ All commits and pushes in this flow follow the project's git rules: explicit per
 
 Only after the user confirms the version is released on the App Store:
 
-1. `git checkout main && git pull`
-2. `git merge --squash release/X.Y.Z`
-3. Commit as `Release X.Y.Z` (single squash commit, matching `Release 1.2.0` on main).
-4. `git tag vX.Y.Z`
-5. `git push origin main vX.Y.Z`
-6. Delete the release branch both locally and on origin — never leave it behind:
-   `git branch -D release/X.Y.Z && git push origin --delete release/X.Y.Z`
+1. Squash-merge the PR via GitHub: `gh pr merge --squash --delete-branch --subject "Release X.Y.Z"` — one squash commit on main titled `Release X.Y.Z` (matching `Release 1.2.0`); `--delete-branch` removes the branch on origin and locally and switches back to main.
+2. `git pull` on main, then tag the squash commit: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. `git fetch --prune` to clean up.
