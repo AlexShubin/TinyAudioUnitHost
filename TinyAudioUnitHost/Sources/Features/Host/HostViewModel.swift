@@ -71,44 +71,28 @@ final class HostViewModel: HostViewModelType {
     @ObservationIgnored private let library: AudioUnitComponentsLibraryType
     @ObservationIgnored private let session: SessionManagerType
     @ObservationIgnored private let purchasesService: PurchasesServiceType
-    @ObservationIgnored private let eventBus: SessionEventBusType
     @ObservationIgnored private var isProListener: Task<Void, Never>?
-    @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
 
     init(
         library: AudioUnitComponentsLibraryType,
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        eventBus: SessionEventBusType
+        router: SessionCommandRouter
     ) {
         self.library = library
         self.session = session
         self.purchasesService = purchasesService
-        self.eventBus = eventBus
         isProListener = Task { @MainActor [weak self, purchasesService] in
             for await value in await purchasesService.makeIsProStream() {
                 self?.isStarFilled = value
             }
         }
-        let stream = eventBus.makeEventStream()
-        sessionEventsListener = Task { @MainActor [weak self] in
-            for await event in stream {
-                guard let self else { return }
-                switch event {
-                case .saved:
-                    self.feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
-                case .restored:
-                    self.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
-                case .saveAsRequested:
-                    break  // owned by Presets feature
-                }
-            }
-        }
+        router.setSavedCommand { [weak self] in self?.showFeedback(.saved) }
+        router.setRestoredCommand { [weak self] in self?.showFeedback(.restored) }
     }
 
     deinit {
         isProListener?.cancel()
-        sessionEventsListener?.cancel()
     }
 
     func accept(action: HostViewModelAction) async {
@@ -125,6 +109,10 @@ final class HostViewModel: HostViewModelType {
         case .feedbackToastAction(.timedOut):
             feedback = nil
         }
+    }
+
+    private func showFeedback(_ kind: FeedbackToastViewState.Kind) {
+        feedback = FeedbackToastViewState(id: UUID(), kind: kind)
     }
 
     private func grouped(_ components: [AudioUnitComponent]) -> [ManufacturerGroup] {

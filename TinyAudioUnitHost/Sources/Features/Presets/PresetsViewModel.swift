@@ -48,40 +48,25 @@ final class PresetsViewModel: PresetsViewModelType {
 
     @ObservationIgnored private let session: SessionManagerType
     @ObservationIgnored private let purchasesService: PurchasesServiceType
-    @ObservationIgnored private let eventBus: SessionEventBusType
     @ObservationIgnored private var isProListener: Task<Void, Never>?
-    @ObservationIgnored private var sessionEventsListener: Task<Void, Never>?
 
     init(
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        eventBus: SessionEventBusType
+        router: SessionCommandRouter
     ) {
         self.session = session
         self.purchasesService = purchasesService
-        self.eventBus = eventBus
         isProListener = Task { @MainActor [weak self, purchasesService] in
             for await value in await purchasesService.makeIsProStream() {
                 self?.isPro = value
             }
         }
-        let stream = eventBus.makeEventStream()
-        sessionEventsListener = Task { @MainActor [weak self] in
-            for await event in stream {
-                guard let self else { return }
-                switch event {
-                case .saveAsRequested:
-                    await self.accept(action: .saveAsTapped)
-                case .saved, .restored:
-                    break  // owned by Host feature
-                }
-            }
-        }
+        router.setSaveAsCommand { [weak self] in self?.beginSaveAs() }
     }
 
     deinit {
         isProListener?.cancel()
-        sessionEventsListener?.cancel()
     }
 
     func accept(action: PresetsAction) async {
@@ -93,13 +78,17 @@ final class PresetsViewModel: PresetsViewModelType {
         case .deleteTapped(let name):
             session.deletePreset(name: name)
         case .saveAsTapped:
-            if isPro || session.presets.count < Self.freeTierPresetLimit {
-                presentedPresetNameDialog = .saveAs
-            } else {
-                openProWindowRequest = UUID()
-            }
+            beginSaveAs()
         case .dismissDialog:
             presentedPresetNameDialog = nil
+        }
+    }
+
+    private func beginSaveAs() {
+        if isPro || session.presets.count < Self.freeTierPresetLimit {
+            presentedPresetNameDialog = .saveAs
+        } else {
+            openProWindowRequest = UUID()
         }
     }
 }

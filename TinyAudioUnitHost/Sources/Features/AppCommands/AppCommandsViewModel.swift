@@ -30,14 +30,14 @@ final class AppCommandsViewModel: AppCommandsViewModelType {
     var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
-    @ObservationIgnored private let eventBus: SessionEventBusType
+    @ObservationIgnored private let router: SessionCommandRouter
 
     init(
         session: SessionManagerType,
-        eventBus: SessionEventBusType
+        router: SessionCommandRouter
     ) {
         self.session = session
-        self.eventBus = eventBus
+        self.router = router
     }
 
     func accept(action: AppCommandsAction) async {
@@ -47,7 +47,7 @@ final class AppCommandsViewModel: AppCommandsViewModelType {
         case .restore:
             await session.restoreActivePreset()
         case .saveAs:
-            eventBus.post(.saveAsRequested)
+            router.executeSaveAsCommand()
         }
     }
 }
