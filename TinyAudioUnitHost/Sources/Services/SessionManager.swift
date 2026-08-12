@@ -60,19 +60,19 @@ final class SessionManager: SessionManagerType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let setupChecker: SetupCheckerType
-    @ObservationIgnored private let router: SessionCommandRouter
+    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouter
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     nonisolated init(
         engine: EngineType,
         presetProvider: PresetProviderType,
         setupChecker: SetupCheckerType,
-        router: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouter
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
-        self.router = router
+        self.sessionCommandRouter = sessionCommandRouter
     }
 
     deinit {
@@ -111,7 +111,7 @@ final class SessionManager: SessionManagerType {
         let preset = Preset(name: activeName, component: loaded.component, state: state)
         presetProvider.save(preset)
         presets = presetProvider.presets
-        router.executeSavedCommand()
+        sessionCommandRouter.executeSavedCommand()
     }
 
     func restoreActivePreset() async {
@@ -120,7 +120,7 @@ final class SessionManager: SessionManagerType {
         content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
-            router.executeRestoredCommand()
+            sessionCommandRouter.executeRestoredCommand()
         }
     }
 
@@ -132,7 +132,7 @@ final class SessionManager: SessionManagerType {
         presetProvider.setActive(preset.name)
         activeName = preset.name
         presets = presetProvider.presets
-        router.executeSavedCommand()
+        sessionCommandRouter.executeSavedCommand()
     }
 
     func renamePreset(from: String, to: String) {

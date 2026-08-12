@@ -20,14 +20,14 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionManagerType
-    let router: SessionCommandRouter
+    let sessionCommandRouter: SessionCommandRouter
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
         let engine = EngineKit.Dependencies.live
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
-        let router = SessionCommandRouter()
+        let sessionCommandRouter = SessionCommandRouter()
         return Dependencies(
             audioSettings: audioSettings,
             audioUnits: .live,
@@ -38,9 +38,9 @@ struct Dependencies: Sendable {
                 engine: engine.engine,
                 presetProvider: presets.presetProvider,
                 setupChecker: audioSettings.setupChecker,
-                router: router
+                sessionCommandRouter: sessionCommandRouter
             ),
-            router: router
+            sessionCommandRouter: sessionCommandRouter
         )
     }()
 
@@ -49,7 +49,7 @@ struct Dependencies: Sendable {
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
             purchasesService: purchases.purchasesService,
-            router: router
+            sessionCommandRouter: sessionCommandRouter
         )
     }
 
@@ -57,14 +57,14 @@ struct Dependencies: Sendable {
         PresetsViewModel(
             session: session,
             purchasesService: purchases.purchasesService,
-            router: router
+            sessionCommandRouter: sessionCommandRouter
         )
     }
 
     @MainActor func makeAppCommandsViewModel() -> AppCommandsViewModelType {
         AppCommandsViewModel(
             session: session,
-            router: router
+            sessionCommandRouter: sessionCommandRouter
         )
     }
 

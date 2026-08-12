@@ -53,7 +53,7 @@ final class PresetsViewModel: PresetsViewModelType {
     init(
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        router: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouter
     ) {
         self.session = session
         self.purchasesService = purchasesService
@@ -62,7 +62,7 @@ final class PresetsViewModel: PresetsViewModelType {
                 self?.isPro = value
             }
         }
-        router.setSaveAsCommand { [weak self] in self?.beginSaveAs() }
+        sessionCommandRouter.setSaveAsCommand { [weak self] in self?.beginSaveAs() }
     }
 
     deinit {
