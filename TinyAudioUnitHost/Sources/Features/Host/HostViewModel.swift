@@ -77,7 +77,7 @@ final class HostViewModel: HostViewModelType {
         library: AudioUnitComponentsLibraryType,
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        sessionCommandRouter: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouterType
     ) {
         self.library = library
         self.session = session

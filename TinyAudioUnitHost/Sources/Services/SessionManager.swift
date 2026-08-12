@@ -60,14 +60,14 @@ final class SessionManager: SessionManagerType {
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let setupChecker: SetupCheckerType
-    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouter
+    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouterType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     nonisolated init(
         engine: EngineType,
         presetProvider: PresetProviderType,
         setupChecker: SetupCheckerType,
-        sessionCommandRouter: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouterType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider

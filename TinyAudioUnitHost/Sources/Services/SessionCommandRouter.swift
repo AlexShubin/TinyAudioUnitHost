@@ -9,7 +9,17 @@
 import Foundation
 
 @MainActor
-final class SessionCommandRouter {
+protocol SessionCommandRouterType: AnyObject, Sendable {
+    func setSavedCommand(_ command: @escaping () -> Void)
+    func executeSavedCommand()
+    func setRestoredCommand(_ command: @escaping () -> Void)
+    func executeRestoredCommand()
+    func setSaveAsCommand(_ command: @escaping () -> Void)
+    func executeSaveAsCommand()
+}
+
+@MainActor
+final class SessionCommandRouter: SessionCommandRouterType {
     private var savedCommand: (() -> Void)?
     private var restoredCommand: (() -> Void)?
     private var saveAsCommand: (() -> Void)?

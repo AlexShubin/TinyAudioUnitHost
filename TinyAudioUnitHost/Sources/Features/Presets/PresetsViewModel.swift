@@ -53,7 +53,7 @@ final class PresetsViewModel: PresetsViewModelType {
     init(
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        sessionCommandRouter: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouterType
     ) {
         self.session = session
         self.purchasesService = purchasesService

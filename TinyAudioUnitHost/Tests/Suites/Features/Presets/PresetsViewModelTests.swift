@@ -19,20 +19,20 @@ import Testing
 struct PresetsViewModelTests {
     var sessionMock: SessionManagerMock!
     var purchasesServiceMock: PurchasesServiceMock!
-    var eventBusMock: SessionEventBusMock!
+    var sessionCommandRouterMock: SessionCommandRouterMock!
     var sut: PresetsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
         purchasesServiceMock = PurchasesServiceMock()
-        eventBusMock = SessionEventBusMock()
+        sessionCommandRouterMock = SessionCommandRouterMock()
     }
 
     mutating func createSut() {
         sut = PresetsViewModel(
             session: sessionMock,
             purchasesService: purchasesServiceMock,
-            eventBus: eventBusMock
+            sessionCommandRouter: sessionCommandRouterMock
         )
     }
 
@@ -184,43 +184,35 @@ struct PresetsViewModelTests {
         #expect(sut.presentedPresetNameDialog == nil)
     }
 
-    // MARK: - session events
+    // MARK: - save-as command
 
     @Test
-    mutating func saveAsRequestedEvent_freeBelowCap_presentsSaveAsDialog() async {
-        sessionMock.setPresets(["a"])
+    mutating func init_registersSaveAsCommand() async {
         createSut()
 
-        eventBusMock.post(.saveAsRequested)
-        await next { sut.presentedPresetNameDialog }
-
-        #expect(sut.presentedPresetNameDialog == .saveAs)
+        #expect(sessionCommandRouterMock.calls == [.setSaveAsCommand])
     }
 
     @Test
-    mutating func saveAsRequestedEvent_freeAtCap_opensProUpgrade() async {
-        sessionMock.setPresets(["a", "b"])
-        createSut()
-
-        eventBusMock.post(.saveAsRequested)
-        await next { sut.openProWindowRequest }
-
-        #expect(sut.openProWindowRequest != nil)
-        #expect(sut.presentedPresetNameDialog == nil)
-    }
-
-    @Test
-    mutating func savedEvent_isIgnored() async {
+    mutating func saveAsCommand_freeBelowCap_presentsSaveAsDialog() async {
         sessionMock.setPresets(["a"])
         createSut()
 
-        eventBusMock.post(.saved)
-        // Cross-check by emitting a known event that does flip state.
-        eventBusMock.post(.saveAsRequested)
-        await next { sut.presentedPresetNameDialog }
+        sessionCommandRouterMock.saveAsCommand?()
 
         #expect(sut.presentedPresetNameDialog == .saveAs)
         #expect(sut.openProWindowRequest == nil)
+    }
+
+    @Test
+    mutating func saveAsCommand_freeAtCap_opensProUpgrade() async {
+        sessionMock.setPresets(["a", "b"])
+        createSut()
+
+        sessionCommandRouterMock.saveAsCommand?()
+
+        #expect(sut.openProWindowRequest != nil)
+        #expect(sut.presentedPresetNameDialog == nil)
     }
 
 }

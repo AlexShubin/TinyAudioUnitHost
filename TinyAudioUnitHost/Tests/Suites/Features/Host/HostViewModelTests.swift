@@ -22,14 +22,14 @@ struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
     var sessionMock: SessionManagerMock!
     var purchasesServiceMock: PurchasesServiceMock!
-    var eventBusMock: SessionEventBusMock!
+    var sessionCommandRouterMock: SessionCommandRouterMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
         sessionMock = SessionManagerMock()
         purchasesServiceMock = PurchasesServiceMock()
-        eventBusMock = SessionEventBusMock()
+        sessionCommandRouterMock = SessionCommandRouterMock()
     }
 
     mutating func createSut() {
@@ -37,7 +37,7 @@ struct HostViewModelTests {
             library: libraryMock,
             session: sessionMock,
             purchasesService: purchasesServiceMock,
-            eventBus: eventBusMock
+            sessionCommandRouter: sessionCommandRouterMock
         )
     }
 
@@ -96,45 +96,37 @@ struct HostViewModelTests {
         #expect(sessionMock.calls == [.restoreActivePreset])
     }
 
-    // MARK: - feedback from session events
+    // MARK: - feedback from session commands
 
     @Test
-    mutating func savedEvent_setsFeedbackToSaved() async {
+    mutating func init_registersSavedAndRestoredCommands() async {
         createSut()
 
-        eventBusMock.post(.saved)
-        await next { sut.feedback }
+        #expect(sessionCommandRouterMock.calls == [.setSavedCommand, .setRestoredCommand])
+    }
+
+    @Test
+    mutating func savedCommand_setsFeedbackToSaved() async {
+        createSut()
+
+        sessionCommandRouterMock.savedCommand?()
 
         #expect(sut.feedback?.kind == .saved)
     }
 
     @Test
-    mutating func restoredEvent_setsFeedbackToRestored() async {
+    mutating func restoredCommand_setsFeedbackToRestored() async {
         createSut()
 
-        eventBusMock.post(.restored)
-        await next { sut.feedback }
+        sessionCommandRouterMock.restoredCommand?()
 
         #expect(sut.feedback?.kind == .restored)
     }
 
     @Test
-    mutating func saveAsRequestedEvent_isIgnored() async {
-        createSut()
-
-        eventBusMock.post(.saveAsRequested)
-        // Cross-check by emitting a known event that does flip state.
-        eventBusMock.post(.saved)
-        await next { sut.feedback }
-
-        #expect(sut.feedback?.kind == .saved)
-    }
-
-    @Test
     mutating func feedbackToastTimedOut_clearsFeedback() async {
         createSut()
-        eventBusMock.post(.saved)
-        await next { sut.feedback }
+        sessionCommandRouterMock.savedCommand?()
 
         await sut.accept(action: .feedbackToastAction(.timedOut))
 

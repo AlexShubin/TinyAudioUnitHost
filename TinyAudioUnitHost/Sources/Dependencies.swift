@@ -20,7 +20,7 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionManagerType
-    let sessionCommandRouter: SessionCommandRouter
+    let sessionCommandRouter: SessionCommandRouterType
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live

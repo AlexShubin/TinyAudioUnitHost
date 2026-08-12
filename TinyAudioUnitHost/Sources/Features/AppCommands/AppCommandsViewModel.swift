@@ -30,11 +30,11 @@ final class AppCommandsViewModel: AppCommandsViewModelType {
     var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
 
     @ObservationIgnored private let session: SessionManagerType
-    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouter
+    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouterType
 
     init(
         session: SessionManagerType,
-        sessionCommandRouter: SessionCommandRouter
+        sessionCommandRouter: SessionCommandRouterType
     ) {
         self.session = session
         self.sessionCommandRouter = sessionCommandRouter

@@ -24,14 +24,14 @@ struct SessionManagerTests {
     var engineMock: EngineMock!
     var presetProviderMock: PresetProviderMock!
     var setupCheckerMock: SetupCheckerMock!
-    var eventBusMock: SessionEventBusMock!
+    var sessionCommandRouterMock: SessionCommandRouterMock!
     var sut: SessionManagerType!
 
     init() {
         engineMock = EngineMock()
         presetProviderMock = PresetProviderMock()
         setupCheckerMock = SetupCheckerMock()
-        eventBusMock = SessionEventBusMock()
+        sessionCommandRouterMock = SessionCommandRouterMock()
     }
 
     mutating func createSut() {
@@ -39,7 +39,7 @@ struct SessionManagerTests {
             engine: engineMock,
             presetProvider: presetProviderMock,
             setupChecker: setupCheckerMock,
-            eventBus: eventBusMock
+            sessionCommandRouter: sessionCommandRouterMock
         )
     }
 
@@ -216,11 +216,11 @@ struct SessionManagerTests {
         sut.saveCurrentPreset()
 
         #expect(!presetProviderMock.calls.contains { if case .save = $0 { return true } else { return false } })
-        #expect(eventBusMock.calls.isEmpty)
+        #expect(sessionCommandRouterMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveCurrentPreset_happyPath_savesAndPostsSavedEvent() async {
+    mutating func saveCurrentPreset_happyPath_savesAndExecutesSavedCommand() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let audioUnit = AUAudioUnitWrapper(fullState: Data([0xBE, 0xEF]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
@@ -239,7 +239,7 @@ struct SessionManagerTests {
 
         let saved = Preset(name: "foo", component: component, state: Data([0xBE, 0xEF]))
         #expect(presetProviderMock.calls.contains(.save(saved)))
-        #expect(eventBusMock.calls == [.post(.saved)])
+        #expect(sessionCommandRouterMock.calls == [.executeSavedCommand])
     }
 
     // MARK: - restoreActivePreset
@@ -251,11 +251,11 @@ struct SessionManagerTests {
         await sut.restoreActivePreset()
 
         #expect(engineMock.calls == [])
-        #expect(eventBusMock.calls.isEmpty)
+        #expect(sessionCommandRouterMock.calls.isEmpty)
     }
 
     @Test
-    mutating func restoreActivePreset_happyPath_postsRestoredEvent() async {
+    mutating func restoreActivePreset_happyPath_executesRestoredCommand() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let loaded = LoadedAudioUnit.fake(component: component)
         presetProviderMock = PresetProviderMock(
@@ -272,7 +272,7 @@ struct SessionManagerTests {
         await sut.restoreActivePreset()
 
         #expect(sut.content == .loaded(loaded))
-        #expect(eventBusMock.calls == [.post(.restored)])
+        #expect(sessionCommandRouterMock.calls == [.executeRestoredCommand])
     }
 
     // MARK: - saveAsNewPreset
@@ -284,11 +284,11 @@ struct SessionManagerTests {
         sut.saveAsNewPreset(name: "anything")
 
         #expect(presetProviderMock.storedPresets.isEmpty)
-        #expect(eventBusMock.calls.isEmpty)
+        #expect(sessionCommandRouterMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndPosts() async {
+    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndExecutesSavedCommand() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let audioUnit = AUAudioUnitWrapper(fullState: Data([0xAA]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
@@ -300,7 +300,7 @@ struct SessionManagerTests {
 
         #expect(sut.activeName == "MyNew")
         #expect(presetProviderMock.currentActiveName == "MyNew")
-        #expect(eventBusMock.calls == [.post(.saved)])
+        #expect(sessionCommandRouterMock.calls == [.executeSavedCommand])
     }
 
     // MARK: - presets exposure (no longer capped at this layer)

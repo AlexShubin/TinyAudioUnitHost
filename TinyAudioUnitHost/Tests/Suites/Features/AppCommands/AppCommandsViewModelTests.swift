@@ -15,16 +15,16 @@ import Testing
 @Suite
 struct AppCommandsViewModelTests {
     var sessionMock: SessionManagerMock!
-    var eventBusMock: SessionEventBusMock!
+    var sessionCommandRouterMock: SessionCommandRouterMock!
     var sut: AppCommandsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
-        eventBusMock = SessionEventBusMock()
+        sessionCommandRouterMock = SessionCommandRouterMock()
     }
 
     mutating func createSut() {
-        sut = AppCommandsViewModel(session: sessionMock, eventBus: eventBusMock)
+        sut = AppCommandsViewModel(session: sessionMock, sessionCommandRouter: sessionCommandRouterMock)
     }
 
     // MARK: - actions
@@ -48,12 +48,12 @@ struct AppCommandsViewModelTests {
     }
 
     @Test
-    mutating func saveAs_postsSaveAsRequestedEvent() async {
+    mutating func saveAs_executesSaveAsCommand() async {
         createSut()
 
         await sut.accept(action: .saveAs)
 
-        #expect(eventBusMock.calls == [.post(.saveAsRequested)])
+        #expect(sessionCommandRouterMock.calls == [.executeSaveAsCommand])
         #expect(sessionMock.calls.isEmpty)
     }
 
