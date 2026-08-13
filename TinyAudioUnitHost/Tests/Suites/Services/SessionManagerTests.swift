@@ -24,23 +24,23 @@ struct SessionManagerTests {
     var engineMock: EngineMock!
     var presetProviderMock: PresetProviderMock!
     var setupCheckerMock: SetupCheckerMock!
-    var sessionCommandRouterMock: SessionCommandRouterMock!
+    var delegateMock: SessionManagerDelegateMock!
     var sut: SessionManagerType!
 
     init() {
         engineMock = EngineMock()
         presetProviderMock = PresetProviderMock()
         setupCheckerMock = SetupCheckerMock()
-        sessionCommandRouterMock = SessionCommandRouterMock()
+        delegateMock = SessionManagerDelegateMock()
     }
 
     mutating func createSut() {
         sut = SessionManager(
             engine: engineMock,
             presetProvider: presetProviderMock,
-            setupChecker: setupCheckerMock,
-            sessionCommandRouter: sessionCommandRouterMock
+            setupChecker: setupCheckerMock
         )
+        sut.delegate = delegateMock
     }
 
     // MARK: - start: setup gate
@@ -216,11 +216,11 @@ struct SessionManagerTests {
         sut.saveCurrentPreset()
 
         #expect(!presetProviderMock.calls.contains { if case .save = $0 { return true } else { return false } })
-        #expect(sessionCommandRouterMock.calls.isEmpty)
+        #expect(delegateMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveCurrentPreset_happyPath_savesAndExecutesSavedCommand() async {
+    mutating func saveCurrentPreset_happyPath_savesAndNotifiesDelegate() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let audioUnit = AUAudioUnitWrapper(fullState: Data([0xBE, 0xEF]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
@@ -239,7 +239,7 @@ struct SessionManagerTests {
 
         let saved = Preset(name: "foo", component: component, state: Data([0xBE, 0xEF]))
         #expect(presetProviderMock.calls.contains(.save(saved)))
-        #expect(sessionCommandRouterMock.calls == [.executeSavedCommand])
+        #expect(delegateMock.calls == [.didSavePreset])
     }
 
     // MARK: - restoreActivePreset
@@ -251,11 +251,11 @@ struct SessionManagerTests {
         await sut.restoreActivePreset()
 
         #expect(engineMock.calls == [])
-        #expect(sessionCommandRouterMock.calls.isEmpty)
+        #expect(delegateMock.calls.isEmpty)
     }
 
     @Test
-    mutating func restoreActivePreset_happyPath_executesRestoredCommand() async {
+    mutating func restoreActivePreset_happyPath_notifiesDelegate() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let loaded = LoadedAudioUnit.fake(component: component)
         presetProviderMock = PresetProviderMock(
@@ -272,7 +272,7 @@ struct SessionManagerTests {
         await sut.restoreActivePreset()
 
         #expect(sut.content == .loaded(loaded))
-        #expect(sessionCommandRouterMock.calls == [.executeRestoredCommand])
+        #expect(delegateMock.calls == [.didRestorePreset])
     }
 
     // MARK: - saveAsNewPreset
@@ -284,11 +284,11 @@ struct SessionManagerTests {
         sut.saveAsNewPreset(name: "anything")
 
         #expect(presetProviderMock.storedPresets.isEmpty)
-        #expect(sessionCommandRouterMock.calls.isEmpty)
+        #expect(delegateMock.calls.isEmpty)
     }
 
     @Test
-    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndExecutesSavedCommand() async {
+    mutating func saveAsNewPreset_happyPath_savesSetsActiveAndNotifiesDelegate() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let audioUnit = AUAudioUnitWrapper(fullState: Data([0xAA]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
@@ -300,7 +300,7 @@ struct SessionManagerTests {
 
         #expect(sut.activeName == "MyNew")
         #expect(presetProviderMock.currentActiveName == "MyNew")
-        #expect(sessionCommandRouterMock.calls == [.executeSavedCommand])
+        #expect(delegateMock.calls == [.didSavePreset])
     }
 
     // MARK: - presets exposure (no longer capped at this layer)

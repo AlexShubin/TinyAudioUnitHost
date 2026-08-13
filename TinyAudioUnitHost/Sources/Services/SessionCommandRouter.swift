@@ -10,37 +10,15 @@ import Foundation
 
 @MainActor
 protocol SessionCommandRouterType: AnyObject, Sendable {
-    func setSavedCommand(_ command: @escaping () -> Void)
-    func executeSavedCommand()
-    func setRestoredCommand(_ command: @escaping () -> Void)
-    func executeRestoredCommand()
     func setSaveAsCommand(_ command: @escaping () -> Void)
     func executeSaveAsCommand()
 }
 
 @MainActor
 final class SessionCommandRouter: SessionCommandRouterType {
-    private var savedCommand: (() -> Void)?
-    private var restoredCommand: (() -> Void)?
     private var saveAsCommand: (() -> Void)?
 
     nonisolated init() {}
-
-    func setSavedCommand(_ command: @escaping () -> Void) {
-        savedCommand = command
-    }
-
-    func executeSavedCommand() {
-        savedCommand?()
-    }
-
-    func setRestoredCommand(_ command: @escaping () -> Void) {
-        restoredCommand = command
-    }
-
-    func executeRestoredCommand() {
-        restoredCommand?()
-    }
 
     func setSaveAsCommand(_ command: @escaping () -> Void) {
         saveAsCommand = command

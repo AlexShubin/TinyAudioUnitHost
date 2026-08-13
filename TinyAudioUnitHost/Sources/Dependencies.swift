@@ -37,8 +37,7 @@ struct Dependencies: Sendable {
             session: SessionManager(
                 engine: engine.engine,
                 presetProvider: presets.presetProvider,
-                setupChecker: audioSettings.setupChecker,
-                sessionCommandRouter: sessionCommandRouter
+                setupChecker: audioSettings.setupChecker
             ),
             sessionCommandRouter: sessionCommandRouter
         )
@@ -48,8 +47,7 @@ struct Dependencies: Sendable {
         HostViewModel(
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
-            purchasesService: purchases.purchasesService,
-            sessionCommandRouter: sessionCommandRouter
+            purchasesService: purchases.purchasesService
         )
     }
 

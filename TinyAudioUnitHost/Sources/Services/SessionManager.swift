@@ -18,6 +18,7 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
     var activeName: String? { get }
     var presets: [String] { get }
+    var delegate: SessionManagerDelegate? { get set }
 
     func start() async
     func loadComponent(_ component: AudioUnitComponent) async
@@ -27,6 +28,12 @@ protocol SessionManagerType: AnyObject, Observable, Sendable {
     func saveAsNewPreset(name: String)
     func renamePreset(from: String, to: String)
     func deletePreset(name: String)
+}
+
+@MainActor
+protocol SessionManagerDelegate: AnyObject {
+    func sessionManagerDidSavePreset()
+    func sessionManagerDidRestorePreset()
 }
 
 enum HostContent: Sendable, Equatable {
@@ -57,22 +64,21 @@ final class SessionManager: SessionManagerType {
     private(set) var activeName: String?
     private(set) var presets: [String] = []
 
+    @ObservationIgnored weak var delegate: SessionManagerDelegate?
+
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let setupChecker: SetupCheckerType
-    @ObservationIgnored private let sessionCommandRouter: SessionCommandRouterType
     @ObservationIgnored private var setupListener: Task<Void, Never>?
 
     nonisolated init(
         engine: EngineType,
         presetProvider: PresetProviderType,
-        setupChecker: SetupCheckerType,
-        sessionCommandRouter: SessionCommandRouterType
+        setupChecker: SetupCheckerType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
-        self.sessionCommandRouter = sessionCommandRouter
     }
 
     deinit {
@@ -111,7 +117,7 @@ final class SessionManager: SessionManagerType {
         let preset = Preset(name: activeName, component: loaded.component, state: state)
         presetProvider.save(preset)
         presets = presetProvider.presets
-        sessionCommandRouter.executeSavedCommand()
+        delegate?.sessionManagerDidSavePreset()
     }
 
     func restoreActivePreset() async {
@@ -120,7 +126,7 @@ final class SessionManager: SessionManagerType {
         content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
-            sessionCommandRouter.executeRestoredCommand()
+            delegate?.sessionManagerDidRestorePreset()
         }
     }
 
@@ -132,7 +138,7 @@ final class SessionManager: SessionManagerType {
         presetProvider.setActive(preset.name)
         activeName = preset.name
         presets = presetProvider.presets
-        sessionCommandRouter.executeSavedCommand()
+        delegate?.sessionManagerDidSavePreset()
     }
 
     func renamePreset(from: String, to: String) {

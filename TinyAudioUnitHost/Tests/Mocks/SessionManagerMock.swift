@@ -30,6 +30,8 @@ final class SessionManagerMock: SessionManagerType {
     private(set) var presets: [String] = []
     private(set) var calls: [Calls] = []
 
+    @ObservationIgnored weak var delegate: SessionManagerDelegate?
+
     init(
         content: HostContent = .empty,
         activeName: String? = nil,

@@ -76,8 +76,7 @@ final class HostViewModel: HostViewModelType {
     init(
         library: AudioUnitComponentsLibraryType,
         session: SessionManagerType,
-        purchasesService: PurchasesServiceType,
-        sessionCommandRouter: SessionCommandRouterType
+        purchasesService: PurchasesServiceType
     ) {
         self.library = library
         self.session = session
@@ -87,12 +86,7 @@ final class HostViewModel: HostViewModelType {
                 self?.isStarFilled = value
             }
         }
-        sessionCommandRouter.setSavedCommand { [weak self] in
-            self?.feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
-        }
-        sessionCommandRouter.setRestoredCommand { [weak self] in
-            self?.feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
-        }
+        session.delegate = self
     }
 
     deinit {
@@ -119,5 +113,15 @@ final class HostViewModel: HostViewModelType {
         Dictionary(grouping: components, by: \.manufacturer)
             .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value) }
             .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
+    }
+}
+
+extension HostViewModel: SessionManagerDelegate {
+    func sessionManagerDidSavePreset() {
+        feedback = FeedbackToastViewState(id: UUID(), kind: .saved)
+    }
+
+    func sessionManagerDidRestorePreset() {
+        feedback = FeedbackToastViewState(id: UUID(), kind: .restored)
     }
 }

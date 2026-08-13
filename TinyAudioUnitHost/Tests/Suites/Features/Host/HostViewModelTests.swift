@@ -22,22 +22,19 @@ struct HostViewModelTests {
     var libraryMock: AudioUnitComponentsLibraryMock!
     var sessionMock: SessionManagerMock!
     var purchasesServiceMock: PurchasesServiceMock!
-    var sessionCommandRouterMock: SessionCommandRouterMock!
     var sut: HostViewModelType!
 
     init() {
         libraryMock = AudioUnitComponentsLibraryMock()
         sessionMock = SessionManagerMock()
         purchasesServiceMock = PurchasesServiceMock()
-        sessionCommandRouterMock = SessionCommandRouterMock()
     }
 
     mutating func createSut() {
         sut = HostViewModel(
             library: libraryMock,
             session: sessionMock,
-            purchasesService: purchasesServiceMock,
-            sessionCommandRouter: sessionCommandRouterMock
+            purchasesService: purchasesServiceMock
         )
     }
 
@@ -96,29 +93,29 @@ struct HostViewModelTests {
         #expect(sessionMock.calls == [.restoreActivePreset])
     }
 
-    // MARK: - feedback from session commands
+    // MARK: - feedback from session delegate
 
     @Test
-    mutating func init_registersSavedAndRestoredCommands() async {
+    mutating func init_registersAsSessionDelegate() async {
         createSut()
 
-        #expect(sessionCommandRouterMock.calls == [.setSavedCommand, .setRestoredCommand])
+        #expect(sessionMock.delegate === sut)
     }
 
     @Test
-    mutating func savedCommand_setsFeedbackToSaved() async {
+    mutating func didSavePreset_setsFeedbackToSaved() async {
         createSut()
 
-        sessionCommandRouterMock.savedCommand?()
+        sessionMock.delegate?.sessionManagerDidSavePreset()
 
         #expect(sut.feedback?.kind == .saved)
     }
 
     @Test
-    mutating func restoredCommand_setsFeedbackToRestored() async {
+    mutating func didRestorePreset_setsFeedbackToRestored() async {
         createSut()
 
-        sessionCommandRouterMock.restoredCommand?()
+        sessionMock.delegate?.sessionManagerDidRestorePreset()
 
         #expect(sut.feedback?.kind == .restored)
     }
@@ -126,7 +123,7 @@ struct HostViewModelTests {
     @Test
     mutating func feedbackToastTimedOut_clearsFeedback() async {
         createSut()
-        sessionCommandRouterMock.savedCommand?()
+        sessionMock.delegate?.sessionManagerDidSavePreset()
 
         await sut.accept(action: .feedbackToastAction(.timedOut))
 
