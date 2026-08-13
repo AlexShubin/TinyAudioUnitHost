@@ -15,16 +15,16 @@ import Testing
 @Suite
 struct AppCommandsViewModelTests {
     var sessionMock: SessionManagerMock!
-    var sessionCommandRouterMock: SessionCommandRouterMock!
+    var saveAsCommandMock: BindableCommandMock!
     var sut: AppCommandsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
-        sessionCommandRouterMock = SessionCommandRouterMock()
+        saveAsCommandMock = BindableCommandMock()
     }
 
     mutating func createSut() {
-        sut = AppCommandsViewModel(session: sessionMock, sessionCommandRouter: sessionCommandRouterMock)
+        sut = AppCommandsViewModel(session: sessionMock, saveAsCommand: saveAsCommandMock)
     }
 
     // MARK: - actions
@@ -53,7 +53,7 @@ struct AppCommandsViewModelTests {
 
         await sut.accept(action: .saveAs)
 
-        #expect(sessionCommandRouterMock.calls == [.executeSaveAsCommand])
+        #expect(saveAsCommandMock.calls == [.execute])
         #expect(sessionMock.calls.isEmpty)
     }
 

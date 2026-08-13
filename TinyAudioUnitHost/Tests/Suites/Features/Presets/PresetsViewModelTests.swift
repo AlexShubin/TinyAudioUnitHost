@@ -19,20 +19,20 @@ import Testing
 struct PresetsViewModelTests {
     var sessionMock: SessionManagerMock!
     var purchasesServiceMock: PurchasesServiceMock!
-    var sessionCommandRouterMock: SessionCommandRouterMock!
+    var saveAsCommandMock: BindableCommandMock!
     var sut: PresetsViewModelType!
 
     init() {
         sessionMock = SessionManagerMock()
         purchasesServiceMock = PurchasesServiceMock()
-        sessionCommandRouterMock = SessionCommandRouterMock()
+        saveAsCommandMock = BindableCommandMock()
     }
 
     mutating func createSut() {
         sut = PresetsViewModel(
             session: sessionMock,
             purchasesService: purchasesServiceMock,
-            sessionCommandRouter: sessionCommandRouterMock
+            saveAsCommandBinder: saveAsCommandMock
         )
     }
 
@@ -187,10 +187,10 @@ struct PresetsViewModelTests {
     // MARK: - save-as command
 
     @Test
-    mutating func init_registersSaveAsCommand() async {
+    mutating func init_bindsSaveAsCommand() async {
         createSut()
 
-        #expect(sessionCommandRouterMock.calls == [.setSaveAsCommand])
+        #expect(saveAsCommandMock.calls == [.bind])
     }
 
     @Test
@@ -198,7 +198,7 @@ struct PresetsViewModelTests {
         sessionMock.setPresets(["a"])
         createSut()
 
-        sessionCommandRouterMock.saveAsCommand?()
+        saveAsCommandMock.action?()
 
         #expect(sut.presentedPresetNameDialog == .saveAs)
         #expect(sut.openProWindowRequest == nil)
@@ -209,7 +209,7 @@ struct PresetsViewModelTests {
         sessionMock.setPresets(["a", "b"])
         createSut()
 
-        sessionCommandRouterMock.saveAsCommand?()
+        saveAsCommandMock.action?()
 
         #expect(sut.openProWindowRequest != nil)
         #expect(sut.presentedPresetNameDialog == nil)

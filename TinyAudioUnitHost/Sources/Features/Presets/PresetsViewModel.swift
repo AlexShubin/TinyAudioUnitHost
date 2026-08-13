@@ -53,7 +53,7 @@ final class PresetsViewModel: PresetsViewModelType {
     init(
         session: SessionManagerType,
         purchasesService: PurchasesServiceType,
-        sessionCommandRouter: SessionCommandRouterType
+        saveAsCommandBinder: CommandBinderType
     ) {
         self.session = session
         self.purchasesService = purchasesService
@@ -62,7 +62,7 @@ final class PresetsViewModel: PresetsViewModelType {
                 self?.isPro = value
             }
         }
-        sessionCommandRouter.setSaveAsCommand { [weak self] in self?.beginSaveAs() }
+        saveAsCommandBinder.bind { [weak self] in self?.beginSaveAs() }
     }
 
     deinit {
