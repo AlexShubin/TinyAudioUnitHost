@@ -28,8 +28,11 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
         self.reloadError = reloadError
     }
 
+    /// Runs while the load is in flight, before the result is returned.
+    public var onLoad: (@Sendable () async -> Void)?
     public func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
         calls.append(.load(component, state))
+        await onLoad?()
         return try loadResult.get()
     }
 

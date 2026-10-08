@@ -15,7 +15,6 @@ import PresetKit
 @MainActor @Observable
 final class SessionModelSpy: SessionModelType {
     enum Calls: Equatable, Sendable {
-        case start
         case refreshSetup
         case acknowledgePresetEvent
         case loadComponent(AudioUnitComponent)
@@ -34,7 +33,6 @@ final class SessionModelSpy: SessionModelType {
     var presets: [String] = []
     var presetEvent: PresetEvent?
 
-    func start() async { calls.append(.start) }
     func refreshSetup() async { calls.append(.refreshSetup) }
     func acknowledgePresetEvent() { calls.append(.acknowledgePresetEvent) }
     func loadComponent(_ component: AudioUnitComponent) async { calls.append(.loadComponent(component)) }

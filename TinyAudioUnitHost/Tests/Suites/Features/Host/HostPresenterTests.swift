@@ -52,16 +52,7 @@ struct HostPresenterTests {
         #expect(sut.groups.map(\.manufacturer) == ["Apple", "Korn", "Zoom"])
     }
 
-    // MARK: - start / select / save / restore (forwarding)
-
-    @Test
-    mutating func task_startsSession() async {
-        createSut()
-
-        await sut.task()
-
-        #expect(sessionSpy.calls == [.start])
-    }
+    // MARK: - select / save / restore (forwarding)
 
     @Test
     mutating func select_forwardsToSessionLoadComponent() async {

@@ -40,10 +40,31 @@ struct SessionModelTests {
         )
     }
 
-    // MARK: - start: setup gate
+    // MARK: - init
 
     @Test
-    mutating func start_unmetEmpty_loadsActivePresetWhenAvailable() async {
+    mutating func init_contentIsIdle() {
+        createSut()
+
+        #expect(sut.content == .idle)
+    }
+
+    @Test
+    mutating func init_exposesStoredPresets() {
+        presetProviderSpy = PresetProviderSpy(presets: [
+            "a": Preset.fake(name: "a"),
+            "b": Preset.fake(name: "b"),
+            "c": Preset.fake(name: "c"),
+        ])
+        createSut()
+
+        #expect(sut.presets.sorted() == ["a", "b", "c"])
+    }
+
+    // MARK: - refreshSetup: setup gate
+
+    @Test
+    mutating func refreshSetup_idle_unmetEmpty_loadsActivePresetWhenAvailable() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         let loaded = LoadedAudioUnit.fake(component: component)
         presetProviderSpy = PresetProviderSpy(
@@ -53,39 +74,39 @@ struct SessionModelTests {
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
 
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .loaded(loaded))
         #expect(sut.activeName == "foo")
         #expect(engineSpy.calls == [.load(component, Data([0x01]))])
     }
 
     @Test
-    mutating func start_unmetEmpty_noActivePreset_contentEmpty() async {
+    mutating func refreshSetup_idle_unmetEmpty_noActivePreset_contentEmpty() async {
         createSut()
 
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .empty)
         #expect(sut.activeName == nil)
         #expect(engineSpy.calls == [])
     }
 
     @Test
-    mutating func start_unmetEmpty_storedActiveStale_keepsActiveAndFails() async {
+    mutating func refreshSetup_idle_unmetEmpty_storedActiveStale_keepsActiveAndFails() async {
         presetProviderSpy = PresetProviderSpy(activeName: "ghost")
         createSut()
 
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .failed("Couldn't load this preset."))
         #expect(sut.activeName == "ghost")
         #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
     }
 
     @Test
-    mutating func start_unmetNonEmpty_contentBecomesUnmet() async {
+    mutating func refreshSetup_idle_unmetNonEmpty_contentBecomesUnmet() async {
         setupCheckerSpy.checkResult = [.microphonePermission]
         createSut()
 
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .unmet([.microphonePermission]))
     }
 
@@ -100,7 +121,7 @@ struct SessionModelTests {
         engineSpy = EngineSpy(loadResult: .success(loaded))
         setupCheckerSpy.checkResult = [.microphonePermission]
         createSut()
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .unmet([.microphonePermission]))
 
         setupCheckerSpy.checkResult = []
@@ -120,10 +141,53 @@ struct SessionModelTests {
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .loaded(loaded))
 
         setupCheckerSpy.checkResult = [.noOutputDevice]
+        await sut.refreshSetup()
+
+        #expect(sut.content == .unmet([.noOutputDevice]))
+    }
+
+    @Test
+    mutating func refreshSetup_whileLoading_doesNotStartSecondLoad() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let loaded = LoadedAudioUnit.fake(component: component)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+        let session = sut!
+        engineSpy.onLoad = {
+            #expect(await session.content == .loading)
+            await session.refreshSetup()
+        }
+
+        await sut.refreshSetup()
+
+        #expect(engineSpy.calls == [.load(component, Data())])
+        #expect(sut.content == .loaded(loaded))
+    }
+
+    @Test
+    mutating func refreshSetup_whileLoading_unmetWinsOverLoadResult() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(.fake(component: component)))
+        createSut()
+        let session = sut!
+        let setupChecker = setupCheckerSpy!
+        engineSpy.onLoad = {
+            setupChecker.checkResult = [.noOutputDevice]
+            await session.refreshSetup()
+        }
+
         await sut.refreshSetup()
 
         #expect(sut.content == .unmet([.noOutputDevice]))
@@ -211,7 +275,7 @@ struct SessionModelTests {
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .loaded(loaded))
 
         sut.saveCurrentPreset()
@@ -243,7 +307,7 @@ struct SessionModelTests {
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
-        await sut.start()
+        await sut.refreshSetup()
         #expect(sut.content == .loaded(loaded))
 
         await sut.restoreActivePreset()
@@ -282,20 +346,6 @@ struct SessionModelTests {
 
     // MARK: - presets exposure (no longer capped at this layer)
 
-    @Test
-    mutating func presets_exposesAllStoredPresetsRegardlessOfCount() async {
-        presetProviderSpy = PresetProviderSpy(presets: [
-            "a": Preset.fake(name: "a"),
-            "b": Preset.fake(name: "b"),
-            "c": Preset.fake(name: "c"),
-        ])
-        createSut()
-        await sut.start()
-        #expect(sut.content == .empty)
-
-        #expect(sut.presets.sorted() == ["a", "b", "c"])
-    }
-
     // MARK: - acknowledgePresetEvent
 
     @Test
@@ -308,7 +358,7 @@ struct SessionModelTests {
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
-        await sut.start()
+        await sut.refreshSetup()
         sut.saveCurrentPreset()
         #expect(sut.presetEvent?.kind == .saved)
 

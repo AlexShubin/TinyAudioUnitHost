@@ -95,14 +95,12 @@ final class SessionModel: SessionModelType {
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
-        content = .loading
         await load(component: component, state: nil)
     }
 
     func selectPreset(name: String) async {
         presetProvider.setActive(name)
         activeName = name
-        content = .loading
         await loadActivePreset()
     }
 
@@ -119,7 +117,6 @@ final class SessionModel: SessionModelType {
     func restoreActivePreset() async {
         guard let activeName,
               let saved = presetProvider.load(name: activeName) else { return }
-        content = .loading
         await load(component: saved.component, state: saved.state)
         if case .loaded = content {
             presetEvent = PresetEvent(id: UUID(), kind: .restored)
@@ -176,6 +173,7 @@ final class SessionModel: SessionModelType {
     }
 
     private func load(component: AudioUnitComponent, state: Data?) async {
+        content = .loading
         let result: HostContent
         do {
             result = .loaded(try await engine.load(component: component, state: state))

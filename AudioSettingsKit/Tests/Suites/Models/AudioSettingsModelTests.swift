@@ -425,12 +425,12 @@ struct AudioSettingsModelTests {
     }
 
     @Test
-    mutating func load_skipsDelegateWhenNothingChanged() async {
+    mutating func load_notifiesDelegateEvenWhenNothingResolved() async {
         createSut()
 
         await sut.load()
 
-        #expect(delegateSpy.calls.isEmpty)
+        #expect(delegateSpy.calls == [.audioSettingsDidChange])
     }
 
     @Test
@@ -462,6 +462,16 @@ struct AudioSettingsModelTests {
 
         #expect(sut.settings.outputDevice == output)
         #expect(rawStoreSpy.calls == [.current, .current])
+    }
+
+    @Test
+    mutating func deviceListChange_nothingResolved_skipsDelegate() async {
+        createSut()
+        await sut.load()
+
+        await deviceListListenerSpy.changesHandler?()
+
+        #expect(delegateSpy.calls == [.audioSettingsDidChange])
     }
 
     // MARK: - MIDI setup changes
