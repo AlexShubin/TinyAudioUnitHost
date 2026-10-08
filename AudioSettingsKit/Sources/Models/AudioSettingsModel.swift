@@ -58,7 +58,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         self.midiDevicesProvider = midiDevicesProvider
         self.targetResolver = targetResolver
         deviceListObservation = deviceListChangeListener.observeChanges { [weak self] in
-            await self?.load()
+            await self?.rescanDevices()
         }
         // Must be the process's first CoreMIDI call, made on the main run loop,
         // otherwise the process would never receive another MIDI notification.
@@ -68,10 +68,9 @@ final class AudioSettingsModel: AudioSettingsModelType {
     }
 
     func load() async {
-        devices = await devicesProvider.scanDevices()
-        inputDevices = devices.filter { !$0.inputChannels.isEmpty && !$0.isHiddenFromPicker }
-        outputDevices = devices.filter { !$0.outputChannels.isEmpty && !$0.isHiddenFromPicker }
-        await apply(rawStore.current)
+        await scanDevices()
+        resolve(rawStore.current)
+        await delegate?.audioSettingsDidChange()
     }
 
     func save(_ settings: AudioSettings) async {
@@ -80,19 +79,34 @@ final class AudioSettingsModel: AudioSettingsModelType {
         await apply(raw)
     }
 
+    private func rescanDevices() async {
+        await scanDevices()
+        await apply(rawStore.current)
+    }
+
     private func refreshMidiDevices() async {
         await apply(rawStore.current)
     }
 
+    private func scanDevices() async {
+        devices = await devicesProvider.scanDevices()
+        inputDevices = devices.filter { !$0.inputChannels.isEmpty && !$0.isHiddenFromPicker }
+        outputDevices = devices.filter { !$0.outputChannels.isEmpty && !$0.isHiddenFromPicker }
+    }
+
     private func apply(_ raw: RawAudioSettings) async {
         let previous = (settings, targetDevice)
+        resolve(raw)
+        guard previous != (settings, targetDevice) else { return }
+        await delegate?.audioSettingsDidChange()
+    }
+
+    private func resolve(_ raw: RawAudioSettings) {
         midiDevices = midiDevicesProvider.devices
         let loaded = AudioSettings(raw: raw, devices: devices, midiDevices: midiDevices)
         let device = targetResolver.resolve(loaded)
         settings = loaded.defaulting(to: device)
         targetDevice = device
-        guard previous != (settings, targetDevice) else { return }
-        await delegate?.audioSettingsDidChange()
     }
 }
 

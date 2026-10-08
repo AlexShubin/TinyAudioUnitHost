@@ -24,9 +24,6 @@ struct HostView: View {
         .overlay(alignment: .top) { feedbackOverlay }
         .animation(.snappy, value: presenter.feedback != nil)
         .toolbar { toolbarContent }
-        .task {
-            await presenter.task()
-        }
     }
 
     @ViewBuilder
@@ -36,7 +33,7 @@ struct HostView: View {
             SetupChecklistView(unmet: unmet)
         case .empty:
             EmptySelectionView()
-        case .loading:
+        case .idle, .loading:
             LoadingView()
         case .loaded(let audioUnit):
             AudioUnitView(audioUnit: audioUnit)

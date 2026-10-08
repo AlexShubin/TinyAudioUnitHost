@@ -20,7 +20,6 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
 
-    func start() async
     func acknowledgePresetEvent()
     func refreshSetup() async
     func loadComponent(_ component: AudioUnitComponent) async
@@ -43,6 +42,7 @@ struct PresetEvent: Sendable, Equatable {
 }
 
 enum HostContent: Sendable, Equatable {
+    case idle
     case unmet(Set<SetupRequirement>)
     case empty
     case loading
@@ -54,19 +54,19 @@ enum HostContent: Sendable, Equatable {
         return false
     }
 
-    /// True for states the user can act on from the UI. False for transient
-    /// (.loading) and blocked (.unmet) states where input should be disabled.
+    /// True for states the user can act on from the UI. False before setup
+    /// is checked (.idle), while loading, and when blocked (.unmet).
     var isOperable: Bool {
         switch self {
         case .empty, .loaded, .failed: return true
-        case .loading, .unmet: return false
+        case .idle, .loading, .unmet: return false
         }
     }
 }
 
 @MainActor @Observable
 final class SessionModel: SessionModelType {
-    private(set) var content: HostContent = .loading
+    private(set) var content: HostContent = .idle
     private(set) var activeName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
@@ -83,10 +83,6 @@ final class SessionModel: SessionModelType {
         self.engine = engine
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
-    }
-
-    func start() async {
-        await refreshSetup()
         presets = presetProvider.presets
     }
 
@@ -159,10 +155,10 @@ final class SessionModel: SessionModelType {
             return
         }
         switch content {
-        case .loading, .unmet:
+        case .idle, .unmet:
             activeName = presetProvider.activeName
             await loadActivePreset()
-        case .empty, .loaded, .failed:
+        case .loading, .empty, .loaded, .failed:
             break
         }
     }
@@ -180,11 +176,14 @@ final class SessionModel: SessionModelType {
     }
 
     private func load(component: AudioUnitComponent, state: Data?) async {
+        let result: HostContent
         do {
-            let loaded = try await engine.load(component: component, state: state)
-            content = .loaded(loaded)
+            result = .loaded(try await engine.load(component: component, state: state))
         } catch {
-            content = .failed(error.message)
+            result = .failed(error.message)
+        }
+        if case .loading = content {
+            content = result
         }
     }
 }

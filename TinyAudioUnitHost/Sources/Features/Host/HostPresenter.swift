@@ -59,10 +59,6 @@ final class HostPresenter {
         self.purchases = purchases
     }
 
-    func task() async {
-        await session.start()
-    }
-
     func select(_ component: AudioUnitComponent) async {
         await session.loadComponent(component)
     }
