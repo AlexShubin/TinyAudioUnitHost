@@ -313,6 +313,34 @@ struct EngineTests {
         #expect(midiManagerSpy.calls.isEmpty)
     }
 
+    @Test
+    mutating func reload_withoutAudioUnit_leavesEngineUntouched() async {
+        createSut()
+
+        try? await sut.reload()
+
+        #expect(avEngineSpy.calls == [.attach(inputMixerSpy)])
+    }
+
+    @Test
+    mutating func reload_withAudioUnit_rebindsAndRestarts() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
+        let callsAfterLoad = avEngineSpy.calls
+
+        try await sut.reload()
+
+        #expect(Array(avEngineSpy.calls.dropFirst(callsAfterLoad.count)) == [
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerSpy),
+            .disconnectHardwareInput,
+            .start
+        ])
+    }
+
 }
 
 // MARK: - Test fixtures

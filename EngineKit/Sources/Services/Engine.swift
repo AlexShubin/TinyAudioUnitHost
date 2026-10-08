@@ -71,6 +71,7 @@ final actor Engine: EngineType {
     }
 
     func reload() async throws(EngineLoadError) {
+        guard currentAVAudioUnit != nil else { return }
         engine.stop()
         disconnect()
         try await applyConnections()
