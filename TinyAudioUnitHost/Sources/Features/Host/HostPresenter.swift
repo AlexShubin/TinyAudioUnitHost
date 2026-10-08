@@ -7,25 +7,8 @@
 //
 
 import AudioUnitsKit
+import Observation
 import PurchasesKit
-
-@MainActor
-protocol HostPresenterType {
-    var groups: [ManufacturerGroup] { get }
-    var content: HostContent { get }
-    var feedback: FeedbackToastViewState? { get }
-    var presetLabel: String { get }
-    var audioUnitTitle: String { get }
-    var isAudioUnitPickerDisabled: Bool { get }
-    var isSaveButtonDisabled: Bool { get }
-    var isRestoreButtonDisabled: Bool { get }
-    var isStarFilled: Bool { get }
-    func task() async
-    func select(_ component: AudioUnitComponent) async
-    func savePreset()
-    func restorePreset() async
-    func feedbackTimedOut()
-}
 
 struct ManufacturerGroup: Identifiable, Hashable {
     let manufacturer: String
@@ -34,8 +17,8 @@ struct ManufacturerGroup: Identifiable, Hashable {
     var id: String { manufacturer }
 }
 
-@MainActor
-struct HostPresenter: HostPresenterType {
+@MainActor @Observable
+final class HostPresenter {
     var groups: [ManufacturerGroup] {
         Dictionary(grouping: library.components, by: \.manufacturer)
             .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value) }

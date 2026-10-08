@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    let presenter: SettingsPresenterType
+    @State var presenter: SettingsPresenter
 
     var body: some View {
         HStack {

@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    let presenter: AppCommandsPresenterType
+    let presenter: AppCommandsPresenter
 
     var body: some Commands {
         CommandGroup(replacing: .saveItem) {

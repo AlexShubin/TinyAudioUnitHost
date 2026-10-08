@@ -7,20 +7,11 @@
 //
 
 import Foundation
+import Observation
 import PurchasesKit
 
-@MainActor
-protocol PurchasesPresenterType {
-    var isPro: Bool { get }
-    var isBusy: Bool { get }
-    var priceLabel: String? { get }
-    var errorMessage: String? { get }
-    func buy() async
-    func restore() async
-}
-
-@MainActor
-struct PurchasesPresenter: PurchasesPresenterType {
+@MainActor @Observable
+final class PurchasesPresenter {
     var isPro: Bool { purchases.state.isPro }
     var isBusy: Bool { purchases.state == .loading }
     var priceLabel: String? { purchases.productInfo?.displayPrice }

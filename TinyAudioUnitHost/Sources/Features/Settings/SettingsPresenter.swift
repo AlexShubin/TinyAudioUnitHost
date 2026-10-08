@@ -7,25 +7,10 @@
 //
 
 import AudioSettingsKit
+import Observation
 
-@MainActor
-protocol SettingsPresenterType {
-    var inputState: DevicePickerState { get }
-    var outputState: DevicePickerState { get }
-    var midiState: MidiDevicePickerState { get }
-    var bufferSize: UInt32? { get }
-    var availableBufferSizes: [UInt32] { get }
-    var sampleRate: Float64? { get }
-    var availableSampleRates: [Float64] { get }
-    func handleInput(_ action: DevicePickerViewAction) async
-    func handleOutput(_ action: DevicePickerViewAction) async
-    func handleMidi(_ action: MidiDevicePickerViewAction) async
-    func selectBufferSize(_ size: UInt32) async
-    func selectSampleRate(_ rate: Float64) async
-}
-
-@MainActor
-struct SettingsPresenter: SettingsPresenterType {
+@MainActor @Observable
+final class SettingsPresenter {
     var inputState: DevicePickerState {
         DevicePickerState(
             devices: audioSettings.inputDevices,

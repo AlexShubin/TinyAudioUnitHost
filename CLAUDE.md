@@ -27,7 +27,7 @@
 
 - **Models own state, presenters project it, views render it.** Three layers, one job each:
   - A **model** (`*Model`, e.g. `PurchasesModel`) is a `@MainActor @Observable` class that owns one domain's state and is its single source of truth. It exposes that state as observed properties — ideally one `enum` (`PurchasesState`) in which contradictory combinations are unrepresentable — plus the operations that change it. Operations return `Void`; outcomes land in the state, never in return values. Models live for the app's lifetime and are wired through `Dependencies`. Everything around a model is a stateless service: gateways, providers, stores.
-  - A **presenter** (`*Presenter`) sits between a view and one or more models. It projects model state into exactly what the view renders (`var isPro: Bool { purchases.state.isPro }`, `var errorMessage: String?`) and forwards view actions to model operations. **A presenter stores nothing** — every value it exposes is a computed `var` over a model, so there is one source of truth and nothing to keep in sync. Navigation state (a presented dialog, a window-open request) lives in `NavigationModel`, one optional destination enum per presenting view (`presetsDestination: PresetsDestination?`); the presenting view's presenter projects it and the presented view's presenter clears it. Transient input the user is still typing (a text field's draft) is view `@State`, passed to the presenter as a parameter (`errorMessage(for: name)`, `commit(name:)`). A presenter is a `@MainActor struct` held as `let presenter` by its view.
+  - A **presenter** (`*Presenter`) sits between a view and one or more models. It projects model state into exactly what the view renders (`var isPro: Bool { purchases.state.isPro }`, `var errorMessage: String?`) and forwards view actions to model operations. **A presenter owns only state nobody outside its view can see.** Everything that mirrors a model is a computed `var` over that model, so there is one source of truth and nothing to keep in sync. State that exists only while the view is on screen — a text field's draft (`var name: String`), what the view is presenting — is a stored `var` on the presenter, so the view can bind to it (`$presenter.name`). Navigation is the presenting view's presenter's state: one private optional destination enum (`destination: PresetsDestination?`) so contradictory combinations are unrepresentable, exposed as settable projections the view binds (`var presentedDialog: PresetNameDialogMode? { get set }` into `.sheet(item:)`). The decision that picks a destination (free tier → Pro window instead of the dialog) lives next to it in `saveAs()`. The presented view's presenter flips `private(set) var isDismissed` when it's done; its view watches it with `.onChange` and calls the environment's `dismiss`, which clears the presenting presenter's destination through the sheet binding. Neither side knows the other. A menu command reaches a view's presenter through a `BindableCommand` held in `Dependencies`: the presenter binds its handler in `init` with `[weak self]`, the commands presenter executes it. A presenter is a `@MainActor @Observable final class`.
   - A **view** reads `presenter.foo` and calls `presenter.buy()`. Presentation only.
 - **Presenters live and die with their view.** A presenter is held *only* by the view that renders it. Never stash one in App-scope `@State`, an `NSApplicationDelegate`, an environment value, a singleton, or any object that outlives the view. Anything that must outlive the view — cached data, in-flight async work, an AU reference for a quit-time persist — belongs in a model or service the presenter talks to via DI, never the other way around. Non-view consumers (AppDelegate, services) read model state, never a presenter.
 - **Models register observers in `init` and expose `load()` for initial async state.** A foreign-world subscription (`Transaction.updates`) is registered in the model's `init` through the gateway's callback primitive; the returned `Cancellation` is stored so the subscription dies with the model, and the closure captures `self` weakly. Initial async state (products, entitlements) is fetched by `func load() async`, called from `AppDelegate`'s launch hook. No `Task { }` inside a model.
@@ -36,7 +36,7 @@
 - Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
 - **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, presenters) consume the resolved types and never see UIDs.
 - **Stateless services are structs, not actors.** When a service holds only `let` references to injected dependencies and doesn't cache anything between calls (e.g. `RawPresetStore`, `PresetProvider`), declare it as `struct` (or `final class` if reference semantics are needed) and keep its protocol sync. The spy follows: `final class @unchecked Sendable`, not `actor`. Reserve `actor` for types that actually own mutable state — caching loaded data (e.g. `RawSettingsStore` caches `RawAudioSettings`), serializing concurrent access to shared state, or composing async work. Drop `actor` on sight whenever it isn't earned — async-from-outside, isolation, and forced `await` cost everyone time when no suspension is happening.
-- **Protocols are for services and models (injected); entities stay concrete types.** A `*Type` protocol + spy earns its place only for a *service* or a *model* — a collaborator wired through a module's `Dependencies` and injected at the composition root (gateways, providers, stores, models). There's exactly one construction site, so substituting a spy there is a clean seam. It does **not** work for *entities* — types you create on the fly and pass around (an audio unit, a `LoadedAudioUnit`, a loaded document). They have many construction sites and no injection seam, so wrapping them in a protocol just buys friction: `any` existentials everywhere, no natural `Equatable`/`Sendable`, and spies that must be threaded through every caller instead of registered once. Keep those concrete; for tests give the concrete type a cheap construction path — a `fake(...)` or a headless init (e.g. `AUAudioUnitWrapper(fullState:)`) — not a protocol + spy. Rule of thumb: if you can't register it in `Dependencies` and inject it, it shouldn't be a protocol. (When the concrete type wraps a foreign one that can't be cleanly constructed, the wrapper *is* the seam — see `AUAudioUnitWrapper`.)
+- **Protocols are for services and models (injected); entities and presenters stay concrete types.** A `*Type` protocol + spy earns its place only for a *service* or a *model* — a collaborator wired through a module's `Dependencies` and injected at the composition root (gateways, providers, stores, models). A presenter is constructed by a `Dependencies` factory but never injected anywhere; its tests substitute the models behind it. There's exactly one construction site, so substituting a spy there is a clean seam. It does **not** work for *entities* — types you create on the fly and pass around (an audio unit, a `LoadedAudioUnit`, a loaded document). They have many construction sites and no injection seam, so wrapping them in a protocol just buys friction: `any` existentials everywhere, no natural `Equatable`/`Sendable`, and spies that must be threaded through every caller instead of registered once. Keep those concrete; for tests give the concrete type a cheap construction path — a `fake(...)` or a headless init (e.g. `AUAudioUnitWrapper(fullState:)`) — not a protocol + spy. Rule of thumb: if you can't register it in `Dependencies` and inject it, it shouldn't be a protocol. (When the concrete type wraps a foreign one that can't be cleanly constructed, the wrapper *is* the seam — see `AUAudioUnitWrapper`.)
 
 ## Code Style
 
@@ -50,7 +50,7 @@
   //  Copyright © YYYY Alex Shubin. All rights reserved.
   //
   ```
-- Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostPresenterType` over `let sut: any HostPresenterType`.
+- Avoid using `any` with protocol types when it's not required. Prefer `let engine: EngineType` over `let engine: any EngineType`.
 - Don't write explicit `Sendable` conformance on internal value types whose stored members are all `Sendable` — the compiler infers it (`enum StorePurchaseOutcome { … }`, not `enum StorePurchaseOutcome: Sendable { … }`). Keep explicit `Sendable` for public types (where it's part of the API contract) and for `@unchecked Sendable` spies. Same for `Identifiable` and similar — don't conform to a protocol the type isn't actually used through.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
 - **Use typed throws.** Every throwing function declares its concrete error type — `throws(SomeError)` — not bare `throws`. This applies to protocol requirements, public APIs, and internal helpers. Bare `throws` is only OK when the function is a thin wrapper that intentionally accepts `any Error` (e.g., a `logging` helper that catches and logs). If you have to translate an upstream untyped throw into a domain error, do it where the upstream is called (`do { try foreign() } catch { throw DomainError.specific }`) so the function's signature stays typed. Spies must match the protocol's typed throws — `throws(DomainError)`, not bare `throws`.
@@ -90,12 +90,12 @@ Phase / mode enums specific to one view live alongside the presenter in the same
 
 ### Top-level feature views (own a presenter)
 
-The view holds its presenter as `let presenter: <View>PresenterType`. The presenter exposes what the view renders as properties and one `func` per view event (`buy()`, `restore()`, `selectPreset(name:)`). A func is `async` only when it awaits something; a sync event handler stays sync so the view doesn't pay an actor hop for nothing. No `accept(action:)` funnel on presenters — a `switch` over an action enum just adds a hop and a second vocabulary for the same calls.
+Presenters are concrete classes with no `*Type` protocol: they sit in the same target as their view and tests drive them through model spies, so a protocol would only buy an existential. The view holds its presenter as `@State var presenter: <View>Presenter`, seeded through the memberwise init, so it survives the parent's re-renders. Presenter state binds directly: `$presenter.name`, `.sheet(item: $presenter.presentedDialog)`. The presenter exposes what the view renders as properties and one `func` per view event (`buy()`, `restore()`, `selectPreset(name:)`). A func is `async` only when it awaits something; a sync event handler stays sync so the view doesn't pay an actor hop for nothing. No `accept(action:)` funnel on presenters — a `switch` over an action enum just adds a hop and a second vocabulary for the same calls.
 
 ```swift
 // PurchasesView.swift
 struct PurchasesView: View {
-    let presenter: PurchasesPresenterType
+    @State var presenter: PurchasesPresenter
 
     var body: some View {
         Text(presenter.priceLabel ?? "")
@@ -105,17 +105,8 @@ struct PurchasesView: View {
 }
 
 // PurchasesPresenter.swift
-@MainActor
-protocol PurchasesPresenterType {
-    var isPro: Bool { get }
-    var isBusy: Bool { get }
-    var priceLabel: String? { get }
-    func buy() async
-    func restore() async
-}
-
-@MainActor
-struct PurchasesPresenter: PurchasesPresenterType {
+@MainActor @Observable
+final class PurchasesPresenter {
     var isPro: Bool { purchases.state.isPro }
     var isBusy: Bool { purchases.state == .loading }
     var priceLabel: String? { purchases.productInfo?.displayPrice }
@@ -136,7 +127,7 @@ struct PurchasesPresenter: PurchasesPresenterType {
 }
 ```
 
-Observation flows through the model: the presenter's computed vars read the model's observed properties during `body`, so the view re-renders on model changes without the presenter being `@Observable`.
+Observation flows through the model for projected state: the presenter's computed vars read the model's observed properties during `body`, so the view re-renders on model changes. Stored presenter state is observed directly.
 
 `@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap a model's whole state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
 

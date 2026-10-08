@@ -9,13 +9,8 @@
 import SwiftUI
 
 struct PresetNameDialogView: View {
-    let presenter: PresetNameDialogPresenterType
-    @State private var name: String
-
-    init(presenter: PresetNameDialogPresenterType) {
-        self.presenter = presenter
-        _name = State(initialValue: presenter.initialName)
-    }
+    @State var presenter: PresetNameDialogPresenter
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 20) {
@@ -27,11 +22,11 @@ struct PresetNameDialogView: View {
                 .padding(.top, 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Preset Name", text: $name)
+                TextField("Preset Name", text: $presenter.name)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
-                    .onSubmit { presenter.commit(name: name) }
-                if let message = presenter.errorMessage(for: name) {
+                    .onSubmit { presenter.commit() }
+                if let message = presenter.errorMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -43,13 +38,16 @@ struct PresetNameDialogView: View {
                 Button("Cancel", role: .cancel) { presenter.cancel() }
                     .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(presenter.commitLabel) { presenter.commit(name: name) }
+                Button(presenter.commitLabel) { presenter.commit() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!presenter.canCommit(name: name))
+                    .disabled(!presenter.canCommit)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
         .frame(width: 440)
+        .onChange(of: presenter.isDismissed) { _, isDismissed in
+            if isDismissed { dismiss() }
+        }
     }
 }

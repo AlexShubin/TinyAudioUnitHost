@@ -6,18 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Foundation
+import Observation
 import PresetKit
-
-@MainActor
-protocol PresetNameDialogPresenterType {
-    var initialName: String { get }
-    var commitLabel: String { get }
-    func errorMessage(for name: String) -> String?
-    func canCommit(name: String) -> Bool
-    func commit(name: String)
-    func cancel()
-}
 
 enum PresetNameDialogMode: Sendable, Equatable, Hashable, Identifiable {
     case saveAs
@@ -26,14 +16,10 @@ enum PresetNameDialogMode: Sendable, Equatable, Hashable, Identifiable {
     var id: Self { self }
 }
 
-@MainActor
-struct PresetNameDialogPresenter: PresetNameDialogPresenterType {
-    var initialName: String {
-        switch mode {
-        case .saveAs: return ""
-        case .rename(let currentName): return currentName
-        }
-    }
+@MainActor @Observable
+final class PresetNameDialogPresenter {
+    var name: String
+    private(set) var isDismissed = false
 
     var commitLabel: String {
         switch mode {
@@ -42,52 +28,52 @@ struct PresetNameDialogPresenter: PresetNameDialogPresenterType {
         }
     }
 
+    var errorMessage: String? { validationError?.displayMessage }
+    var canCommit: Bool { validationError == nil }
+
     private let mode: PresetNameDialogMode
     private let session: SessionModelType
     private let validator: PresetNameValidatorType
-    private let navigation: NavigationModelType
+
+    private var validationError: PresetNameError? {
+        validator.validate(name: name, for: mode.validationMode)
+    }
 
     init(
         mode: PresetNameDialogMode,
         session: SessionModelType,
-        validator: PresetNameValidatorType,
-        navigation: NavigationModelType
+        validator: PresetNameValidatorType
     ) {
+        self.name = mode.initialName
         self.mode = mode
         self.session = session
         self.validator = validator
-        self.navigation = navigation
     }
 
-    func errorMessage(for name: String) -> String? {
-        validate(name)?.displayMessage
-    }
-
-    func canCommit(name: String) -> Bool {
-        validate(name) == nil
-    }
-
-    func commit(name: String) {
-        guard validate(name) == nil else { return }
+    func commit() {
+        guard canCommit else { return }
         switch mode {
         case .saveAs:
             session.saveAsNewPreset(name: name)
         case .rename(let currentName):
             session.renamePreset(from: currentName, to: name)
         }
-        navigation.presetsDestination = nil
+        isDismissed = true
     }
 
     func cancel() {
-        navigation.presetsDestination = nil
-    }
-
-    private func validate(_ name: String) -> PresetNameError? {
-        validator.validate(name: name, for: mode.validationMode)
+        isDismissed = true
     }
 }
 
 private extension PresetNameDialogMode {
+    var initialName: String {
+        switch self {
+        case .saveAs: return ""
+        case .rename(let currentName): return currentName
+        }
+    }
+
     var validationMode: ValidationMode {
         switch self {
         case .saveAs: return .saveAs

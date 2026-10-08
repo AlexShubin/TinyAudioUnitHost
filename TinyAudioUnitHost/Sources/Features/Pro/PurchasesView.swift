@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct PurchasesView: View {
-    let presenter: PurchasesPresenterType
+    @State var presenter: PurchasesPresenter
 
     var body: some View {
         VStack(spacing: 24) {

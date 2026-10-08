@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct HostView: View {
-    let presenter: HostPresenterType
+    @State var presenter: HostPresenter
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

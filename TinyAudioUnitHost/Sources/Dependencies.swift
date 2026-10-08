@@ -21,7 +21,6 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionModelType
-    let navigation: NavigationModelType
     let audioSettingsObserver: AudioSettingsObserverType
     let saveAsCommand: BindableCommand
 
@@ -42,7 +41,6 @@ struct Dependencies: Sendable {
             presets: presets,
             purchases: purchases,
             session: session,
-            navigation: NavigationModel(),
             audioSettingsObserver: AudioSettingsObserver(
                 audioSettings: audioSettings.audioSettingsModel,
                 engine: engine.engine,
@@ -53,7 +51,7 @@ struct Dependencies: Sendable {
         )
     }()
 
-    func makeHostPresenter() -> HostPresenterType {
+    func makeHostPresenter() -> HostPresenter {
         HostPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
@@ -61,38 +59,34 @@ struct Dependencies: Sendable {
         )
     }
 
-    func makePresetsPresenter() -> PresetsPresenterType {
+    func makePresetsPresenter() -> PresetsPresenter {
         PresetsPresenter(
             session: session,
             purchases: purchases.purchasesModel,
-            navigation: navigation,
             saveAsCommandBinder: saveAsCommand
         )
     }
 
-    func makeAppCommandsPresenter() -> AppCommandsPresenterType {
+    func makeAppCommandsPresenter() -> AppCommandsPresenter {
         AppCommandsPresenter(
             session: session,
             saveAsCommand: saveAsCommand
         )
     }
 
-    func makePresetNameDialogPresenter(
-        mode: PresetNameDialogMode
-    ) -> PresetNameDialogPresenterType {
+    func makePresetNameDialogPresenter(mode: PresetNameDialogMode) -> PresetNameDialogPresenter {
         PresetNameDialogPresenter(
             mode: mode,
             session: session,
-            validator: presets.presetNameValidator,
-            navigation: navigation
+            validator: presets.presetNameValidator
         )
     }
 
-    func makeSettingsPresenter() -> SettingsPresenterType {
+    func makeSettingsPresenter() -> SettingsPresenter {
         SettingsPresenter(audioSettings: audioSettings.audioSettingsModel)
     }
 
-    func makePurchasesPresenter() -> PurchasesPresenterType {
+    func makePurchasesPresenter() -> PurchasesPresenter {
         PurchasesPresenter(purchases: purchases.purchasesModel)
     }
 }
