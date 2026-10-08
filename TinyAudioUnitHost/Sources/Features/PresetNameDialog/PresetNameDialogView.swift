@@ -11,6 +11,7 @@ import SwiftUI
 struct PresetNameDialogView: View {
     @State var presenter: PresetNameDialogPresenter
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -24,12 +25,14 @@ struct PresetNameDialogView: View {
             VStack(alignment: .leading, spacing: 4) {
                 TextField("Preset Name", text: $presenter.name)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isNameFocused)
                     .font(.title3)
                     .onSubmit { presenter.commit() }
                 if let message = presenter.errorMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
+                        .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 24)
@@ -46,6 +49,7 @@ struct PresetNameDialogView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 440)
+        .onAppear { isNameFocused = true }
         .onChange(of: presenter.isDismissed) { _, isDismissed in
             if isDismissed { dismiss() }
         }
