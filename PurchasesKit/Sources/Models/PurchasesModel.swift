@@ -34,8 +34,7 @@ final class PurchasesModel: PurchasesModelType {
         self.gateway = gateway
         updatesObservation = gateway.observeTransactionUpdates { [weak self] transaction in
             await transaction.finish()
-            guard let self, await state != .loading else { return }
-            await updateState()
+            await self?.updateState()
         }
     }
 

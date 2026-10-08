@@ -243,12 +243,12 @@ struct PurchasesModelTests {
     }
 
     @Test
-    mutating func transactionUpdateWhileLoadingOnlyFinishesTransaction() async {
+    mutating func transactionUpdateWhileLoadingStillUpdatesState() async {
         createSut()
         let transaction = StoreTransactionSpy(productID: PurchasesModel.proProductID)
         gatewaySpy.currentEntitlementsResult = [transaction]
         await gatewaySpy.transactionUpdatesHandler?(transaction)
         #expect(transaction.calls == [.finish])
-        #expect(sut.state == .loading)
+        #expect(sut.state == .pro)
     }
 }

@@ -197,8 +197,17 @@ struct PresetsPresenterTests {
     // MARK: - save-as command
 
     @Test
-    mutating func init_bindsSaveAsCommand() async {
+    mutating func init_doesNotBindSaveAsCommand() async {
         createSut()
+
+        #expect(saveAsCommandSpy.calls.isEmpty)
+    }
+
+    @Test
+    mutating func task_bindsSaveAsCommand() async {
+        createSut()
+
+        sut.task()
 
         #expect(saveAsCommandSpy.calls == [.bind])
     }
@@ -207,6 +216,7 @@ struct PresetsPresenterTests {
     mutating func saveAsCommand_freeBelowCap_presentsSaveAsDialog() async {
         sessionSpy.presets = ["a"]
         createSut()
+        sut.task()
 
         saveAsCommandSpy.action?()
 
@@ -218,6 +228,7 @@ struct PresetsPresenterTests {
     mutating func saveAsCommand_freeAtCap_requestsProWindow() async {
         sessionSpy.presets = ["a", "b"]
         createSut()
+        sut.task()
 
         saveAsCommandSpy.action?()
 

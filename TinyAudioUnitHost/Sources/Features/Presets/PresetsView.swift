@@ -52,6 +52,7 @@ struct PresetsView: View {
         }
         .listStyle(.sidebar)
         .disabled(presenter.isInteractionDisabled)
+        .task { presenter.task() }
         .sheet(item: $presenter.presentedDialog) { mode in
             PresetNameDialogView(
                 presenter: dependencies.makePresetNameDialogPresenter(mode: mode)

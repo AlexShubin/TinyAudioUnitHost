@@ -38,6 +38,7 @@ final class PresetsPresenter {
     private var destination: PresetsDestination?
     private let session: SessionModelType
     private let purchases: PurchasesModelType
+    private let saveAsCommandBinder: CommandBinderType
 
     init(
         session: SessionModelType,
@@ -46,6 +47,10 @@ final class PresetsPresenter {
     ) {
         self.session = session
         self.purchases = purchases
+        self.saveAsCommandBinder = saveAsCommandBinder
+    }
+
+    func task() {
         saveAsCommandBinder.bind { [weak self] in self?.saveAs() }
     }
 
