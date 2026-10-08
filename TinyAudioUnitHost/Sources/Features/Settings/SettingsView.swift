@@ -12,64 +12,69 @@ struct SettingsView: View {
     @State var presenter: SettingsPresenter
 
     var body: some View {
-        HStack {
-            Form {
-                DevicePickerView(
-                    kind: .input,
-                    state: presenter.inputState,
-                    onAction: { action in
-                        Task { await presenter.handleInput(action) }
-                    }
-                )
-                MidiDevicePickerView(
-                    state: presenter.midiState,
-                    onAction: { action in
-                        Task { await presenter.handleMidi(action) }
-                    }
-                )
-            }
-            .formStyle(.grouped)
-            Form {
-                DevicePickerView(
-                    kind: .output,
-                    state: presenter.outputState,
-                    onAction: { action in
-                        Task { await presenter.handleOutput(action) }
-                    }
-                )
-                Picker(
-                    "Sample Rate:",
-                    selection: Binding<Float64?>(
-                        get: { presenter.sampleRate },
-                        set: { rate in
-                            guard let rate else { return }
-                            Task { await presenter.selectSampleRate(rate) }
+        ScrollView {
+            HStack(alignment: .top) {
+                Form {
+                    DevicePickerView(
+                        kind: .input,
+                        state: presenter.inputState,
+                        onAction: { action in
+                            Task { await presenter.handleInput(action) }
                         }
                     )
-                ) {
-                    ForEach(presenter.availableSampleRates, id: \.self) { rate in
-                        Text(formatSampleRate(rate)).tag(Optional(rate))
-                    }
-                }
-                .disabled(presenter.availableSampleRates.isEmpty)
-                Picker(
-                    "Buffer Size:",
-                    selection: Binding<UInt32?>(
-                        get: { presenter.bufferSize },
-                        set: { size in
-                            guard let size else { return }
-                            Task { await presenter.selectBufferSize(size) }
+                    MidiDevicePickerView(
+                        state: presenter.midiState,
+                        onAction: { action in
+                            Task { await presenter.handleMidi(action) }
                         }
                     )
-                ) {
-                    ForEach(presenter.availableBufferSizes, id: \.self) { size in
-                        Text("\(size)").tag(Optional(size))
-                    }
                 }
-                .disabled(presenter.availableBufferSizes.isEmpty)
+                .formStyle(.grouped)
+                .scrollDisabled(true)
+                Form {
+                    DevicePickerView(
+                        kind: .output,
+                        state: presenter.outputState,
+                        onAction: { action in
+                            Task { await presenter.handleOutput(action) }
+                        }
+                    )
+                    Picker(
+                        "Sample Rate:",
+                        selection: Binding<Float64?>(
+                            get: { presenter.sampleRate },
+                            set: { rate in
+                                guard let rate else { return }
+                                Task { await presenter.selectSampleRate(rate) }
+                            }
+                        )
+                    ) {
+                        ForEach(presenter.availableSampleRates, id: \.self) { rate in
+                            Text(formatSampleRate(rate)).tag(Optional(rate))
+                        }
+                    }
+                    .disabled(presenter.availableSampleRates.isEmpty)
+                    Picker(
+                        "Buffer Size:",
+                        selection: Binding<UInt32?>(
+                            get: { presenter.bufferSize },
+                            set: { size in
+                                guard let size else { return }
+                                Task { await presenter.selectBufferSize(size) }
+                            }
+                        )
+                    ) {
+                        ForEach(presenter.availableBufferSizes, id: \.self) { size in
+                            Text("\(size)").tag(Optional(size))
+                        }
+                    }
+                    .disabled(presenter.availableBufferSizes.isEmpty)
+                }
+                .formStyle(.grouped)
+                .scrollDisabled(true)
             }
-            .formStyle(.grouped)
         }
+        .scrollDisabled(true)
     }
 
     private func formatSampleRate(_ rate: Float64) -> String {
