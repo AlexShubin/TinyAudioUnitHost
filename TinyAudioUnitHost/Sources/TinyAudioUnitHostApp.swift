@@ -16,25 +16,30 @@ struct TinyAudioUnitHostApp: App {
     var body: some Scene {
         Window("Tiny Audio Unit Host", id: "host") {
             if !isRunningTests {
-                MainWindowView()
+                NavigationSplitView {
+                    PresetsView(presenter: dependencies.makePresetsPresenter())
+                        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+                } detail: {
+                    HostView(presenter: dependencies.makeHostPresenter())
+                }
             }
         }
         .windowResizability(.contentSize)
         .commands {
             if !isRunningTests {
-                AppCommands(viewModel: dependencies.makeAppCommandsViewModel())
+                AppCommands(presenter: dependencies.makeAppCommandsPresenter())
             }
         }
 
         Settings {
             if !isRunningTests {
-                SettingsView(viewModel: dependencies.makeSettingsViewModel())
+                SettingsView(presenter: dependencies.makeSettingsPresenter())
             }
         }
 
         Window("Tiny Audio Unit Host Pro", id: "purchases") {
             if !isRunningTests {
-                PurchasesView(viewModel: dependencies.makePurchasesViewModel())
+                PurchasesView(presenter: dependencies.makePurchasesPresenter())
             }
         }
         .windowResizability(.contentSize)

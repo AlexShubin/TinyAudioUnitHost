@@ -6,18 +6,16 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
 import StoreKit
 
 protocol StoreKitGatewayType: Sendable {
     func products(for ids: [String]) async throws(StoreKitGatewayError) -> [any StoreProductType]
     func syncWithAppStore() async throws(StoreKitGatewayError)
-    func currentEntitlements() -> AsyncStream<StoreVerification>
-    func transactionUpdates() -> AsyncStream<StoreVerification>
-}
-
-enum StoreVerification {
-    case verified(any StoreTransactionType)
-    case unverified
+    func currentEntitlements() async -> [any StoreTransactionType]
+    func observeTransactionUpdates(
+        _ handler: @escaping @Sendable (any StoreTransactionType) async -> Void
+    ) -> Cancellation
 }
 
 struct StoreKitGatewayError: Error, Equatable {
@@ -41,32 +39,26 @@ struct StoreKitGateway: StoreKitGatewayType {
         }
     }
 
-    func currentEntitlements() -> AsyncStream<StoreVerification> {
-        stream(from: Transaction.currentEntitlements)
-    }
-
-    func transactionUpdates() -> AsyncStream<StoreVerification> {
-        stream(from: Transaction.updates)
-    }
-
-    private func stream(from sequence: Transaction.Transactions) -> AsyncStream<StoreVerification> {
-        AsyncStream { continuation in
-            let task = Task {
-                for await result in sequence {
-                    continuation.yield(StoreVerification(from: result))
-                }
-                continuation.finish()
+    func currentEntitlements() async -> [any StoreTransactionType] {
+        var transactions: [any StoreTransactionType] = []
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                transactions.append(transaction)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
+        return transactions
     }
-}
 
-private extension StoreVerification {
-    init(from result: VerificationResult<Transaction>) {
-        switch result {
-        case .verified(let transaction): self = .verified(transaction)
-        case .unverified: self = .unverified
+    func observeTransactionUpdates(
+        _ handler: @escaping @Sendable (any StoreTransactionType) async -> Void
+    ) -> Cancellation {
+        let task = Task {
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    await handler(transaction)
+                }
+            }
         }
+        return Cancellation { task.cancel() }
     }
 }

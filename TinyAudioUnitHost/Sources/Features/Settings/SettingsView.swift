@@ -8,32 +8,23 @@
 
 import SwiftUI
 
-enum SettingsViewAction {
-    case task
-    case inputDevicePickerAction(DevicePickerViewAction)
-    case outputDevicePickerAction(DevicePickerViewAction)
-    case midiDevicePickerAction(MidiDevicePickerViewAction)
-    case selectBufferSize(UInt32)
-    case selectSampleRate(Float64)
-}
-
 struct SettingsView: View {
-    @State var viewModel: SettingsViewModelType
+    let presenter: SettingsPresenterType
 
     var body: some View {
         HStack {
             Form {
                 DevicePickerView(
                     kind: .input,
-                    state: viewModel.inputState,
+                    state: presenter.inputState,
                     onAction: { action in
-                        Task { await viewModel.accept(action: .inputDevicePickerAction(action)) }
+                        Task { await presenter.handleInput(action) }
                     }
                 )
                 MidiDevicePickerView(
-                    state: viewModel.midiState,
+                    state: presenter.midiState,
                     onAction: { action in
-                        Task { await viewModel.accept(action: .midiDevicePickerAction(action)) }
+                        Task { await presenter.handleMidi(action) }
                     }
                 )
             }
@@ -41,45 +32,44 @@ struct SettingsView: View {
             Form {
                 DevicePickerView(
                     kind: .output,
-                    state: viewModel.outputState,
+                    state: presenter.outputState,
                     onAction: { action in
-                        Task { await viewModel.accept(action: .outputDevicePickerAction(action)) }
+                        Task { await presenter.handleOutput(action) }
                     }
                 )
                 Picker(
                     "Sample Rate:",
                     selection: Binding<Float64?>(
-                        get: { viewModel.sampleRate },
+                        get: { presenter.sampleRate },
                         set: { rate in
                             guard let rate else { return }
-                            Task { await viewModel.accept(action: .selectSampleRate(rate)) }
+                            Task { await presenter.selectSampleRate(rate) }
                         }
                     )
                 ) {
-                    ForEach(viewModel.availableSampleRates, id: \.self) { rate in
+                    ForEach(presenter.availableSampleRates, id: \.self) { rate in
                         Text(formatSampleRate(rate)).tag(Optional(rate))
                     }
                 }
-                .disabled(viewModel.availableSampleRates.isEmpty)
+                .disabled(presenter.availableSampleRates.isEmpty)
                 Picker(
                     "Buffer Size:",
                     selection: Binding<UInt32?>(
-                        get: { viewModel.bufferSize },
+                        get: { presenter.bufferSize },
                         set: { size in
                             guard let size else { return }
-                            Task { await viewModel.accept(action: .selectBufferSize(size)) }
+                            Task { await presenter.selectBufferSize(size) }
                         }
                     )
                 ) {
-                    ForEach(viewModel.availableBufferSizes, id: \.self) { size in
+                    ForEach(presenter.availableBufferSizes, id: \.self) { size in
                         Text("\(size)").tag(Optional(size))
                     }
                 }
-                .disabled(viewModel.availableBufferSizes.isEmpty)
+                .disabled(presenter.availableBufferSizes.isEmpty)
             }
             .formStyle(.grouped)
         }
-        .task { await viewModel.accept(action: .task) }
     }
 
     private func formatSampleRate(_ rate: Float64) -> String {

@@ -6,10 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+@MainActor
 public struct Dependencies: Sendable {
-    public let purchasesService: PurchasesServiceType
+    public let purchasesModel: PurchasesModelType
 
     public static let live = Dependencies(
-        purchasesService: PurchasesService(gateway: StoreKitGateway())
+        purchasesModel: PurchasesModel(gateway: StoreKitGateway())
     )
 }

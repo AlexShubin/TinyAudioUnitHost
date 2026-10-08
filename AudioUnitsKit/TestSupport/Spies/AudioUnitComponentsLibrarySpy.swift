@@ -1,0 +1,17 @@
+//
+//  AudioUnitComponentsLibrarySpy.swift
+//  AudioUnitsKitTestSupport
+//
+//  Created by Alex Shubin on 04.05.26.
+//  Copyright © 2026 Alex Shubin. All rights reserved.
+//
+
+import AudioUnitsKit
+
+public final class AudioUnitComponentsLibrarySpy: AudioUnitComponentsLibraryType, @unchecked Sendable {
+    public var components: [AudioUnitComponent]
+
+    public init(components: [AudioUnitComponent] = []) {
+        self.components = components
+    }
+}

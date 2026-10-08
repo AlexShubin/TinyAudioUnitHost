@@ -9,6 +9,8 @@
 import CoreMIDI
 
 protocol CoreMidiGatewayType: Sendable {
+    func createClient(name: String, onSetupChange: @escaping @Sendable () async -> Void) -> UInt32?
+    func disposeClient(_ client: UInt32)
     var sourceCount: Int { get }
     func source(at index: Int) -> UInt32
     func displayName(of source: UInt32) -> String?
@@ -17,6 +19,20 @@ protocol CoreMidiGatewayType: Sendable {
 }
 
 struct CoreMidiGateway: CoreMidiGatewayType {
+    func createClient(name: String, onSetupChange: @escaping @Sendable () async -> Void) -> UInt32? {
+        var client: MIDIClientRef = 0
+        let status = MIDIClientCreateWithBlock(name as CFString, &client) { notification in
+            if notification.pointee.messageID == .msgSetupChanged {
+                Task { await onSetupChange() }
+            }
+        }
+        return status == noErr ? client : nil
+    }
+
+    func disposeClient(_ client: UInt32) {
+        MIDIClientDispose(client)
+    }
+
     var sourceCount: Int {
         MIDIGetNumberOfSources()
     }

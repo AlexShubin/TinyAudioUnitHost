@@ -11,23 +11,23 @@ import Testing
 
 @Suite
 struct MidiDevicesProviderTests {
-    var gatewayMock: CoreMidiGatewayMock!
+    var gatewaySpy: CoreMidiGatewaySpy!
     var sut: MidiDevicesProviderType!
 
     init() {
-        gatewayMock = CoreMidiGatewayMock()
+        gatewaySpy = CoreMidiGatewaySpy()
     }
 
     mutating func createSut() {
-        sut = MidiDevicesProvider(gateway: gatewayMock)
+        sut = MidiDevicesProvider(gateway: gatewaySpy)
     }
 
     @Test
     mutating func devices_enumeratesEverySourceIntoDevice() {
-        gatewayMock.sourceCountResult = 2
-        gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
-        gatewayMock.uidBySource = [10: 100, 20: 200]
+        gatewaySpy.sourceCountResult = 2
+        gatewaySpy.sourcesByIndex = [0: 10, 1: 20]
+        gatewaySpy.displayNameBySource = [10: "Keystep", 20: "Push"]
+        gatewaySpy.uidBySource = [10: 100, 20: 200]
         createSut()
 
         #expect(sut.devices == [
@@ -38,10 +38,10 @@ struct MidiDevicesProviderTests {
 
     @Test
     mutating func devices_skipsSourceMissingUID() {
-        gatewayMock.sourceCountResult = 2
-        gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
-        gatewayMock.uidBySource = [10: 100] // source 20 has no UID
+        gatewaySpy.sourceCountResult = 2
+        gatewaySpy.sourcesByIndex = [0: 10, 1: 20]
+        gatewaySpy.displayNameBySource = [10: "Keystep", 20: "Push"]
+        gatewaySpy.uidBySource = [10: 100] // source 20 has no UID
         createSut()
 
         #expect(sut.devices == [MidiDevice(ref: 10, uid: 100, name: "Keystep")])
@@ -49,10 +49,10 @@ struct MidiDevicesProviderTests {
 
     @Test
     mutating func devices_skipsSourceMissingName() {
-        gatewayMock.sourceCountResult = 2
-        gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.displayNameBySource = [10: "Keystep"] // source 20 has no name
-        gatewayMock.uidBySource = [10: 100, 20: 200]
+        gatewaySpy.sourceCountResult = 2
+        gatewaySpy.sourcesByIndex = [0: 10, 1: 20]
+        gatewaySpy.displayNameBySource = [10: "Keystep"] // source 20 has no name
+        gatewaySpy.uidBySource = [10: 100, 20: 200]
         createSut()
 
         #expect(sut.devices == [MidiDevice(ref: 10, uid: 100, name: "Keystep")])
@@ -60,11 +60,11 @@ struct MidiDevicesProviderTests {
 
     @Test
     mutating func devices_skipsOfflineSources() {
-        gatewayMock.sourceCountResult = 2
-        gatewayMock.sourcesByIndex = [0: 10, 1: 20]
-        gatewayMock.displayNameBySource = [10: "Keystep", 20: "Push"]
-        gatewayMock.uidBySource = [10: 100, 20: 200]
-        gatewayMock.offlineSources = [20]
+        gatewaySpy.sourceCountResult = 2
+        gatewaySpy.sourcesByIndex = [0: 10, 1: 20]
+        gatewaySpy.displayNameBySource = [10: "Keystep", 20: "Push"]
+        gatewaySpy.uidBySource = [10: 100, 20: 200]
+        gatewaySpy.offlineSources = [20]
         createSut()
 
         #expect(sut.devices == [MidiDevice(ref: 10, uid: 100, name: "Keystep")])
@@ -72,7 +72,7 @@ struct MidiDevicesProviderTests {
 
     @Test
     mutating func devices_emptyWhenNoSources() {
-        gatewayMock.sourceCountResult = 0
+        gatewaySpy.sourceCountResult = 0
         createSut()
 
         #expect(sut.devices.isEmpty)

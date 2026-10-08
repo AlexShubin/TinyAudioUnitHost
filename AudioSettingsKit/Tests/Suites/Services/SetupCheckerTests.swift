@@ -12,128 +12,91 @@ import Foundation
 import Testing
 @testable import AudioSettingsKit
 
-@Suite
+@Suite @MainActor
 struct SetupCheckerTests {
-    var audioSettingsMock: AudioSettingsProviderMock!
-    var captureDeviceMock: AVCaptureDeviceGatewayMock!
+    var audioSettingsSpy: AudioSettingsModelSpy!
+    var captureDeviceSpy: AVCaptureDeviceGatewaySpy!
     var sut: SetupCheckerType!
 
     init() {
-        audioSettingsMock = AudioSettingsProviderMock()
-        captureDeviceMock = AVCaptureDeviceGatewayMock()
+        audioSettingsSpy = AudioSettingsModelSpy()
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy()
     }
 
     mutating func createSut() {
         sut = SetupChecker(
-            audioSettings: audioSettingsMock,
-            captureDevice: captureDeviceMock
+            audioSettings: audioSettingsSpy,
+            captureDevice: captureDeviceSpy
         )
     }
 
     @Test
-    mutating func refresh_micAndOutputOK_yieldsEmpty() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .fake(outputChannel: .mono(.fake())))
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+    mutating func check_micAndOutputOK_returnsEmpty() async {
+        audioSettingsSpy.settings = .fake(outputChannel: .mono(.fake()))
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .authorized)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [])
+        #expect(await sut.check() == [])
     }
 
     @Test
-    mutating func refresh_micDenied_yieldsMicrophoneRequirement() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .fake(outputChannel: .mono(.fake())))
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
+    mutating func check_micDenied_returnsMicrophoneRequirement() async {
+        audioSettingsSpy.settings = .fake(outputChannel: .mono(.fake()))
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .denied)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.microphonePermission])
+        #expect(await sut.check() == [.microphonePermission])
     }
 
     @Test
-    mutating func refresh_micNotDetermined_requestsAccess() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .fake(outputChannel: .mono(.fake())))
-        captureDeviceMock = AVCaptureDeviceGatewayMock(
+    mutating func check_micNotDetermined_requestsAccess() async {
+        audioSettingsSpy.settings = .fake(outputChannel: .mono(.fake()))
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(
             authorizationStatusResult: .notDetermined,
             requestAccessResult: true
         )
         createSut()
 
-        await sut.refresh()
+        _ = await sut.check()
 
-        #expect(captureDeviceMock.calls.contains(.requestAccess))
+        #expect(captureDeviceSpy.calls.contains(.requestAccess))
     }
 
     @Test
-    mutating func refresh_noOutputChannelAndNoSavedOutput_yieldsNoOutputDevice() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .empty)
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+    mutating func check_noOutputChannelAndNoSavedOutput_returnsNoOutputDevice() async {
+        audioSettingsSpy.settings = .empty
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .authorized)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.noOutputDevice])
+        #expect(await sut.check() == [.noOutputDevice])
     }
 
     @Test
-    mutating func refresh_savedOutputButOffline_yieldsSavedOutputDeviceUnavailableWithName() async {
-        audioSettingsMock = AudioSettingsProviderMock(
-            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 2))
+    mutating func check_savedOutputButOffline_returnsSavedOutputDeviceUnavailableWithName() async {
+        audioSettingsSpy.settings = .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 2)
         )
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .authorized)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.savedOutputDeviceUnavailable(name: "Apollo x8")])
+        #expect(await sut.check() == [.savedOutputDeviceUnavailable(name: "Apollo x8")])
     }
 
     @Test
-    mutating func refresh_savedOutputWithoutChannels_yieldsNoOutputDevice() async {
-        audioSettingsMock = AudioSettingsProviderMock(
-            settings: .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 0))
+    mutating func check_savedOutputWithoutChannels_returnsNoOutputDevice() async {
+        audioSettingsSpy.settings = .fake(savedOutput: SavedDevice(uid: "apollo-uid", name: "Apollo x8", selectedChannelCount: 0)
         )
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .authorized)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.noOutputDevice])
+        #expect(await sut.check() == [.noOutputDevice])
     }
 
     @Test
-    mutating func refresh_bothMissing_yieldsBoth() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .empty)
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .denied)
+    mutating func check_bothMissing_returnsBoth() async {
+        audioSettingsSpy.settings = .empty
+        captureDeviceSpy = AVCaptureDeviceGatewaySpy(authorizationStatusResult: .denied)
         createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
 
-        await sut.refresh()
-
-        #expect(await iterator.next() == [.microphonePermission, .noOutputDevice])
-    }
-
-    @Test
-    mutating func refresh_calledAgainWithoutChange_doesNotYieldDuplicate() async {
-        audioSettingsMock = AudioSettingsProviderMock(settings: .fake(outputChannel: .mono(.fake())))
-        captureDeviceMock = AVCaptureDeviceGatewayMock(authorizationStatusResult: .authorized)
-        createSut()
-        var iterator = sut.unmetStream.makeAsyncIterator()
-
-        await sut.refresh()
-        #expect(await iterator.next() == [])
-
-        await sut.refresh()
-
-        audioSettingsMock.settings = .empty
-        await sut.refresh()
-        #expect(await iterator.next() == [.noOutputDevice])
+        #expect(await sut.check() == [.microphonePermission, .noOutputDevice])
     }
 }

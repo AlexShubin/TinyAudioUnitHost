@@ -9,8 +9,13 @@
 import SwiftUI
 
 struct PresetNameDialogView: View {
-    @State var viewModel: PresetNameDialogViewModelType
-    @Environment(\.dismiss) private var dismiss
+    let presenter: PresetNameDialogPresenterType
+    @State private var name: String
+
+    init(presenter: PresetNameDialogPresenterType) {
+        self.presenter = presenter
+        _name = State(initialValue: presenter.initialName)
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -22,11 +27,11 @@ struct PresetNameDialogView: View {
                 .padding(.top, 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Preset Name", text: nameBinding)
+                TextField("Preset Name", text: $name)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3)
-                    .onSubmit { Task { await viewModel.accept(action: .commit) } }
-                if let message = viewModel.errorMessage {
+                    .onSubmit { presenter.commit(name: name) }
+                if let message = presenter.errorMessage(for: name) {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -35,32 +40,16 @@ struct PresetNameDialogView: View {
             .padding(.horizontal, 24)
 
             HStack {
-                Button("Cancel", role: .cancel) {
-                    Task { await viewModel.accept(action: .cancel) }
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel", role: .cancel) { presenter.cancel() }
+                    .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(viewModel.commitLabel) {
-                    Task { await viewModel.accept(action: .commit) }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!viewModel.canCommit)
+                Button(presenter.commitLabel) { presenter.commit(name: name) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!presenter.canCommit(name: name))
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
         .frame(width: 440)
-        .onChange(of: viewModel.isDismissed) { _, isDismissed in
-            if isDismissed { dismiss() }
-        }
-    }
-
-    private var nameBinding: Binding<String> {
-        Binding(
-            get: { viewModel.name },
-            set: { newValue in
-                Task { await viewModel.accept(action: .nameChanged(newValue)) }
-            }
-        )
     }
 }

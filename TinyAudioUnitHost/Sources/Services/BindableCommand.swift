@@ -22,7 +22,7 @@ protocol CommandBinderType: AnyObject, Sendable {
 final class BindableCommand: CommandType, CommandBinderType {
     private var action: (() -> Void)?
 
-    nonisolated init() {}
+    init() {}
 
     func bind(_ action: @escaping () -> Void) {
         self.action = action

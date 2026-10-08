@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+@MainActor
 public struct Dependencies: Sendable {
     public let rawSettingsStore: RawSettingsStoreType
     public let rawPresetStore: RawPresetStoreType
