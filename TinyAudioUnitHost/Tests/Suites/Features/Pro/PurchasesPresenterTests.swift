@@ -16,7 +16,7 @@ import Testing
 @Suite
 struct PurchasesPresenterTests {
     var purchasesSpy: PurchasesModelSpy!
-    var sut: PurchasesPresenterType!
+    var sut: PurchasesPresenter!
 
     init() {
         purchasesSpy = PurchasesModelSpy()

@@ -22,7 +22,7 @@ struct HostPresenterTests {
     var librarySpy: AudioUnitComponentsLibrarySpy!
     var sessionSpy: SessionModelSpy!
     var purchasesSpy: PurchasesModelSpy!
-    var sut: HostPresenterType!
+    var sut: HostPresenter!
 
     init() {
         librarySpy = AudioUnitComponentsLibrarySpy()

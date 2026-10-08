@@ -17,39 +17,42 @@ import Testing
 struct PresetNameDialogPresenterTests {
     var sessionSpy: SessionModelSpy!
     var validatorSpy: PresetNameValidatorSpy!
-    var navigationSpy: NavigationModelSpy!
-    var sut: PresetNameDialogPresenterType!
+    var sut: PresetNameDialogPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()
         validatorSpy = PresetNameValidatorSpy()
-        navigationSpy = NavigationModelSpy()
     }
 
     mutating func createSut(mode: PresetNameDialogMode = .saveAs) {
-        navigationSpy.presetsDestination = .presetNameDialog(mode)
         sut = PresetNameDialogPresenter(
             mode: mode,
             session: sessionSpy,
-            validator: validatorSpy,
-            navigation: navigationSpy
+            validator: validatorSpy
         )
     }
 
-    // MARK: - initialName
+    // MARK: - name
 
     @Test
-    mutating func initialName_saveAs_isEmpty() {
+    mutating func name_saveAs_startsEmpty() {
         createSut(mode: .saveAs)
 
-        #expect(sut.initialName == "")
+        #expect(sut.name == "")
     }
 
     @Test
-    mutating func initialName_rename_isCurrentName() {
+    mutating func name_rename_startsWithCurrentName() {
         createSut(mode: .rename(currentName: "foo"))
 
-        #expect(sut.initialName == "foo")
+        #expect(sut.name == "foo")
+    }
+
+    @Test
+    mutating func isDismissed_startsFalse() {
+        createSut()
+
+        #expect(sut.isDismissed == false)
     }
 
     // MARK: - commitLabel
@@ -75,7 +78,9 @@ struct PresetNameDialogPresenterTests {
         validatorSpy.result = .duplicate
         createSut()
 
-        #expect(sut.errorMessage(for: "foo") == "A preset with that name already exists.")
+        sut.name = "foo"
+
+        #expect(sut.errorMessage == "A preset with that name already exists.")
     }
 
     @Test
@@ -83,7 +88,9 @@ struct PresetNameDialogPresenterTests {
         validatorSpy.result = .invalidCharacter
         createSut()
 
-        #expect(sut.errorMessage(for: "foo/bar") == "Name can't contain /, :, or start with a dot.")
+        sut.name = "foo/bar"
+
+        #expect(sut.errorMessage == "Name can't contain /, :, or start with a dot.")
     }
 
     @Test
@@ -91,14 +98,15 @@ struct PresetNameDialogPresenterTests {
         validatorSpy.result = .empty
         createSut()
 
-        #expect(sut.errorMessage(for: "") == nil)
+        #expect(sut.errorMessage == nil)
     }
 
     @Test
     mutating func errorMessage_validatesWithMode_saveAs() {
         createSut(mode: .saveAs)
+        sut.name = "foo"
 
-        _ = sut.errorMessage(for: "foo")
+        _ = sut.errorMessage
 
         #expect(validatorSpy.calls == [.validate(name: "foo", mode: .saveAs)])
     }
@@ -106,8 +114,9 @@ struct PresetNameDialogPresenterTests {
     @Test
     mutating func errorMessage_validatesWithMode_rename() {
         createSut(mode: .rename(currentName: "old"))
+        sut.name = "new"
 
-        _ = sut.errorMessage(for: "new")
+        _ = sut.errorMessage
 
         #expect(validatorSpy.calls == [.validate(name: "new", mode: .rename(currentName: "old"))])
     }
@@ -119,25 +128,26 @@ struct PresetNameDialogPresenterTests {
         validatorSpy.result = .empty
         createSut()
 
-        #expect(sut.canCommit(name: "") == false)
+        #expect(sut.canCommit == false)
     }
 
     @Test
     mutating func canCommit_validName_isTrue() {
         createSut()
+        sut.name = "foo"
 
-        #expect(sut.canCommit(name: "foo") == true)
+        #expect(sut.canCommit == true)
     }
 
     // MARK: - cancel
 
     @Test
-    mutating func cancel_clearsDestination() {
+    mutating func cancel_dismisses() {
         createSut()
 
         sut.cancel()
 
-        #expect(navigationSpy.presetsDestination == nil)
+        #expect(sut.isDismissed == true)
     }
 
     @Test
@@ -155,30 +165,33 @@ struct PresetNameDialogPresenterTests {
     mutating func commit_validatorRejects_keepsDialogAndSession() {
         validatorSpy.result = .duplicate
         createSut(mode: .saveAs)
+        sut.name = "foo"
 
-        sut.commit(name: "foo")
+        sut.commit()
 
-        #expect(navigationSpy.presetsDestination == .presetNameDialog(.saveAs))
+        #expect(sut.isDismissed == false)
         #expect(sessionSpy.calls.isEmpty)
     }
 
     @Test
-    mutating func commit_saveAs_savesAndClearsDestination() {
+    mutating func commit_saveAs_savesAndDismisses() {
         createSut(mode: .saveAs)
+        sut.name = "MyNew"
 
-        sut.commit(name: "MyNew")
+        sut.commit()
 
         #expect(sessionSpy.calls == [.saveAsNewPreset(name: "MyNew")])
-        #expect(navigationSpy.presetsDestination == nil)
+        #expect(sut.isDismissed == true)
     }
 
     @Test
-    mutating func commit_rename_renamesAndClearsDestination() {
+    mutating func commit_rename_renamesAndDismisses() {
         createSut(mode: .rename(currentName: "old"))
+        sut.name = "new"
 
-        sut.commit(name: "new")
+        sut.commit()
 
         #expect(sessionSpy.calls == [.renamePreset(from: "old", to: "new")])
-        #expect(navigationSpy.presetsDestination == nil)
+        #expect(sut.isDismissed == true)
     }
 }

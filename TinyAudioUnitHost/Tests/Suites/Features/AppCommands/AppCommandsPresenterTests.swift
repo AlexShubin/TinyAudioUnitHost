@@ -16,7 +16,7 @@ import Testing
 struct AppCommandsPresenterTests {
     var sessionSpy: SessionModelSpy!
     var saveAsCommandSpy: BindableCommandSpy!
-    var sut: AppCommandsPresenterType!
+    var sut: AppCommandsPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()

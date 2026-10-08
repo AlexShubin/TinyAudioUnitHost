@@ -19,14 +19,12 @@ import Testing
 struct PresetsPresenterTests {
     var sessionSpy: SessionModelSpy!
     var purchasesSpy: PurchasesModelSpy!
-    var navigationSpy: NavigationModelSpy!
     var saveAsCommandSpy: BindableCommandSpy!
-    var sut: PresetsPresenterType!
+    var sut: PresetsPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()
         purchasesSpy = PurchasesModelSpy()
-        navigationSpy = NavigationModelSpy()
         saveAsCommandSpy = BindableCommandSpy()
     }
 
@@ -34,7 +32,6 @@ struct PresetsPresenterTests {
         sut = PresetsPresenter(
             session: sessionSpy,
             purchases: purchasesSpy,
-            navigation: navigationSpy,
             saveAsCommandBinder: saveAsCommandSpy
         )
     }
@@ -138,7 +135,6 @@ struct PresetsPresenterTests {
 
         sut.saveAs()
 
-        #expect(navigationSpy.presetsDestination == .presetNameDialog(.saveAs))
         #expect(sut.presentedDialog == .saveAs)
         #expect(sut.isProWindowRequested == false)
     }
@@ -150,7 +146,6 @@ struct PresetsPresenterTests {
 
         sut.saveAs()
 
-        #expect(navigationSpy.presetsDestination == .presetNameDialog(.saveAs))
         #expect(sut.presentedDialog == .saveAs)
         #expect(sut.isProWindowRequested == false)
     }
@@ -162,7 +157,6 @@ struct PresetsPresenterTests {
 
         sut.saveAs()
 
-        #expect(navigationSpy.presetsDestination == .proWindow)
         #expect(sut.presentedDialog == nil)
         #expect(sut.isProWindowRequested == true)
     }
@@ -175,18 +169,28 @@ struct PresetsPresenterTests {
 
         sut.rename(name: "foo")
 
-        #expect(navigationSpy.presetsDestination == .presetNameDialog(.rename(currentName: "foo")))
         #expect(sut.presentedDialog == .rename(currentName: "foo"))
     }
 
     @Test
-    mutating func dismissDestination_clearsDestination() {
+    mutating func presentedDialog_setNil_dismissesDialog() {
         createSut()
-        navigationSpy.presetsDestination = .presetNameDialog(.rename(currentName: "foo"))
+        sut.rename(name: "foo")
 
-        sut.dismissDestination()
+        sut.presentedDialog = nil
 
-        #expect(navigationSpy.presetsDestination == nil)
+        #expect(sut.presentedDialog == nil)
+    }
+
+    @Test
+    mutating func proWindowOpened_clearsRequest() {
+        sessionSpy.presets = ["a", "b"]
+        createSut()
+        sut.saveAs()
+
+        sut.proWindowOpened()
+
+        #expect(sut.isProWindowRequested == false)
         #expect(sut.presentedDialog == nil)
     }
 
@@ -206,19 +210,17 @@ struct PresetsPresenterTests {
 
         saveAsCommandSpy.action?()
 
-        #expect(navigationSpy.presetsDestination == .presetNameDialog(.saveAs))
         #expect(sut.presentedDialog == .saveAs)
         #expect(sut.isProWindowRequested == false)
     }
 
     @Test
-    mutating func saveAsCommand_freeAtCap_opensProUpgrade() async {
+    mutating func saveAsCommand_freeAtCap_requestsProWindow() async {
         sessionSpy.presets = ["a", "b"]
         createSut()
 
         saveAsCommandSpy.action?()
 
-        #expect(navigationSpy.presetsDestination == .proWindow)
+        #expect(sut.isProWindowRequested == true)
     }
-
 }

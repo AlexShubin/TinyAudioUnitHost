@@ -15,7 +15,7 @@ import Testing
 @Suite
 struct SettingsPresenterTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var sut: SettingsPresenterType!
+    var sut: SettingsPresenter!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
