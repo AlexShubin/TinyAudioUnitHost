@@ -54,8 +54,8 @@ final actor Engine: EngineType {
         disconnect()
         await midiManager.teardownMIDI()
 
-        let loaded = try await loadAudioUnit(component)
-        if let state { loaded.audioUnit.fullState = state }
+        let audioUnit = try await loadAudioUnit(component)
+        if let state { audioUnit.fullState = state }
 
         do {
             try await applyConnections()
@@ -65,9 +65,9 @@ final actor Engine: EngineType {
         }
         logging { try engine.start() }
 
-        await midiManager.setupMIDI(for: loaded.audioUnit)
+        await midiManager.setupMIDI(for: audioUnit)
 
-        return loaded
+        return audioUnit
     }
 
     func reload() async throws(EngineLoadError) {
@@ -169,7 +169,7 @@ final actor Engine: EngineType {
             currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
 
-            return LoadedAudioUnit(component: component, audioUnit: AUAudioUnitWrapper(avAudioUnit.auAudioUnit))
+            return LoadedAudioUnit(avAudioUnit.auAudioUnit)
         } catch {
             logger.warning("AU instantiation failed: \(String(describing: error), privacy: .public)")
             throw EngineLoadError.audioUnitInstantiationFailed

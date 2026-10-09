@@ -11,7 +11,7 @@ import EngineKit
 
 public final class MidiManagerSpy: MidiManagerType, @unchecked Sendable {
     public enum Calls: Equatable {
-        case setupMIDI(AUAudioUnitWrapper)
+        case setupMIDI(LoadedAudioUnit)
         case teardownMIDI
         case reconnectMIDISources
     }
@@ -20,7 +20,7 @@ public final class MidiManagerSpy: MidiManagerType, @unchecked Sendable {
 
     public init() {}
 
-    public func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
+    public func setupMIDI(for audioUnit: LoadedAudioUnit) async {
         calls.append(.setupMIDI(audioUnit))
     }
 

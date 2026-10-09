@@ -105,10 +105,10 @@ final class SessionModel: SessionModelType {
     }
 
     func saveCurrentPreset() {
-        guard case .loaded(let loaded) = content,
+        guard case .loaded(let audioUnit) = content,
               let activeName,
-              let state = loaded.audioUnit.fullState else { return }
-        let preset = Preset(name: activeName, component: loaded.component, state: state)
+              let state = audioUnit.fullState else { return }
+        let preset = Preset(name: activeName, component: audioUnit.component, state: state)
         presetProvider.save(preset)
         presets = presetProvider.presets
         presetEvent = PresetEvent(id: UUID(), kind: .saved)
@@ -124,9 +124,9 @@ final class SessionModel: SessionModelType {
     }
 
     func saveAsNewPreset(name: String) {
-        guard case .loaded(let loaded) = content,
-              let state = loaded.audioUnit.fullState else { return }
-        let preset = Preset(name: name, component: loaded.component, state: state)
+        guard case .loaded(let audioUnit) = content,
+              let state = audioUnit.fullState else { return }
+        let preset = Preset(name: name, component: audioUnit.component, state: state)
         presetProvider.save(preset)
         presetProvider.setActive(preset.name)
         activeName = preset.name

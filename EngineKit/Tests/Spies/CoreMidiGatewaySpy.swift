@@ -12,7 +12,7 @@ import AudioUnitsKit
 final class CoreMidiGatewaySpy: CoreMidiGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case createClient(String)
-        case createInputPort(UInt32, String, AUAudioUnitWrapper)
+        case createInputPort(UInt32, String, LoadedAudioUnit)
         case connect(UInt32, UInt32)
         case disconnect(UInt32, UInt32)
         case disposePort(UInt32)
@@ -30,7 +30,7 @@ final class CoreMidiGatewaySpy: CoreMidiGatewayType, @unchecked Sendable {
     func createInputPort(
         client: UInt32,
         name: String,
-        audioUnit: AUAudioUnitWrapper
+        audioUnit: LoadedAudioUnit
     ) -> UInt32? {
         calls.append(.createInputPort(client, name, audioUnit))
         return createInputPortResult
