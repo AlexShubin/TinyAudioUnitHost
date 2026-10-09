@@ -49,6 +49,7 @@ struct PresetNameDialogView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 440)
+        // Explicit focus avoids the double focus flicker on the sheet's first presentation.
         .onAppear { isNameFocused = true }
         .onChange(of: presenter.isDismissed) { _, isDismissed in
             if isDismissed { dismiss() }

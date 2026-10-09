@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State var presenter: SettingsPresenter
 
     var body: some View {
+        // One non-scrolling scroll view so the macOS 27 title bar effect spans the window instead of only the first Form.
         ScrollView {
             HStack(alignment: .top) {
                 Form {
