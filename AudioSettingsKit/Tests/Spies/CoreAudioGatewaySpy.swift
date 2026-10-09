@@ -27,6 +27,8 @@ final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
             subDeviceUIDs: [String]
         )
         case destroyAggregateDevice(UInt32)
+        case setBufferSize(UInt32, UInt32)
+        case setSampleRate(Float64, UInt32)
     }
 
     private(set) var calls: [Calls] = []
@@ -123,5 +125,17 @@ final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
 
     func destroyAggregateDevice(id: UInt32) {
         calls.append(.destroyAggregateDevice(id))
+    }
+
+    var setBufferSizeError: CoreAudioGatewayError?
+    func setBufferSize(_ frames: UInt32, deviceID: UInt32) throws(CoreAudioGatewayError) {
+        calls.append(.setBufferSize(frames, deviceID))
+        if let setBufferSizeError { throw setBufferSizeError }
+    }
+
+    var setSampleRateError: CoreAudioGatewayError?
+    func setSampleRate(_ rate: Float64, deviceID: UInt32) throws(CoreAudioGatewayError) {
+        calls.append(.setSampleRate(rate, deviceID))
+        if let setSampleRateError { throw setSampleRateError }
     }
 }

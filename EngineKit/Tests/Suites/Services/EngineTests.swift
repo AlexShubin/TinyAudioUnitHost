@@ -150,52 +150,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func load_withTarget_appliesSampleRateAndBuffer() async throws {
-        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
-        let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-
-        let targetDevice = AudioDevice.fake()
-        audioSettingsSpy.settings = .fake(inputDevice: .fake(), bufferSize: 256, sampleRate: 48_000)
-        audioSettingsSpy.targetDevice = targetDevice
-        avEngineSpy.outputAudioUnit = outputAU
-        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        createSut()
-
-        _ = try await sut.load(component: Self.effectComponent, state: nil)
-
-        #expect(coreAudioGatewaySpy.calls == [
-            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
-            .setEnableIO(false, kAudioUnitScope_Output, 0, outputAU),
-            .setCurrentDevice(targetDevice.id, outputAU),
-            .setSampleRate(48_000, targetDevice.id),
-            .setBufferSize(256, targetDevice.id)
-        ])
-    }
-
-    @Test
-    mutating func load_withTargetAndSampleRateOnly_setsSampleRateNotBuffer() async throws {
-        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
-        let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
-
-        let targetDevice = AudioDevice.fake()
-        audioSettingsSpy.settings = .fake(inputDevice: .fake(), sampleRate: 48_000)
-        audioSettingsSpy.targetDevice = targetDevice
-        avEngineSpy.outputAudioUnit = outputAU
-        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        createSut()
-
-        _ = try await sut.load(component: Self.effectComponent, state: nil)
-
-        #expect(coreAudioGatewaySpy.calls == [
-            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
-            .setEnableIO(false, kAudioUnitScope_Output, 0, outputAU),
-            .setCurrentDevice(targetDevice.id, outputAU),
-            .setSampleRate(48_000, targetDevice.id)
-        ])
-    }
-
-    @Test
-    mutating func load_withTargetButNoBufferSize_skipsBuffer() async throws {
+    mutating func load_withTarget_bindsOutputUnitToDevice() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         let outputAU = AudioUnit(bitPattern: 0xC0FFEE)!
 
@@ -216,7 +171,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func load_withoutTarget_skipsDeviceBindingAndBuffer() async {
+    mutating func load_withoutTarget_skipsDeviceBinding() async {
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         createSut()
 
