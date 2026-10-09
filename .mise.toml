@@ -1,5 +1,5 @@
 [tools]
-tuist = "4.202.6"
+tuist = "4.211.0"
 
 [tasks.generate]
 description = "Generate the Xcode project"
