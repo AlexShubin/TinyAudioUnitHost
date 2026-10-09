@@ -83,12 +83,6 @@ final actor Engine: EngineType {
         let settings = await audioSettings.settings
 
         try bindDevice(device, settings: settings)
-        if let rate = settings.sampleRate {
-            logging { try coreAudioGateway.setSampleRate(rate, deviceID: device.id) }
-        }
-        if let frames = settings.bufferSize {
-            logging { try coreAudioGateway.setBufferSize(frames, deviceID: device.id) }
-        }
 
         guard let avAudioUnit = currentAVAudioUnit else { return }
 

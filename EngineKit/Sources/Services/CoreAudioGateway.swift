@@ -14,8 +14,6 @@ protocol CoreAudioGatewayType {
     func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(CoreAudioGatewayError)
     func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError)
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
-    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws(CoreAudioGatewayError)
-    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws(CoreAudioGatewayError)
 }
 
 struct CoreAudioGatewayError: Error, Sendable, Equatable {
@@ -23,8 +21,6 @@ struct CoreAudioGatewayError: Error, Sendable, Equatable {
         case setEnableIO
         case setCurrentDevice
         case setChannelMap
-        case setBufferSize
-        case setSampleRate
     }
 
     let operation: Operation
@@ -86,42 +82,6 @@ struct CoreAudioGateway: CoreAudioGatewayType {
         )
         guard status == noErr else { return nil }
         return Int(streamFormat.mChannelsPerFrame)
-    }
-
-    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
-        var size = frames
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyBufferFrameSize,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        let status = AudioObjectSetPropertyData(
-            deviceID,
-            &address,
-            0,
-            nil,
-            UInt32(MemoryLayout<UInt32>.size),
-            &size
-        )
-        try check(status, operation: .setBufferSize)
-    }
-
-    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
-        var rate = rate
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyNominalSampleRate,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        let status = AudioObjectSetPropertyData(
-            deviceID,
-            &address,
-            0,
-            nil,
-            UInt32(MemoryLayout<Float64>.size),
-            &rate
-        )
-        try check(status, operation: .setSampleRate)
     }
 
     private func check(_ status: OSStatus, operation: CoreAudioGatewayError.Operation) throws(CoreAudioGatewayError) {
