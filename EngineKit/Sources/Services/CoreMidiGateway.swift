@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioToolbox
 import AudioUnitsKit
 import CoreMIDI
 
@@ -41,7 +40,7 @@ struct CoreMidiGateway: CoreMidiGatewayType {
             ._1_0,
             &port
         ) { eventList, _ in
-            _ = audioUnit.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
+            audioUnit.scheduleMIDIEventList(eventList)
         }
         return status == noErr ? port : nil
     }
