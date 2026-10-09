@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
+import AudioUnitsKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport
@@ -64,7 +66,7 @@ struct PresetsPresenterTests {
 
     @Test
     mutating func isInteractionDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(.fake())
+        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
         createSut()
 
         #expect(sut.isInteractionDisabled == false)
@@ -80,7 +82,7 @@ struct PresetsPresenterTests {
 
     @Test
     mutating func isSaveAsButtonDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(.fake())
+        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)

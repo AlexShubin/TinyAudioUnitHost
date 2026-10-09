@@ -169,7 +169,7 @@ struct HostPresenterTests {
     @Test
     mutating func audioUnitTitle_loaded_returnsComponentName() async {
         let component = AudioUnitComponent.fake(name: "Reverb")
-        let loaded = LoadedAudioUnit.fake(component: component)
+        let loaded = LoadedAudioUnit(component: component)
         sessionSpy.content = .loaded(loaded)
         createSut()
 
@@ -212,7 +212,7 @@ struct HostPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_noActive() async {
-        let loaded = LoadedAudioUnit.fake()
+        let loaded = LoadedAudioUnit(component: .fake())
         sessionSpy.content = .loaded(loaded)
         sessionSpy.activeName = nil
         createSut()
@@ -231,7 +231,7 @@ struct HostPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_activeAndLoaded_enabled() async {
-        let loaded = LoadedAudioUnit.fake()
+        let loaded = LoadedAudioUnit(component: .fake())
         sessionSpy.content = .loaded(loaded)
         sessionSpy.activeName = "foo"
         createSut()
