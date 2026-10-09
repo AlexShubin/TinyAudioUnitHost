@@ -88,7 +88,7 @@ struct EngineTests {
             .attach(avAudioUnit),
             .start
         ])
-        #expect(midiManagerSpy.calls == [.teardownMIDI, .setupMIDI(result.audioUnit)])
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .setupMIDI(result)])
     }
 
     @Test
@@ -140,8 +140,8 @@ struct EngineTests {
             .start
         ])
         #expect(midiManagerSpy.calls == [
-            .teardownMIDI, .setupMIDI(firstResult.audioUnit),
-            .teardownMIDI, .setupMIDI(secondResult.audioUnit)
+            .teardownMIDI, .setupMIDI(firstResult),
+            .teardownMIDI, .setupMIDI(secondResult)
         ])
         #expect(avAudioUnitFactorySpy.calls == [
             .instantiate(Self.effectDescription, .loadOutOfProcess),
