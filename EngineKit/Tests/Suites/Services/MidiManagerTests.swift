@@ -9,6 +9,7 @@
 import AudioSettingsKitTestSupport
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
+import CoreMidiGatewayKitTestSupport
 import Testing
 @testable import EngineKit
 

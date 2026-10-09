@@ -7,6 +7,7 @@
 //
 
 import Common
+import CoreMidiGatewayKitTestSupport
 import Testing
 @testable import AudioSettingsKit
 

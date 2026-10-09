@@ -7,6 +7,7 @@
 //
 
 import Common
+import CoreMidiGatewayKit
 
 public protocol MidiSetupChangeListenerType: Sendable {
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import CoreMidiGatewayKit
 import Foundation
 import StorageKit
 
@@ -19,7 +20,7 @@ public struct Dependencies: Sendable {
     public static let live: Dependencies = {
         let coreAudioGateway = CoreAudioGateway()
         let devicesProvider = AudioDevicesProvider(gateway: coreAudioGateway)
-        let coreMidiGateway = CoreMidiGateway()
+        let coreMidiGateway = CoreMidiGatewayKit.Dependencies.live.coreMidiGateway
         let midiDevicesProvider = MidiDevicesProvider(gateway: coreMidiGateway)
         let audioSettingsModel = AudioSettingsModel(
             rawStore: StorageKit.Dependencies.live.rawSettingsStore,
