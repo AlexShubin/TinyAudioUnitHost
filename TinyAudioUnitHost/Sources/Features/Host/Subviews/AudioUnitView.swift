@@ -28,9 +28,9 @@ struct AudioUnitView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .task(id: ObjectIdentifier(audioUnit.audioUnit)) {
+            .task(id: ObjectIdentifier(audioUnit)) {
                 loadState = .loading
-                guard let vc = await audioUnit.audioUnit.requestViewController() else {
+                guard let vc = await audioUnit.requestViewController() else {
                     loadState = .unavailable
                     return
                 }

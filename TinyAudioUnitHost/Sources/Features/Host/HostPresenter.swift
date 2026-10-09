@@ -34,8 +34,8 @@ final class HostPresenter {
     var presetLabel: String { "Preset: \(session.activeName ?? "—")" }
 
     var audioUnitTitle: String {
-        if case .loaded(let loaded) = session.content {
-            return loaded.component.name
+        if case .loaded(let audioUnit) = session.content {
+            return audioUnit.component.name
         }
         return "Choose Audio Unit"
     }

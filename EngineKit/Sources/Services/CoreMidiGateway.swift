@@ -14,7 +14,7 @@ protocol CoreMidiGatewayType: Sendable {
     func createInputPort(
         client: UInt32,
         name: String,
-        audioUnit: AUAudioUnitWrapper
+        audioUnit: LoadedAudioUnit
     ) -> UInt32?
     func connect(source: UInt32, to port: UInt32)
     func disconnect(source: UInt32, from port: UInt32)
@@ -31,7 +31,7 @@ struct CoreMidiGateway: CoreMidiGatewayType {
     func createInputPort(
         client: UInt32,
         name: String,
-        audioUnit: AUAudioUnitWrapper
+        audioUnit: LoadedAudioUnit
     ) -> UInt32? {
         var port: MIDIPortRef = 0
         let status = MIDIInputPortCreateWithProtocol(

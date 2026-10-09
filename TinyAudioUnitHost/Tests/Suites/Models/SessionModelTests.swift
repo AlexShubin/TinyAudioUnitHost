@@ -267,7 +267,7 @@ struct SessionModelTests {
     @Test
     mutating func saveCurrentPreset_happyPath_savesAndNotifiesDelegate() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xBE, 0xEF]))
+        let audioUnit = LoadedAudioUnit(fullState: Data([0xBE, 0xEF]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         presetProviderSpy = PresetProviderSpy(
             presets: ["foo": Preset(name: "foo", component: component, state: Data())],
@@ -331,7 +331,7 @@ struct SessionModelTests {
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndNotifiesDelegate() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let audioUnit = AUAudioUnitWrapper(fullState: Data([0xAA]))
+        let audioUnit = LoadedAudioUnit(fullState: Data([0xAA]))
         let loaded = LoadedAudioUnit.fake(component: component, audioUnit: audioUnit)
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
@@ -351,7 +351,7 @@ struct SessionModelTests {
     @Test
     mutating func acknowledgePresetEvent_clearsEvent() async {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: AUAudioUnitWrapper(fullState: Data([0x01])))
+        let loaded = LoadedAudioUnit.fake(component: component, audioUnit: LoadedAudioUnit(fullState: Data([0x01])))
         presetProviderSpy = PresetProviderSpy(
             presets: ["foo": Preset(name: "foo", component: component, state: Data())],
             activeName: "foo"

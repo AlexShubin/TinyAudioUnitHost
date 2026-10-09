@@ -11,7 +11,7 @@ import AudioUnitsKit
 
 @MainActor
 public protocol MidiManagerType: Sendable {
-    func setupMIDI(for audioUnit: AUAudioUnitWrapper) async
+    func setupMIDI(for audioUnit: LoadedAudioUnit) async
     func teardownMIDI() async
     func reconnectMIDISources() async
 }
@@ -32,7 +32,7 @@ final class MidiManager: MidiManagerType {
         self.audioSettings = audioSettings
     }
 
-    func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
+    func setupMIDI(for audioUnit: LoadedAudioUnit) async {
         guard startClient() else { return }
 
         guard let port = coreMidiGateway.createInputPort(
