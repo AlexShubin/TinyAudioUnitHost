@@ -16,8 +16,6 @@ final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
         case setCurrentDevice(AudioDeviceID, AudioUnit)
         case setChannelMap([Int32], AudioUnitElement, AudioUnit)
         case physicalChannelCount(AudioUnit)
-        case setBufferSize(UInt32, AudioDeviceID)
-        case setSampleRate(Float64, AudioDeviceID)
     }
 
     private(set) var calls: [Calls] = []
@@ -44,17 +42,5 @@ final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int? {
         calls.append(.physicalChannelCount(audioUnit))
         return physicalChannelCountResult
-    }
-
-    var setBufferSizeError: CoreAudioGatewayError?
-    func setBufferSize(_ frames: UInt32, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
-        calls.append(.setBufferSize(frames, deviceID))
-        if let setBufferSizeError { throw setBufferSizeError }
-    }
-
-    var setSampleRateError: CoreAudioGatewayError?
-    func setSampleRate(_ rate: Float64, deviceID: AudioDeviceID) throws(CoreAudioGatewayError) {
-        calls.append(.setSampleRate(rate, deviceID))
-        if let setSampleRateError { throw setSampleRateError }
     }
 }

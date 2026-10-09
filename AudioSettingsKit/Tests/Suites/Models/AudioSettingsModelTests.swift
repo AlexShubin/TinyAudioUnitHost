@@ -18,6 +18,7 @@ struct AudioSettingsModelTests {
     var devicesProviderSpy: AudioDevicesProviderSpy!
     var midiDevicesProviderSpy: MidiDevicesProviderSpy!
     var targetResolverSpy: TargetDeviceResolverSpy!
+    var deviceConfiguratorSpy: AudioDeviceConfiguratorSpy!
     var deviceListListenerSpy: DeviceListChangeListenerSpy!
     var midiSetupListenerSpy: MidiSetupChangeListenerSpy!
     var delegateSpy: AudioSettingsModelDelegateSpy!
@@ -28,6 +29,7 @@ struct AudioSettingsModelTests {
         devicesProviderSpy = AudioDevicesProviderSpy()
         midiDevicesProviderSpy = MidiDevicesProviderSpy()
         targetResolverSpy = TargetDeviceResolverSpy()
+        deviceConfiguratorSpy = AudioDeviceConfiguratorSpy()
         deviceListListenerSpy = DeviceListChangeListenerSpy()
         midiSetupListenerSpy = MidiSetupChangeListenerSpy()
         delegateSpy = AudioSettingsModelDelegateSpy()
@@ -39,6 +41,7 @@ struct AudioSettingsModelTests {
             devicesProvider: devicesProviderSpy,
             midiDevicesProvider: midiDevicesProviderSpy,
             targetResolver: targetResolverSpy,
+            deviceConfigurator: deviceConfiguratorSpy,
             deviceListChangeListener: deviceListListenerSpy,
             midiSetupChangeListener: midiSetupListenerSpy
         )
@@ -223,6 +226,28 @@ struct AudioSettingsModelTests {
         #expect(targetResolverSpy.calls == [.resolve(sut.settings)])
     }
 
+    @Test
+    mutating func load_configuresTargetDevice() async {
+        let output = AudioDevice.fake(id: 2, uid: "out-uid")
+        devicesProviderSpy.scanDevicesResult = [output]
+        rawStoreSpy.settings = .fake(output: .fake(uid: "out-uid"))
+        targetResolverSpy.resolveResult = output
+        createSut()
+
+        await sut.load()
+
+        #expect(deviceConfiguratorSpy.calls == [.apply(sut.settings, output)])
+    }
+
+    @Test
+    mutating func load_withoutTarget_configuresNothing() async {
+        createSut()
+
+        await sut.load()
+
+        #expect(deviceConfiguratorSpy.calls.isEmpty)
+    }
+
     // MARK: - save
 
     @Test
@@ -299,6 +324,19 @@ struct AudioSettingsModelTests {
         #expect(sut.targetDevice == output)
         #expect(rawStoreSpy.calls == [.current, .save(rawStoreSpy.settings)])
         #expect(devicesProviderSpy.calls == [.scanDevices])
+    }
+
+    @Test
+    mutating func save_withChangedTarget_configuresIt() async {
+        let output = AudioDevice.fake(id: 2, uid: "out-uid")
+        devicesProviderSpy.scanDevicesResult = [output]
+        createSut()
+        await sut.load()
+        targetResolverSpy.resolveResult = output
+
+        await sut.save(.fake(outputDevice: output))
+
+        #expect(deviceConfiguratorSpy.calls == [.apply(sut.settings, output)])
     }
 
     // MARK: - device lists
