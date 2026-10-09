@@ -30,6 +30,7 @@ public struct Dependencies: Sendable {
                 devicesProvider: devicesProvider,
                 factory: AggregateDeviceFactory(gateway: coreAudioGateway)
             ),
+            deviceConfigurator: AudioDeviceConfigurator(gateway: coreAudioGateway),
             deviceListChangeListener: DeviceListChangeListener(),
             midiSetupChangeListener: MidiSetupChangeListener(gateway: coreMidiGateway)
         )

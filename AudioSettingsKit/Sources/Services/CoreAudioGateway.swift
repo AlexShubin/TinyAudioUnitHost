@@ -26,6 +26,18 @@ protocol CoreAudioGatewayType: Sendable {
         subDeviceUIDs: [String]
     ) -> UInt32?
     func destroyAggregateDevice(id: UInt32)
+    func setBufferSize(_ frames: UInt32, deviceID: UInt32) throws(CoreAudioGatewayError)
+    func setSampleRate(_ rate: Float64, deviceID: UInt32) throws(CoreAudioGatewayError)
+}
+
+struct CoreAudioGatewayError: Error, Equatable {
+    enum Operation: Equatable {
+        case setBufferSize
+        case setSampleRate
+    }
+
+    let operation: Operation
+    let status: Int32
 }
 
 enum AudioDeviceScope: Sendable, Equatable {
@@ -107,6 +119,24 @@ struct CoreAudioGateway: CoreAudioGatewayType {
     func destroyAggregateDevice(id: UInt32) {
         AudioHardwareDestroyAggregateDevice(id)
     }
+
+    func setBufferSize(_ frames: UInt32, deviceID: UInt32) throws(CoreAudioGatewayError) {
+        var frames = frames
+        let status = deviceID.setProperty(selector: kAudioDevicePropertyBufferFrameSize, value: &frames)
+        try check(status, operation: .setBufferSize)
+    }
+
+    func setSampleRate(_ rate: Float64, deviceID: UInt32) throws(CoreAudioGatewayError) {
+        var rate = rate
+        let status = deviceID.setProperty(selector: kAudioDevicePropertyNominalSampleRate, value: &rate)
+        try check(status, operation: .setSampleRate)
+    }
+
+    private func check(_ status: OSStatus, operation: CoreAudioGatewayError.Operation) throws(CoreAudioGatewayError) {
+        guard status == noErr else {
+            throw CoreAudioGatewayError(operation: operation, status: status)
+        }
+    }
 }
 
 private extension AudioDeviceScope {
@@ -145,6 +175,16 @@ private extension AudioObjectID {
         else { return nil }
         let string = result.takeRetainedValue() as String
         return string.isEmpty ? nil : string
+    }
+
+    func setProperty<T: BitwiseCopyable>(
+        selector: AudioObjectPropertySelector,
+        scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,
+        element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain,
+        value: inout T
+    ) -> OSStatus {
+        var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
+        return AudioObjectSetPropertyData(self, &address, 0, nil, UInt32(MemoryLayout<T>.size), &value)
     }
 
     func getArray<T: BitwiseCopyable>(
