@@ -8,6 +8,7 @@
 
 import AppKit
 @preconcurrency import CoreAudioKit
+import CoreMIDI
 
 /// Concrete model wrapping `AUAudioUnit` for the rest of the app to pass around.
 ///
@@ -55,8 +56,8 @@ public final class AUAudioUnitWrapper: Equatable, Sendable {
         set { au?.fullState = newValue?.asStringAnyDictionary }
     }
 
-    public var scheduleMIDIEventListBlock: AUMIDIEventListBlock? {
-        au?.scheduleMIDIEventListBlock
+    public func scheduleMIDIEventList(_ eventList: UnsafePointer<MIDIEventList>) {
+        _ = au?.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
     }
 
     @MainActor
