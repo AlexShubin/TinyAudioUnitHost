@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import CoreMidiGatewayKit
+
 public protocol MidiDevicesProviderType: Sendable {
     var devices: [MidiDevice] { get }
 }

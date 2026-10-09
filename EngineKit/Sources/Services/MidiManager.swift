@@ -8,6 +8,7 @@
 
 import AudioSettingsKit
 import AudioUnitsKit
+import CoreMidiGatewayKit
 
 @MainActor
 public protocol MidiManagerType: Sendable {

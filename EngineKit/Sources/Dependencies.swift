@@ -10,6 +10,7 @@ import AppKit
 import AudioSettingsKit
 import AVFoundation
 import Common
+import CoreMidiGatewayKit
 
 @MainActor
 public struct Dependencies: Sendable {
@@ -20,7 +21,7 @@ public struct Dependencies: Sendable {
     public static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live.audioSettingsModel
         let midiManager = MidiManager(
-            coreMidiGateway: CoreMidiGateway(),
+            coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway,
             audioSettings: audioSettings
         )
         let engine = Engine(
