@@ -8,6 +8,8 @@
 
 import AudioSettingsKitTestSupport
 import AudioUnitsKit
+import AudioUnitsKitTestSupport
+import CoreMidiGatewayKitTestSupport
 import Testing
 @testable import EngineKit
 
@@ -37,7 +39,7 @@ struct MidiManagerTests {
         coreMidiGatewaySpy.createInputPortResult = 2
         audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
-        let audioUnit = AUAudioUnitWrapper()
+        let audioUnit = LoadedAudioUnit(component: .fake())
 
         await sut.setupMIDI(for: audioUnit)
 
@@ -52,7 +54,7 @@ struct MidiManagerTests {
     mutating func setupMIDI_emptySelection_connectsNothing() async {
         coreMidiGatewaySpy.createInputPortResult = 2
         createSut()
-        let audioUnit = AUAudioUnitWrapper()
+        let audioUnit = LoadedAudioUnit(component: .fake())
 
         await sut.setupMIDI(for: audioUnit)
 
@@ -67,7 +69,7 @@ struct MidiManagerTests {
         coreMidiGatewaySpy.createClientResult = nil
         createSut()
 
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        await sut.setupMIDI(for: LoadedAudioUnit(component: .fake()))
 
         #expect(coreMidiGatewaySpy.calls == [.createClient("TinyAUHost")])
     }
@@ -77,7 +79,7 @@ struct MidiManagerTests {
         coreMidiGatewaySpy.createInputPortResult = nil
         audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
-        let audioUnit = AUAudioUnitWrapper()
+        let audioUnit = LoadedAudioUnit(component: .fake())
 
         await sut.setupMIDI(for: audioUnit)
 
@@ -93,7 +95,7 @@ struct MidiManagerTests {
     mutating func teardownMIDI_disposesInputPort() async {
         coreMidiGatewaySpy.createInputPortResult = 2
         createSut()
-        let audioUnit = AUAudioUnitWrapper()
+        let audioUnit = LoadedAudioUnit(component: .fake())
 
         await sut.setupMIDI(for: audioUnit)
         await sut.teardownMIDI()
@@ -112,7 +114,7 @@ struct MidiManagerTests {
         coreMidiGatewaySpy.createInputPortResult = 2
         audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        await sut.setupMIDI(for: LoadedAudioUnit(component: .fake()))
 
         audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 20)])
         await sut.reconnectMIDISources()
@@ -128,7 +130,7 @@ struct MidiManagerTests {
         coreMidiGatewaySpy.createInputPortResult = 2
         audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
-        await sut.setupMIDI(for: AUAudioUnitWrapper())
+        await sut.setupMIDI(for: LoadedAudioUnit(component: .fake()))
         let callsAfterSetup = coreMidiGatewaySpy.calls
 
         await sut.reconnectMIDISources()

@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import CoreAudioGatewayKit
+import CoreMidiGatewayKit
 import Foundation
 import StorageKit
 
@@ -17,9 +19,9 @@ public struct Dependencies: Sendable {
     public let setupChecker: SetupCheckerType
 
     public static let live: Dependencies = {
-        let coreAudioGateway = CoreAudioGateway()
+        let coreAudioGateway = CoreAudioGatewayKit.Dependencies.live.coreAudioGateway
         let devicesProvider = AudioDevicesProvider(gateway: coreAudioGateway)
-        let coreMidiGateway = CoreMidiGateway()
+        let coreMidiGateway = CoreMidiGatewayKit.Dependencies.live.coreMidiGateway
         let midiDevicesProvider = MidiDevicesProvider(gateway: coreMidiGateway)
         let audioSettingsModel = AudioSettingsModel(
             rawStore: StorageKit.Dependencies.live.rawSettingsStore,
@@ -29,8 +31,9 @@ public struct Dependencies: Sendable {
                 devicesProvider: devicesProvider,
                 factory: AggregateDeviceFactory(gateway: coreAudioGateway)
             ),
-            deviceListChangeListener: DeviceListChangeListener(),
-            midiSetupChangeListener: MidiSetupChangeListener(gateway: coreMidiGateway)
+            deviceConfigurator: AudioDeviceConfigurator(gateway: coreAudioGateway),
+            coreAudioGateway: coreAudioGateway,
+            coreMidiGateway: coreMidiGateway
         )
         return Dependencies(
             audioSettingsModel: audioSettingsModel,

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
 import Testing
@@ -61,7 +62,7 @@ struct AppCommandsPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_noActive() async {
-        sessionSpy.content = .loaded(.fake())
+        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
         sessionSpy.activeName = nil
         createSut()
 
@@ -79,7 +80,7 @@ struct AppCommandsPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_activeAndLoaded_isFalse() async {
-        sessionSpy.content = .loaded(.fake())
+        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
         sessionSpy.activeName = "foo"
         createSut()
 
@@ -126,7 +127,7 @@ struct AppCommandsPresenterTests {
 
     @Test
     mutating func isSaveAsButtonDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(.fake())
+        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)

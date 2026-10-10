@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import CoreMidiGatewayKitTestSupport
 import Testing
 @testable import AudioSettingsKit
 

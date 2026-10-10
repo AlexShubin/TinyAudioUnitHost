@@ -7,6 +7,8 @@
 //
 
 import Common
+import CoreAudioGatewayKit
+import CoreMidiGatewayKit
 import Observation
 import StorageKit
 
@@ -41,6 +43,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
     @ObservationIgnored private let devicesProvider: AudioDevicesProviderType
     @ObservationIgnored private let midiDevicesProvider: MidiDevicesProviderType
     @ObservationIgnored private let targetResolver: TargetDeviceResolverType
+    @ObservationIgnored private let deviceConfigurator: AudioDeviceConfiguratorType
     @ObservationIgnored private var deviceListObservation: Cancellation?
     @ObservationIgnored private var midiSetupObservation: Cancellation?
     @ObservationIgnored private var devices: [AudioDevice] = []
@@ -50,19 +53,21 @@ final class AudioSettingsModel: AudioSettingsModelType {
         devicesProvider: AudioDevicesProviderType,
         midiDevicesProvider: MidiDevicesProviderType,
         targetResolver: TargetDeviceResolverType,
-        deviceListChangeListener: DeviceListChangeListenerType,
-        midiSetupChangeListener: MidiSetupChangeListenerType
+        deviceConfigurator: AudioDeviceConfiguratorType,
+        coreAudioGateway: CoreAudioGatewayType,
+        coreMidiGateway: CoreMidiGatewayType
     ) {
         self.rawStore = rawStore
         self.devicesProvider = devicesProvider
         self.midiDevicesProvider = midiDevicesProvider
         self.targetResolver = targetResolver
-        deviceListObservation = deviceListChangeListener.observeChanges { [weak self] in
+        self.deviceConfigurator = deviceConfigurator
+        deviceListObservation = coreAudioGateway.observeDeviceListChanges { [weak self] in
             await self?.rescanDevices()
         }
         // Must be the process's first CoreMIDI call, made on the main run loop,
         // otherwise the process would never receive another MIDI notification.
-        midiSetupObservation = midiSetupChangeListener.observeChanges { [weak self] in
+        midiSetupObservation = coreMidiGateway.observeSetupChanges { [weak self] in
             await self?.refreshMidiDevices()
         }
     }
@@ -70,6 +75,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
     func load() async {
         await scanDevices()
         resolve(rawStore.current)
+        configureTargetDevice()
         await delegate?.audioSettingsDidChange()
     }
 
@@ -98,6 +104,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         let previous = (settings, targetDevice)
         resolve(raw)
         guard previous != (settings, targetDevice) else { return }
+        configureTargetDevice()
         await delegate?.audioSettingsDidChange()
     }
 
@@ -107,6 +114,11 @@ final class AudioSettingsModel: AudioSettingsModelType {
         let device = targetResolver.resolve(loaded)
         settings = loaded.defaulting(to: device)
         targetDevice = device
+    }
+
+    private func configureTargetDevice() {
+        guard let targetDevice else { return }
+        deviceConfigurator.apply(settings, to: targetDevice)
     }
 }
 

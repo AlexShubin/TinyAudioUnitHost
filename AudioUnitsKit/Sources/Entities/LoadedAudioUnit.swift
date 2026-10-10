@@ -2,21 +2,96 @@
 //  LoadedAudioUnit.swift
 //  AudioUnitsKit
 //
-//  Created by Alex Shubin on 21.04.26.
+//  Created by Alex Shubin on 06.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AppKit
+@preconcurrency import CoreAudioKit
+import CoreMIDI
 
-public struct LoadedAudioUnit: Equatable, Sendable {
-    public let component: AudioUnitComponent
-    public let audioUnit: AUAudioUnitWrapper
+/// Concrete model wrapping `AUAudioUnit` for the rest of the app to pass around.
+///
+/// Two things push us to a wrapper instead of using `AUAudioUnit` directly:
+/// - It maps `fullState` between the foreign `[String: Any]` and our `Data`.
+/// - `AUAudioUnit` has no clean way to be initialized — constructing one needs a
+///   real component (async, system-dependent) and its `fullState` can't be set to
+///   arbitrary bytes. That's also why this is a concrete type with a headless
+///   `init(component:fullState:)` rather than a protocol + mock: there's no DI seam to
+///   inject an audio unit through, so tests need a cheap way to *construct* one.
+public final class LoadedAudioUnit: Equatable, Sendable {
+    public static func == (lhs: LoadedAudioUnit, rhs: LoadedAudioUnit) -> Bool {
+        lhs === rhs
+    }
 
-    public init(
-        component: AudioUnitComponent,
-        audioUnit: AUAudioUnitWrapper
-    ) {
-        self.component = component
-        self.audioUnit = audioUnit
+    private let au: AUAudioUnit?
+
+    #if DEBUG
+    private let testComponent: AudioUnitComponent?
+    private let testState: Data?
+    #endif
+
+    public init(_ au: AUAudioUnit) {
+        self.au = au
+        #if DEBUG
+        self.testComponent = nil
+        self.testState = nil
+        #endif
+    }
+
+    #if DEBUG
+    /// Headless stand-in with no live audio unit, for tests that only need its identity and `fullState`.
+    public init(component: AudioUnitComponent, fullState: Data? = nil) {
+        self.au = nil
+        self.testComponent = component
+        self.testState = fullState
+    }
+    #endif
+
+    public var component: AudioUnitComponent {
+        #if DEBUG
+        if let testComponent { return testComponent }
+        #endif
+        return AudioUnitComponent(
+            name: au?.audioUnitName ?? "",
+            manufacturer: au?.manufacturerName ?? "",
+            componentDescription: au?.componentDescription ?? AudioComponentDescription()
+        )
+    }
+
+    public var fullState: Data? {
+        get {
+            #if DEBUG
+            au?.fullState?.binaryPlist ?? testState
+            #else
+            au?.fullState?.binaryPlist
+            #endif
+        }
+        set { au?.fullState = newValue?.asStringAnyDictionary }
+    }
+
+    public func scheduleMIDIEventList(_ eventList: UnsafePointer<MIDIEventList>) {
+        _ = au?.scheduleMIDIEventListBlock?(AUEventSampleTimeImmediate, 0, eventList)
+    }
+
+    @MainActor
+    public func requestViewController() async -> NSViewController? {
+        guard let au else { return nil }
+        return await withCheckedContinuation { continuation in
+            au.requestViewController { continuation.resume(returning: $0) }
+        }
+    }
+}
+
+private extension [String: Any] {
+    var binaryPlist: Data? {
+        try? PropertyListSerialization.data(fromPropertyList: self, format: .binary, options: 0)
+    }
+}
+
+private extension Data {
+    var asStringAnyDictionary: [String: Any]? {
+        let plist = try? PropertyListSerialization.propertyList(from: self, options: [], format: nil)
+        return plist as? [String: Any]
     }
 }

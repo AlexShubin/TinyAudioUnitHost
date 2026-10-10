@@ -2,7 +2,7 @@ import ProjectDescription
 import ProjectDescriptionHelpers
 
 let project = Project.library(
-    name: "PurchasesKit",
+    name: "CoreAudioGatewayKit",
     dependencies: [.module("Common")],
-    tests: []
+    testSupportDependencies: [.module("Common")]
 )

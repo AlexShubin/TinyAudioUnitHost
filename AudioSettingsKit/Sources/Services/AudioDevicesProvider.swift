@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import CoreAudioGatewayKit
+
 public protocol AudioDevicesProviderType: Sendable {
     @concurrent
     func scanDevices() async -> [AudioDevice]
