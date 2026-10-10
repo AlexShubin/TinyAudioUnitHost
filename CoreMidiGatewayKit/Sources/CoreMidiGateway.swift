@@ -7,10 +7,12 @@
 //
 
 import AudioUnitsKit
+import Common
 import CoreMIDI
 
 public protocol CoreMidiGatewayType: Sendable {
-    func createClient(name: String, onSetupChange: @escaping @Sendable () async -> Void) -> UInt32?
+    func observeSetupChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation
+    func createClient(name: String) -> UInt32?
     func disposeClient(_ client: UInt32)
     var sourceCount: Int { get }
     func source(at index: Int) -> UInt32
@@ -23,19 +25,21 @@ public protocol CoreMidiGatewayType: Sendable {
     func disposePort(_ port: UInt32)
 }
 
-public extension CoreMidiGatewayType {
-    func createClient(name: String) -> UInt32? {
-        createClient(name: name, onSetupChange: {})
-    }
-}
-
 struct CoreMidiGateway: CoreMidiGatewayType {
-    func createClient(name: String, onSetupChange: @escaping @Sendable () async -> Void) -> UInt32? {
+    func observeSetupChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation {
         var client: MIDIClientRef = 0
-        let status = MIDIClientCreateWithBlock(name as CFString, &client) { notification in
+        let status = MIDIClientCreateWithBlock("TinyAUHost-AudioSettings" as CFString, &client) { notification in
             guard notification.pointee.messageID == .msgSetupChanged else { return }
-            Task { await onSetupChange() }
+            Task { await handler() }
         }
+        guard status == noErr else { return Cancellation {} }
+        let created = client
+        return Cancellation { MIDIClientDispose(created) }
+    }
+
+    func createClient(name: String) -> UInt32? {
+        var client: MIDIClientRef = 0
+        let status = MIDIClientCreateWithBlock(name as CFString, &client, nil)
         return status == noErr ? client : nil
     }
 
