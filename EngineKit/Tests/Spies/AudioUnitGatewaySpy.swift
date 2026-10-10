@@ -1,5 +1,5 @@
 //
-//  CoreAudioGatewaySpy.swift
+//  AudioUnitGatewaySpy.swift
 //  EngineKitTests
 //
 //  Created by Alex Shubin on 30.04.26.
@@ -10,7 +10,7 @@ import AVFoundation
 import CoreAudio
 @testable import EngineKit
 
-final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
+final class AudioUnitGatewaySpy: AudioUnitGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case setEnableIO(Bool, AudioUnitScope, AudioUnitElement, AudioUnit)
         case setCurrentDevice(AudioDeviceID, AudioUnit)
@@ -20,20 +20,20 @@ final class CoreAudioGatewaySpy: CoreAudioGatewayType, @unchecked Sendable {
 
     private(set) var calls: [Calls] = []
 
-    var setEnableIOError: CoreAudioGatewayError?
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+    var setEnableIOError: AudioUnitGatewayError?
+    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         calls.append(.setEnableIO(enabled, scope, element, audioUnit))
         if let setEnableIOError { throw setEnableIOError }
     }
 
-    var setCurrentDeviceError: CoreAudioGatewayError?
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+    var setCurrentDeviceError: AudioUnitGatewayError?
+    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         calls.append(.setCurrentDevice(deviceID, audioUnit))
         if let setCurrentDeviceError { throw setCurrentDeviceError }
     }
 
-    var setChannelMapError: CoreAudioGatewayError?
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+    var setChannelMapError: AudioUnitGatewayError?
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         calls.append(.setChannelMap(map, element, audioUnit))
         if let setChannelMapError { throw setChannelMapError }
     }

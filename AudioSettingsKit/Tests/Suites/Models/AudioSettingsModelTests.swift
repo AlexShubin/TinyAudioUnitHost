@@ -7,6 +7,7 @@
 //
 
 import AudioSettingsKitTestSupport
+import CoreAudioGatewayKitTestSupport
 import StorageKit
 import StorageKitTestSupport
 import Testing
@@ -19,7 +20,7 @@ struct AudioSettingsModelTests {
     var midiDevicesProviderSpy: MidiDevicesProviderSpy!
     var targetResolverSpy: TargetDeviceResolverSpy!
     var deviceConfiguratorSpy: AudioDeviceConfiguratorSpy!
-    var deviceListListenerSpy: DeviceListChangeListenerSpy!
+    var coreAudioGatewaySpy: CoreAudioGatewaySpy!
     var midiSetupListenerSpy: MidiSetupChangeListenerSpy!
     var delegateSpy: AudioSettingsModelDelegateSpy!
     var sut: AudioSettingsModelType!
@@ -30,7 +31,7 @@ struct AudioSettingsModelTests {
         midiDevicesProviderSpy = MidiDevicesProviderSpy()
         targetResolverSpy = TargetDeviceResolverSpy()
         deviceConfiguratorSpy = AudioDeviceConfiguratorSpy()
-        deviceListListenerSpy = DeviceListChangeListenerSpy()
+        coreAudioGatewaySpy = CoreAudioGatewaySpy()
         midiSetupListenerSpy = MidiSetupChangeListenerSpy()
         delegateSpy = AudioSettingsModelDelegateSpy()
     }
@@ -42,7 +43,7 @@ struct AudioSettingsModelTests {
             midiDevicesProvider: midiDevicesProviderSpy,
             targetResolver: targetResolverSpy,
             deviceConfigurator: deviceConfiguratorSpy,
-            deviceListChangeListener: deviceListListenerSpy,
+            coreAudioGateway: coreAudioGatewaySpy,
             midiSetupChangeListener: midiSetupListenerSpy
         )
         sut.delegate = delegateSpy
@@ -54,7 +55,7 @@ struct AudioSettingsModelTests {
     mutating func init_observesDeviceListChanges() async {
         createSut()
 
-        #expect(deviceListListenerSpy.calls == [.observeChanges])
+        #expect(coreAudioGatewaySpy.calls == [.observeDeviceListChanges])
     }
 
     @Test
@@ -496,7 +497,7 @@ struct AudioSettingsModelTests {
         devicesProviderSpy.scanDevicesResult = [output]
         rawStoreSpy.settings = .fake(output: .fake(uid: "out-uid"))
 
-        await deviceListListenerSpy.changesHandler?()
+        await coreAudioGatewaySpy.deviceListChangeHandler?()
 
         #expect(sut.settings.outputDevice == output)
         #expect(rawStoreSpy.calls == [.current, .current])
@@ -507,7 +508,7 @@ struct AudioSettingsModelTests {
         createSut()
         await sut.load()
 
-        await deviceListListenerSpy.changesHandler?()
+        await coreAudioGatewaySpy.deviceListChangeHandler?()
 
         #expect(delegateSpy.calls == [.audioSettingsDidChange])
     }

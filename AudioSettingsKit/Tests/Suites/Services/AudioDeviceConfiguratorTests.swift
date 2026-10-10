@@ -7,6 +7,8 @@
 //
 
 import AudioSettingsKitTestSupport
+import CoreAudioGatewayKit
+import CoreAudioGatewayKitTestSupport
 import Testing
 @testable import AudioSettingsKit
 

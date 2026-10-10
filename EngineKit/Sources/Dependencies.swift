@@ -28,7 +28,7 @@ public struct Dependencies: Sendable {
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),
             avAudioUnitFactory: AVAudioUnitFactory(),
-            coreAudioGateway: CoreAudioGateway(),
+            audioUnitGateway: AudioUnitGateway(),
             midiManager: midiManager,
             audioSettings: audioSettings
         )

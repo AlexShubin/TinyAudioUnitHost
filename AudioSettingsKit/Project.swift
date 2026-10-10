@@ -29,6 +29,7 @@ let project = Project(
             ],
             dependencies: [
                 .project(target: "Common", path: .relativeToManifest("../Common")),
+                .project(target: "CoreAudioGatewayKit", path: .relativeToManifest("../CoreAudioGatewayKit")),
                 .project(target: "CoreMidiGatewayKit", path: .relativeToManifest("../CoreMidiGatewayKit")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
             ]
@@ -59,6 +60,8 @@ let project = Project(
             dependencies: [
                 .target(name: "AudioSettingsKit"),
                 .target(name: "AudioSettingsKitTestSupport"),
+                .project(target: "CoreAudioGatewayKit", path: .relativeToManifest("../CoreAudioGatewayKit")),
+                .project(target: "CoreAudioGatewayKitTestSupport", path: .relativeToManifest("../CoreAudioGatewayKit")),
                 .project(target: "CoreMidiGatewayKit", path: .relativeToManifest("../CoreMidiGatewayKit")),
                 .project(target: "CoreMidiGatewayKitTestSupport", path: .relativeToManifest("../CoreMidiGatewayKit")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
