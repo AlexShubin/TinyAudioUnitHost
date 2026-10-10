@@ -59,6 +59,10 @@ struct Dependencies: Sendable {
         )
     }
 
+    func makeChannelStripPresenter() -> ChannelStripPresenter {
+        ChannelStripPresenter()
+    }
+
     func makePresetsPresenter() -> PresetsPresenter {
         PresetsPresenter(
             session: session,

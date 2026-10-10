@@ -20,7 +20,11 @@ struct TinyAudioUnitHostApp: App {
                     PresetsView(presenter: dependencies.makePresetsPresenter())
                         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
                 } detail: {
-                    HostView(presenter: dependencies.makeHostPresenter())
+                    HStack(spacing: .zero) {
+                        ChannelStripView(presenter: dependencies.makeChannelStripPresenter())
+                        Divider()
+                        HostView(presenter: dependencies.makeHostPresenter())
+                    }
                 }
             }
         }
