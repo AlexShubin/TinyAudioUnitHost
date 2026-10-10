@@ -165,8 +165,8 @@ struct EngineTests {
         _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         #expect(audioUnitGatewaySpy.calls == [
-            .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
-            .setEnableIO(false, kAudioUnitScope_Output, 0, outputAU),
+            .setEnableIO(true, .input, outputAU),
+            .setEnableIO(false, .output, outputAU),
             .setCurrentDevice(targetDevice.id, outputAU)
         ])
     }
@@ -200,7 +200,7 @@ struct EngineTests {
         _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
-        #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], 1, inputAU)])
+        #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], .input, inputAU)])
         #expect(avEngineSpy.calls.contains(.connectHardwareInput(inputMixerSpy, userFormat)))
     }
 
@@ -223,7 +223,7 @@ struct EngineTests {
         _ = try await sut.load(component: Self.mixerComponent, state: nil)
 
         #expect(!avEngineSpy.calls.contains { if case .connectHardwareInput = $0 { true } else { false } })
-        #expect(!audioUnitGatewaySpy.calls.contains { if case .setChannelMap(_, let element, _) = $0 { element == 1 } else { false } })
+        #expect(!audioUnitGatewaySpy.calls.contains { if case .setChannelMap(_, .input, _) = $0 { true } else { false } })
     }
 
     @Test
@@ -250,11 +250,11 @@ struct EngineTests {
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
         #expect(audioUnitGatewaySpy.calls == [
-            .setEnableIO(false, kAudioUnitScope_Input, 1, outputAU),
-            .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
+            .setEnableIO(false, .input, outputAU),
+            .setEnableIO(true, .output, outputAU),
             .setCurrentDevice(targetDevice.id, outputAU),
             .physicalChannelCount(outputAU),
-            .setChannelMap([0, 1, -1, -1], 0, outputAU)
+            .setChannelMap([0, 1, -1, -1], .output, outputAU)
         ])
         #expect(avEngineSpy.calls.contains(.connectToMainMixer(avAudioUnit, outputFormat)))
     }
