@@ -7,6 +7,7 @@
 //
 
 import AudioSettingsKit
+import AudioToolboxGatewayKit
 import AudioUnitsKit
 import AVFoundation
 import OSLog

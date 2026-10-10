@@ -1,30 +1,35 @@
 //
 //  AudioUnitGateway.swift
-//  EngineKit
+//  AudioToolboxGatewayKit
 //
 //  Created by Alex Shubin on 30.04.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AVFoundation
+import AudioToolbox
 import CoreAudio
 
-protocol AudioUnitGatewayType {
+public protocol AudioUnitGatewayType: Sendable {
     func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
     func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
     func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
 }
 
-struct AudioUnitGatewayError: Error, Sendable, Equatable {
-    enum Operation: Sendable, Equatable {
+public struct AudioUnitGatewayError: Error, Sendable, Equatable {
+    public enum Operation: Sendable, Equatable {
         case setEnableIO
         case setCurrentDevice
         case setChannelMap
     }
 
-    let operation: Operation
-    let status: Int32
+    public let operation: Operation
+    public let status: Int32
+
+    public init(operation: Operation, status: Int32) {
+        self.operation = operation
+        self.status = status
+    }
 }
 
 struct AudioUnitGateway: AudioUnitGatewayType {
