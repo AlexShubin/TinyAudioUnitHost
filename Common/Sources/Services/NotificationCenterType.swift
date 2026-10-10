@@ -9,18 +9,14 @@
 import Foundation
 
 public protocol NotificationCenterType: Sendable {
-    func stream(for name: Notification.Name) -> AsyncStream<Void>
+    func observe(_ name: Notification.Name, handler: @escaping @Sendable () async -> Void) -> Cancellation
 }
 
 extension NotificationCenter: NotificationCenterType {
-    public func stream(for name: Notification.Name) -> AsyncStream<Void> {
-        AsyncStream { continuation in
-            nonisolated(unsafe) let observer = self.addObserver(forName: name, object: nil, queue: nil) { _ in
-                continuation.yield()
-            }
-            continuation.onTermination = { [self] _ in
-                self.removeObserver(observer)
-            }
+    public func observe(_ name: Notification.Name, handler: @escaping @Sendable () async -> Void) -> Cancellation {
+        nonisolated(unsafe) let observer = addObserver(forName: name, object: nil, queue: nil) { _ in
+            Task { await handler() }
         }
+        return Cancellation { [self] in removeObserver(observer) }
     }
 }

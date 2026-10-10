@@ -11,7 +11,7 @@ import SwiftUI
 
 struct FeedbackToast: View {
     let state: FeedbackToastViewState
-    let onAction: (FeedbackToastAction) -> Void
+    let onTimeout: () -> Void
 
     var body: some View {
         Label(state.kind.message, systemImage: state.kind.systemImage)
@@ -23,13 +23,9 @@ struct FeedbackToast: View {
             .task(id: state.id) {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard !Task.isCancelled else { return }
-                onAction(.timedOut)
+                onTimeout()
             }
     }
-}
-
-enum FeedbackToastAction {
-    case timedOut
 }
 
 struct FeedbackToastViewState: Sendable, Equatable {

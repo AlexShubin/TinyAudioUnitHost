@@ -9,8 +9,9 @@
 import SwiftUI
 
 struct PresetNameDialogView: View {
-    @State var viewModel: PresetNameDialogViewModelType
+    @State var presenter: PresetNameDialogPresenter
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -22,45 +23,36 @@ struct PresetNameDialogView: View {
                 .padding(.top, 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Preset Name", text: nameBinding)
+                TextField("Preset Name", text: $presenter.name)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isNameFocused)
                     .font(.title3)
-                    .onSubmit { Task { await viewModel.accept(action: .commit) } }
-                if let message = viewModel.errorMessage {
+                    .onSubmit { presenter.commit() }
+                if let message = presenter.errorMessage {
                     Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
+                        .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 24)
 
             HStack {
-                Button("Cancel", role: .cancel) {
-                    Task { await viewModel.accept(action: .cancel) }
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel", role: .cancel) { presenter.cancel() }
+                    .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(viewModel.commitLabel) {
-                    Task { await viewModel.accept(action: .commit) }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!viewModel.canCommit)
+                Button(presenter.commitLabel) { presenter.commit() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!presenter.canCommit)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
         .frame(width: 440)
-        .onChange(of: viewModel.isDismissed) { _, isDismissed in
+        // Explicit focus avoids the double focus flicker on the sheet's first presentation.
+        .onAppear { isNameFocused = true }
+        .onChange(of: presenter.isDismissed) { _, isDismissed in
             if isDismissed { dismiss() }
         }
-    }
-
-    private var nameBinding: Binding<String> {
-        Binding(
-            get: { viewModel.name },
-            set: { newValue in
-                Task { await viewModel.accept(action: .nameChanged(newValue)) }
-            }
-        )
     }
 }

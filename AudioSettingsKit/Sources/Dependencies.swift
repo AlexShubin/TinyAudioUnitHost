@@ -9,39 +9,34 @@
 import Foundation
 import StorageKit
 
+@MainActor
 public struct Dependencies: Sendable {
-    public let audioSettingsProvider: AudioSettingsProviderType
-    public let targetSettingsProvider: TargetSettingsProviderType
+    public let audioSettingsModel: AudioSettingsModelType
     public let devicesProvider: AudioDevicesProviderType
     public let midiDevicesProvider: MidiDevicesProviderType
     public let setupChecker: SetupCheckerType
-    public let setupRefresher: SetupRefresherType
 
     public static let live: Dependencies = {
-        let devicesProvider = AudioDevicesProvider(gateway: CoreAudioGateway())
-        let midiDevicesProvider = MidiDevicesProvider(gateway: CoreMidiGateway())
-        let rawStore = StorageKit.Dependencies.live.rawSettingsStore
-        let audioSettingsProvider = AudioSettingsProvider(
-            rawStore: rawStore,
-            devicesProvider: devicesProvider,
-            midiDevicesProvider: midiDevicesProvider
-        )
-        let targetSettingsProvider = TargetSettingsProvider(
-            audioSettings: audioSettingsProvider,
-            devicesProvider: devicesProvider,
-            factory: AggregateDeviceFactory(devicesProvider: devicesProvider, gateway: CoreAudioGateway())
-        )
-        let setupChecker = SetupChecker(audioSettings: audioSettingsProvider)
-        return Dependencies(
-            audioSettingsProvider: audioSettingsProvider,
-            targetSettingsProvider: targetSettingsProvider,
+        let coreAudioGateway = CoreAudioGateway()
+        let devicesProvider = AudioDevicesProvider(gateway: coreAudioGateway)
+        let coreMidiGateway = CoreMidiGateway()
+        let midiDevicesProvider = MidiDevicesProvider(gateway: coreMidiGateway)
+        let audioSettingsModel = AudioSettingsModel(
+            rawStore: StorageKit.Dependencies.live.rawSettingsStore,
             devicesProvider: devicesProvider,
             midiDevicesProvider: midiDevicesProvider,
-            setupChecker: setupChecker,
-            setupRefresher: SetupRefresher(
-                setupChecker: setupChecker,
-                deviceListListener: DeviceListChangeListener()
-            )
+            targetResolver: TargetDeviceResolver(
+                devicesProvider: devicesProvider,
+                factory: AggregateDeviceFactory(gateway: coreAudioGateway)
+            ),
+            deviceListChangeListener: DeviceListChangeListener(),
+            midiSetupChangeListener: MidiSetupChangeListener(gateway: coreMidiGateway)
+        )
+        return Dependencies(
+            audioSettingsModel: audioSettingsModel,
+            devicesProvider: devicesProvider,
+            midiDevicesProvider: midiDevicesProvider,
+            setupChecker: SetupChecker(audioSettings: audioSettingsModel, captureDevice: AVCaptureDeviceGateway())
         )
     }()
 }

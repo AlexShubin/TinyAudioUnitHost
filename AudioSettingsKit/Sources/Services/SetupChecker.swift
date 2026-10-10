@@ -16,53 +16,36 @@ public enum SetupRequirement: Sendable, Equatable, Hashable {
 }
 
 public protocol SetupCheckerType: Sendable {
-    var unmetStream: AsyncStream<Set<SetupRequirement>> { get }
-    func refresh() async
+    func check() async -> Set<SetupRequirement>
 }
 
-public final actor SetupChecker: SetupCheckerType {
-    public nonisolated let unmetStream: AsyncStream<Set<SetupRequirement>>
-    private let continuation: AsyncStream<Set<SetupRequirement>>.Continuation
-
-    private let audioSettings: AudioSettingsProviderType
+struct SetupChecker: SetupCheckerType {
+    private let audioSettings: AudioSettingsModelType
     private let captureDevice: AVCaptureDeviceGatewayType
-    private var unmet: Set<SetupRequirement>?
 
-    public init(
-        audioSettings: AudioSettingsProviderType,
-        captureDevice: AVCaptureDeviceGatewayType = AVCaptureDeviceGateway()
-    ) {
+    init(audioSettings: AudioSettingsModelType, captureDevice: AVCaptureDeviceGatewayType) {
         self.audioSettings = audioSettings
         self.captureDevice = captureDevice
-        let (stream, continuation) = AsyncStream<Set<SetupRequirement>>.makeStream()
-        self.unmetStream = stream
-        self.continuation = continuation
     }
 
-    deinit {
-        continuation.finish()
-    }
-
-    public func refresh() async {
+    func check() async -> Set<SetupRequirement> {
         if captureDevice.authorizationStatus(for: .audio) == .notDetermined {
             _ = await captureDevice.requestAccess(for: .audio)
         }
-        var next: Set<SetupRequirement> = []
+        var unmet: Set<SetupRequirement> = []
         if captureDevice.authorizationStatus(for: .audio) != .authorized {
-            next.insert(.microphonePermission)
+            unmet.insert(.microphonePermission)
         }
-        let settings = audioSettings.current
+        let settings = await audioSettings.settings
         if settings.outputChannel == nil {
             // Treat "saved without channels" the same as "never configured" —
             // the user still needs to finish picking, not turn on a device.
             if let saved = settings.savedOutput, saved.selectedChannelCount > 0 {
-                next.insert(.savedOutputDeviceUnavailable(name: saved.name))
+                unmet.insert(.savedOutputDeviceUnavailable(name: saved.name))
             } else {
-                next.insert(.noOutputDevice)
+                unmet.insert(.noOutputDevice)
             }
         }
-        if let unmet, unmet == next { return }
-        unmet = next
-        continuation.yield(next)
+        return unmet
     }
 }

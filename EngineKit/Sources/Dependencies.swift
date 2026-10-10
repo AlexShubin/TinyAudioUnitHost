@@ -11,16 +11,17 @@ import AudioSettingsKit
 import AVFoundation
 import Common
 
+@MainActor
 public struct Dependencies: Sendable {
     public let engine: EngineType
-    public let engineReloader: EngineReloaderType
     public let midiManager: MidiManagerType
-    public let midiReloader: MidiReloaderType
+    public let systemWakeObserver: SystemWakeObserverType
 
     public static let live: Dependencies = {
+        let audioSettings = AudioSettingsKit.Dependencies.live.audioSettingsModel
         let midiManager = MidiManager(
             coreMidiGateway: CoreMidiGateway(),
-            audioSettings: AudioSettingsKit.Dependencies.live.audioSettingsProvider
+            audioSettings: audioSettings
         )
         let engine = Engine(
             engine: AVAudioEngine(),
@@ -28,18 +29,14 @@ public struct Dependencies: Sendable {
             avAudioUnitFactory: AVAudioUnitFactory(),
             coreAudioGateway: CoreAudioGateway(),
             midiManager: midiManager,
-            targetSettingsProvider: AudioSettingsKit.Dependencies.live.targetSettingsProvider
+            audioSettings: audioSettings
         )
         return Dependencies(
             engine: engine,
-            engineReloader: EngineReloader(
+            midiManager: midiManager,
+            systemWakeObserver: SystemWakeObserver(
                 engine: engine,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
-            ),
-            midiManager: midiManager,
-            midiReloader: MidiReloader(
-                coreMidiGateway: CoreMidiGateway(),
-                midiManager: midiManager
             )
         )
     }()

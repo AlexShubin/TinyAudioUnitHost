@@ -9,6 +9,7 @@
 import AudioUnitsKit
 import StorageKit
 
+@MainActor
 public struct Dependencies: Sendable {
     public let presetProvider: PresetProviderType
     public let presetNameValidator: PresetNameValidatorType

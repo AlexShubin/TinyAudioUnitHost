@@ -13,15 +13,15 @@ import Testing
 
 @Suite
 struct PresetNameValidatorTests {
-    var rawStoreMock: RawPresetStoreMock!
+    var rawStoreSpy: RawPresetStoreSpy!
     var sut: PresetNameValidatorType!
 
     init() {
-        rawStoreMock = RawPresetStoreMock()
+        rawStoreSpy = RawPresetStoreSpy()
     }
 
     mutating func createSut() {
-        sut = PresetNameValidator(rawStore: rawStoreMock)
+        sut = PresetNameValidator(rawStore: rawStoreSpy)
     }
 
     // MARK: - basic rules
@@ -79,7 +79,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func saveAs_uniqueName_returnsNil() {
-        rawStoreMock.presets = ["alpha": .fake(), "bravo": .fake()]
+        rawStoreSpy.presets = ["alpha": .fake(), "bravo": .fake()]
         createSut()
 
         #expect(sut.validate(name: "charlie", for: .saveAs) == nil)
@@ -87,7 +87,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func saveAs_duplicate_returnsDuplicate() {
-        rawStoreMock.presets = ["existing": .fake()]
+        rawStoreSpy.presets = ["existing": .fake()]
         createSut()
 
         #expect(sut.validate(name: "existing", for: .saveAs) == .duplicate)
@@ -95,7 +95,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func saveAs_duplicateCaseInsensitive_returnsDuplicate() {
-        rawStoreMock.presets = ["Existing": .fake()]
+        rawStoreSpy.presets = ["Existing": .fake()]
         createSut()
 
         #expect(sut.validate(name: "EXISTING", for: .saveAs) == .duplicate)
@@ -105,7 +105,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func rename_sameAsCurrent_returnsNil() {
-        rawStoreMock.presets = ["Foo": .fake(), "Bar": .fake()]
+        rawStoreSpy.presets = ["Foo": .fake(), "Bar": .fake()]
         createSut()
 
         #expect(sut.validate(name: "Foo", for: .rename(currentName: "Foo")) == nil)
@@ -113,7 +113,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func rename_otherDuplicate_returnsDuplicate() {
-        rawStoreMock.presets = ["Foo": .fake(), "Bar": .fake()]
+        rawStoreSpy.presets = ["Foo": .fake(), "Bar": .fake()]
         createSut()
 
         #expect(sut.validate(name: "Bar", for: .rename(currentName: "Foo")) == .duplicate)
@@ -121,7 +121,7 @@ struct PresetNameValidatorTests {
 
     @Test
     mutating func rename_uniqueName_returnsNil() {
-        rawStoreMock.presets = ["Foo": .fake()]
+        rawStoreSpy.presets = ["Foo": .fake()]
         createSut()
 
         #expect(sut.validate(name: "Baz", for: .rename(currentName: "Foo")) == nil)

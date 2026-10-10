@@ -7,14 +7,9 @@
 //
 
 public protocol AudioDevicesProviderType: Sendable {
-    func devices(_ filter: AudioDeviceFilter) -> [AudioDevice]
+    @concurrent
+    func scanDevices() async -> [AudioDevice]
     func device(id: UInt32) -> AudioDevice?
-}
-
-public enum AudioDeviceFilter: Sendable, Equatable {
-    case all
-    case input
-    case output
 }
 
 struct AudioDevicesProvider: AudioDevicesProviderType {
@@ -27,14 +22,9 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         self.gateway = gateway
     }
 
-    func devices(_ filter: AudioDeviceFilter) -> [AudioDevice] {
-        gateway.allDeviceIDs.compactMap(device(id:)).filter { device in
-            switch filter {
-            case .all: true
-            case .input: !device.inputChannels.isEmpty && !device.isHiddenFromPicker
-            case .output: !device.outputChannels.isEmpty && !device.isHiddenFromPicker
-            }
-        }
+    @concurrent
+    func scanDevices() async -> [AudioDevice] {
+        gateway.allDeviceIDs.compactMap(device(id:))
     }
 
     func device(id: UInt32) -> AudioDevice? {
@@ -77,12 +67,5 @@ struct AudioDevicesProvider: AudioDevicesProviderType {
         return Self.candidateSampleRates.filter { rate in
             ranges.contains { $0.contains(rate) }
         }
-    }
-}
-
-private extension AudioDevice {
-    var isHiddenFromPicker: Bool {
-        uid.hasPrefix("CADefaultDeviceAggregate-") ||
-            uid.hasPrefix(AggregateDeviceFactory.uidPrefix)
     }
 }

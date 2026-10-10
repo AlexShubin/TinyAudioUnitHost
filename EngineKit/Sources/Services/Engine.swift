@@ -29,7 +29,7 @@ final actor Engine: EngineType {
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let coreAudioGateway: CoreAudioGatewayType
     private let midiManager: MidiManagerType
-    private let targetSettingsProvider: TargetSettingsProviderType
+    private let audioSettings: AudioSettingsModelType
     private var currentAVAudioUnit: AVAudioUnit?
 
     init(
@@ -38,14 +38,14 @@ final actor Engine: EngineType {
         avAudioUnitFactory: AVAudioUnitFactoryType,
         coreAudioGateway: CoreAudioGatewayType,
         midiManager: MidiManagerType,
-        targetSettingsProvider: TargetSettingsProviderType
+        audioSettings: AudioSettingsModelType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.coreAudioGateway = coreAudioGateway
         self.midiManager = midiManager
-        self.targetSettingsProvider = targetSettingsProvider
+        self.audioSettings = audioSettings
         engine.attach(inputMixer)
     }
 
@@ -71,6 +71,7 @@ final actor Engine: EngineType {
     }
 
     func reload() async throws(EngineLoadError) {
+        guard currentAVAudioUnit != nil else { return }
         engine.stop()
         disconnect()
         try await applyConnections()
@@ -78,15 +79,15 @@ final actor Engine: EngineType {
     }
 
     private func applyConnections() async throws(EngineLoadError) {
-        guard let target = await targetSettingsProvider.resolveTarget() else { return }
-        let settings = target.settings
+        guard let device = await audioSettings.targetDevice else { return }
+        let settings = await audioSettings.settings
 
-        try bindDevice(target)
+        try bindDevice(device, settings: settings)
         if let rate = settings.sampleRate {
-            logging { try coreAudioGateway.setSampleRate(rate, deviceID: target.device.id) }
+            logging { try coreAudioGateway.setSampleRate(rate, deviceID: device.id) }
         }
         if let frames = settings.bufferSize {
-            logging { try coreAudioGateway.setBufferSize(frames, deviceID: target.device.id) }
+            logging { try coreAudioGateway.setBufferSize(frames, deviceID: device.id) }
         }
 
         guard let avAudioUnit = currentAVAudioUnit else { return }
@@ -95,16 +96,16 @@ final actor Engine: EngineType {
             connectInputs(avAudioUnit: avAudioUnit, channels: input)
         }
         if let output = settings.outputChannel {
-            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: target.outputOffset)
+            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: settings.outputOffset)
         }
     }
 
-    private func bindDevice(_ target: TargetSettings) throws(EngineLoadError) {
+    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(EngineLoadError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
-        logging { try coreAudioGateway.setEnableIO(target.settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
-        logging { try coreAudioGateway.setEnableIO(target.settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
+        logging { try coreAudioGateway.setEnableIO(settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
+        logging { try coreAudioGateway.setEnableIO(settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
         do {
-            try coreAudioGateway.setCurrentDevice(target.device.id, on: audioUnit)
+            try coreAudioGateway.setCurrentDevice(device.id, on: audioUnit)
         } catch {
             logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
             throw EngineLoadError.deviceUnavailable
@@ -197,13 +198,13 @@ fileprivate extension AVAudioUnit {
     }
 }
 
-private extension TargetSettings {
+private extension AudioSettings {
     /// Output position in the aggregate's physical channel layout.
     /// Sub-devices are listed [input, output], so output's channels start
     /// after the input device's output channels in the combined layout.
     var outputOffset: Int {
-        guard let input = settings.inputDevice,
-              let output = settings.outputDevice,
+        guard let input = inputDevice,
+              let output = outputDevice,
               input.id != output.id else { return 0 }
         return input.outputChannels.count
     }

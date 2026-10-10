@@ -28,6 +28,7 @@ let project = Project(
                 "Sources",
             ],
             dependencies: [
+                .project(target: "Common", path: .relativeToManifest("../Common")),
                 .project(target: "StorageKit", path: .relativeToManifest("../StorageKit")),
             ]
         ),

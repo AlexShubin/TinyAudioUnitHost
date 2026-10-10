@@ -27,7 +27,9 @@ let project = Project(
             buildableFolders: [
                 "Sources",
             ],
-            dependencies: []
+            dependencies: [
+                .project(target: "Common", path: .relativeToManifest("../Common")),
+            ]
         ),
         .target(
             name: "PurchasesKitTestSupport",

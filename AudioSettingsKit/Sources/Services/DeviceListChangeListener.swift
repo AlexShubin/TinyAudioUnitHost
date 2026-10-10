@@ -6,11 +6,12 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import Common
 import CoreAudio
 import Foundation
 
 public protocol DeviceListChangeListenerType: Sendable {
-    func stream() -> AsyncStream<Void>
+    func observeChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation
 }
 
 struct DeviceListChangeListener: DeviceListChangeListenerType {
@@ -20,19 +21,12 @@ struct DeviceListChangeListener: DeviceListChangeListenerType {
         mElement: kAudioObjectPropertyElementMain
     )
 
-    func stream() -> AsyncStream<Void> {
-        AsyncStream { continuation in
-            nonisolated(unsafe) let block: AudioObjectPropertyListenerBlock = { _, _ in
-                continuation.yield()
-            }
-            if addPropertyListener(block) != noErr {
-                continuation.finish()
-                return
-            }
-            continuation.onTermination = { _ in
-                removePropertyListener(block)
-            }
+    func observeChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation {
+        nonisolated(unsafe) let block: AudioObjectPropertyListenerBlock = { _, _ in
+            Task { await handler() }
         }
+        guard addPropertyListener(block) == noErr else { return Cancellation {} }
+        return Cancellation { removePropertyListener(block) }
     }
 
     private func addPropertyListener(_ block: @escaping AudioObjectPropertyListenerBlock) -> OSStatus {

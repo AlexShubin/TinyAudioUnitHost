@@ -13,11 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         guard !isRunningTests else { return }
         let dependencies = Dependencies.live
-        // Must stay first — see MidiReloader.start.
-        dependencies.engine.midiReloader.start()
-        dependencies.engine.engineReloader.start()
-        dependencies.audioSettings.setupRefresher.start()
-        dependencies.purchases.purchasesService.start()
+        dependencies.engine.systemWakeObserver.start()
+        dependencies.audioSettingsObserver.start()
+        Task { await dependencies.audioSettings.audioSettingsModel.load() }
+        Task { await dependencies.purchases.purchasesModel.load() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

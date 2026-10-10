@@ -13,15 +13,15 @@ import Testing
 
 @Suite
 struct RawPresetStoreTests {
-    var fileStorageMock: FileStorageMock!
+    var fileStorageSpy: FileStorageSpy!
     var sut: RawPresetStoreType!
 
     init() {
-        fileStorageMock = FileStorageMock()
+        fileStorageSpy = FileStorageSpy()
     }
 
     mutating func createSut() {
-        sut = RawPresetStore(fileStorage: fileStorageMock)
+        sut = RawPresetStore(fileStorage: fileStorageSpy)
     }
 
     // MARK: - names
@@ -35,9 +35,9 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func names_multiplePresets_returnsSortedCaseInsensitively() {
-        fileStorageMock.storage["presets/zoo"] = RawPreset.fake()
-        fileStorageMock.storage["presets/alpha"] = RawPreset.fake()
-        fileStorageMock.storage["presets/Bravo"] = RawPreset.fake()
+        fileStorageSpy.storage["presets/zoo"] = RawPreset.fake()
+        fileStorageSpy.storage["presets/alpha"] = RawPreset.fake()
+        fileStorageSpy.storage["presets/Bravo"] = RawPreset.fake()
         createSut()
 
         #expect(sut.names == ["alpha", "Bravo", "zoo"])
@@ -45,8 +45,8 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func names_ignoresActivePresetFile() {
-        fileStorageMock.storage["presets/alpha"] = RawPreset.fake()
-        fileStorageMock.storage["active_preset"] = RawActivePresetState.fake(name: "alpha")
+        fileStorageSpy.storage["presets/alpha"] = RawPreset.fake()
+        fileStorageSpy.storage["active_preset"] = RawActivePresetState.fake(name: "alpha")
         createSut()
 
         #expect(sut.names == ["alpha"])
@@ -64,7 +64,7 @@ struct RawPresetStoreTests {
     @Test
     mutating func load_existingPreset_returnsIt() {
         let stored = RawPreset.fake(componentType: 1, state: Data([0xDE, 0xAD]))
-        fileStorageMock.storage["presets/default"] = stored
+        fileStorageSpy.storage["presets/default"] = stored
         createSut()
 
         #expect(sut.load(name: "default") == stored)
@@ -72,7 +72,7 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func load_wrongTypeAtPath_returnsNil() {
-        fileStorageMock.storage["presets/default"] = "not a RawPreset"
+        fileStorageSpy.storage["presets/default"] = "not a RawPreset"
         createSut()
 
         #expect(sut.load(name: "default") == nil)
@@ -87,7 +87,7 @@ struct RawPresetStoreTests {
 
         sut.save(preset, name: "default")
 
-        let written = try #require(fileStorageMock.storage["presets/default"] as? RawPreset)
+        let written = try #require(fileStorageSpy.storage["presets/default"] as? RawPreset)
         #expect(written == preset)
     }
 
@@ -106,19 +106,19 @@ struct RawPresetStoreTests {
     @Test
     mutating func rename_movesFile() {
         let preset = RawPreset.fake(componentType: 5)
-        fileStorageMock.storage["presets/old"] = preset
+        fileStorageSpy.storage["presets/old"] = preset
         createSut()
 
         sut.rename(from: "old", to: "new")
 
-        #expect(fileStorageMock.storage["presets/old"] == nil)
-        #expect(fileStorageMock.storage["presets/new"] as? RawPreset == preset)
+        #expect(fileStorageSpy.storage["presets/old"] == nil)
+        #expect(fileStorageSpy.storage["presets/new"] as? RawPreset == preset)
     }
 
     @Test
     mutating func rename_doesNotTouchActivePreset() {
-        fileStorageMock.storage["presets/old"] = RawPreset.fake()
-        fileStorageMock.storage["active_preset"] = RawActivePresetState.fake(name: "old")
+        fileStorageSpy.storage["presets/old"] = RawPreset.fake()
+        fileStorageSpy.storage["active_preset"] = RawActivePresetState.fake(name: "old")
         createSut()
 
         sut.rename(from: "old", to: "new")
@@ -133,12 +133,12 @@ struct RawPresetStoreTests {
     @Test
     mutating func delete_removesAtPresetsSlashName() {
         let preset = RawPreset.fake()
-        fileStorageMock.storage["presets/raw_session"] = preset
+        fileStorageSpy.storage["presets/raw_session"] = preset
         createSut()
 
         sut.delete(name: "raw_session")
 
-        #expect(fileStorageMock.storage["presets/raw_session"] == nil)
+        #expect(fileStorageSpy.storage["presets/raw_session"] == nil)
     }
 
     @Test
@@ -147,13 +147,13 @@ struct RawPresetStoreTests {
 
         sut.delete(name: "raw_session")
 
-        #expect(fileStorageMock.storage["presets/raw_session"] == nil)
+        #expect(fileStorageSpy.storage["presets/raw_session"] == nil)
     }
 
     @Test
     mutating func delete_doesNotTouchActivePreset() {
-        fileStorageMock.storage["presets/foo"] = RawPreset.fake()
-        fileStorageMock.storage["active_preset"] = RawActivePresetState.fake(name: "foo")
+        fileStorageSpy.storage["presets/foo"] = RawPreset.fake()
+        fileStorageSpy.storage["active_preset"] = RawActivePresetState.fake(name: "foo")
         createSut()
 
         sut.delete(name: "foo")
@@ -174,7 +174,7 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func activePreset_filePresent_returnsValue() {
-        fileStorageMock.storage["active_preset"] = RawActivePresetState.fake(name: "saved")
+        fileStorageSpy.storage["active_preset"] = RawActivePresetState.fake(name: "saved")
         createSut()
 
         #expect(sut.activePreset == RawActivePresetState(name: "saved"))
@@ -188,7 +188,7 @@ struct RawPresetStoreTests {
 
         sut.saveActivePreset(RawActivePresetState(name: "chosen"))
 
-        let written = fileStorageMock.storage["active_preset"] as? RawActivePresetState
+        let written = fileStorageSpy.storage["active_preset"] as? RawActivePresetState
         #expect(written?.name == "chosen")
     }
 
@@ -205,12 +205,12 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func deleteActivePreset_removesStateFile() {
-        fileStorageMock.storage["active_preset"] = RawActivePresetState.fake(name: "before")
+        fileStorageSpy.storage["active_preset"] = RawActivePresetState.fake(name: "before")
         createSut()
 
         sut.deleteActivePreset()
 
-        #expect(fileStorageMock.storage["active_preset"] == nil)
+        #expect(fileStorageSpy.storage["active_preset"] == nil)
     }
 
     @Test
@@ -219,6 +219,6 @@ struct RawPresetStoreTests {
 
         sut.deleteActivePreset()
 
-        #expect(fileStorageMock.storage["active_preset"] == nil)
+        #expect(fileStorageSpy.storage["active_preset"] == nil)
     }
 }

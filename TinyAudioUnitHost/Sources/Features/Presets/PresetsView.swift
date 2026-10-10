@@ -10,22 +10,22 @@ import PresetKit
 import SwiftUI
 
 struct PresetsView: View {
-    @State var viewModel: PresetsViewModelType
+    @State var presenter: PresetsPresenter
     @Environment(\.dependencies) private var dependencies
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         List(selection: selectionBinding) {
             Section {
-                ForEach(viewModel.presets, id: \.self) { preset in
+                ForEach(presenter.presets, id: \.self) { preset in
                     Text(preset)
                         .tag(preset)
                         .contextMenu {
                             Button("Rename") {
-                                Task { await viewModel.accept(action: .renameTapped(name: preset)) }
+                                presenter.rename(name: preset)
                             }
                             Button("Delete", role: .destructive) {
-                                Task { await viewModel.accept(action: .deleteTapped(name: preset)) }
+                                presenter.delete(name: preset)
                             }
                         }
                 }
@@ -35,7 +35,7 @@ struct PresetsView: View {
                         .font(.headline)
                     Spacer()
                     Button {
-                        Task { await viewModel.accept(action: .saveAsTapped) }
+                        presenter.saveAs()
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .symbolRenderingMode(.palette)
@@ -44,43 +44,34 @@ struct PresetsView: View {
                             .padding(.trailing, 8)
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.isSaveAsButtonDisabled)
+                    .disabled(presenter.isSaveAsButtonDisabled)
                     .help("Save current sound as a new preset")
                 }
                 .padding(.vertical, 8)
             }
         }
         .listStyle(.sidebar)
-        .disabled(viewModel.isInteractionDisabled)
-        .sheet(item: presentedPresetNameDialogBinding) { mode in
+        .disabled(presenter.isInteractionDisabled)
+        .task { presenter.task() }
+        .sheet(item: $presenter.presentedDialog) { mode in
             PresetNameDialogView(
-                viewModel: dependencies.makePresetNameDialogViewModel(mode: mode)
+                presenter: dependencies.makePresetNameDialogPresenter(mode: mode)
             )
         }
-        .onChange(of: viewModel.openProWindowRequest) { _, newValue in
-            if newValue != nil {
+        .onChange(of: presenter.isProWindowRequested) { _, isRequested in
+            if isRequested {
                 openWindow(id: "purchases")
+                presenter.proWindowOpened()
             }
         }
     }
 
     private var selectionBinding: Binding<String?> {
         Binding(
-            get: { viewModel.activeName },
+            get: { presenter.activeName },
             set: { newSelection in
                 if let newSelection {
-                    Task { await viewModel.accept(action: .selected(name: newSelection)) }
-                }
-            }
-        )
-    }
-
-    private var presentedPresetNameDialogBinding: Binding<PresetNameDialogMode?> {
-        Binding(
-            get: { viewModel.presentedPresetNameDialog },
-            set: { newMode in
-                if newMode == nil {
-                    Task { await viewModel.accept(action: .dismissDialog) }
+                    Task { await presenter.select(name: newSelection) }
                 }
             }
         )

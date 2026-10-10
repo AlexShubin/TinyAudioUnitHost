@@ -9,28 +9,30 @@
 import AudioSettingsKit
 import AudioUnitsKit
 
+@MainActor
 public protocol MidiManagerType: Sendable {
     func setupMIDI(for audioUnit: AUAudioUnitWrapper) async
     func teardownMIDI() async
     func reconnectMIDISources() async
 }
 
-actor MidiManager: MidiManagerType {
+@MainActor
+final class MidiManager: MidiManagerType {
     private let coreMidiGateway: CoreMidiGatewayType
-    private let audioSettings: AudioSettingsProviderType
+    private let audioSettings: AudioSettingsModelType
     private var midiClient: UInt32 = 0
     private var midiInputPort: UInt32 = 0
     private var connectedSources: Set<UInt32> = []
 
     init(
         coreMidiGateway: CoreMidiGatewayType,
-        audioSettings: AudioSettingsProviderType
+        audioSettings: AudioSettingsModelType
     ) {
         self.coreMidiGateway = coreMidiGateway
         self.audioSettings = audioSettings
     }
 
-    func setupMIDI(for audioUnit: AUAudioUnitWrapper) {
+    func setupMIDI(for audioUnit: AUAudioUnitWrapper) async {
         guard startClient() else { return }
 
         guard let port = coreMidiGateway.createInputPort(
@@ -40,7 +42,7 @@ actor MidiManager: MidiManagerType {
         ) else { return }
         midiInputPort = port
 
-        reconnectMIDISources()
+        await reconnectMIDISources()
     }
 
     func teardownMIDI() {
@@ -49,9 +51,9 @@ actor MidiManager: MidiManagerType {
         connectedSources = []
     }
 
-    func reconnectMIDISources() {
+    func reconnectMIDISources() async {
         guard midiInputPort != 0 else { return }
-        let selected = Set(audioSettings.current.selectedMidiDevices.map(\.ref))
+        let selected = Set(audioSettings.settings.selectedMidiDevices.map(\.ref))
         for source in connectedSources.subtracting(selected) {
             coreMidiGateway.disconnect(source: source, from: midiInputPort)
         }
@@ -63,7 +65,7 @@ actor MidiManager: MidiManagerType {
 
     private func startClient() -> Bool {
         if midiClient != 0 { return true }
-        guard let (client, _) = coreMidiGateway.createClient(name: "TinyAUHost") else { return false }
+        guard let client = coreMidiGateway.createClient(name: "TinyAUHost") else { return false }
         midiClient = client
         return true
     }

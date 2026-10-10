@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct HostView: View {
-    @State var viewModel: HostViewModelType
+    @State var presenter: HostPresenter
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -22,21 +22,18 @@ struct HostView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .overlay(alignment: .top) { feedbackOverlay }
-        .animation(.snappy, value: viewModel.feedback != nil)
+        .animation(.snappy, value: presenter.feedback != nil)
         .toolbar { toolbarContent }
-        .task {
-            await viewModel.accept(action: .task)
-        }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch viewModel.content {
+        switch presenter.content {
         case .unmet(let unmet):
             SetupChecklistView(unmet: unmet)
         case .empty:
             EmptySelectionView()
-        case .loading:
+        case .idle, .loading:
             LoadingView()
         case .loaded(let audioUnit):
             AudioUnitView(audioUnit: audioUnit)
@@ -53,9 +50,9 @@ struct HostView: View {
 
     @ViewBuilder
     private var feedbackOverlay: some View {
-        if let feedback = viewModel.feedback {
-            FeedbackToast(state: feedback) { action in
-                Task { await viewModel.accept(action: .feedbackToastAction(action)) }
+        if let feedback = presenter.feedback {
+            FeedbackToast(state: feedback) {
+                presenter.feedbackTimedOut()
             }
             .padding(.top, 12)
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -72,7 +69,7 @@ struct HostView: View {
             HStack(spacing: 8) {
                 Image(systemName: "puzzlepiece.extension")
                     .foregroundStyle(.secondary)
-                Text(viewModel.audioUnitTitle)
+                Text(presenter.audioUnitTitle)
                     .font(.headline)
                     .foregroundStyle(.primary)
                 Image(systemName: "chevron.down")
@@ -83,19 +80,19 @@ struct HostView: View {
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
-        .disabled(viewModel.isAudioUnitPickerDisabled)
+        .disabled(presenter.isAudioUnitPickerDisabled)
     }
 
     @ViewBuilder
     private var audioUnitMenuItems: some View {
-        if viewModel.groups.isEmpty {
+        if presenter.groups.isEmpty {
             Text("No Audio Units installed")
         } else {
-            ForEach(viewModel.groups) { group in
+            ForEach(presenter.groups) { group in
                 Menu(group.manufacturer) {
                     ForEach(group.components) { component in
                         Button(component.name) {
-                            Task { await viewModel.accept(action: .selected(component)) }
+                            Task { await presenter.select(component) }
                         }
                     }
                 }
@@ -108,28 +105,28 @@ struct HostView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Text(viewModel.presetLabel)
+            Text(presenter.presetLabel)
                 .padding([.leading], 12)
             Button {
-                Task { await viewModel.accept(action: .restorePreset) }
+                Task { await presenter.restorePreset() }
             } label: {
                 Image(systemName: "arrow.uturn.backward")
             }
             .help("Restore preset")
-            .disabled(viewModel.isRestoreButtonDisabled)
+            .disabled(presenter.isRestoreButtonDisabled)
             Button {
-                Task { await viewModel.accept(action: .saveCurrentPreset) }
+                presenter.savePreset()
             } label: {
                 Image(systemName: "square.and.arrow.down")
             }
             .help("Save preset")
-            .disabled(viewModel.isSaveButtonDisabled)
+            .disabled(presenter.isSaveButtonDisabled)
             Spacer()
             Button {
                 openWindow(id: "purchases")
             } label: {
-                Image(systemName: viewModel.isStarFilled ? "star.fill" : "star")
-                    .foregroundStyle(viewModel.isStarFilled ? .yellow : .secondary)
+                Image(systemName: presenter.isStarFilled ? "star.fill" : "star")
+                    .foregroundStyle(presenter.isStarFilled ? .yellow : .secondary)
             }
             .help("Pro features")
             SettingsLink {

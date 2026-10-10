@@ -13,91 +13,86 @@ import PresetKit
 import PurchasesKit
 import SwiftUI
 
+@MainActor
 struct Dependencies: Sendable {
     let audioSettings: AudioSettingsKit.Dependencies
     let audioUnits: AudioUnitsKit.Dependencies
     let engine: EngineKit.Dependencies
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
-    let session: SessionManagerType
-    let eventBus: SessionEventBusType
+    let session: SessionModelType
+    let audioSettingsObserver: AudioSettingsObserverType
+    let saveAsCommand: BindableCommand
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
         let engine = EngineKit.Dependencies.live
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
-        let eventBus = SessionEventBus()
+        let session = SessionModel(
+            engine: engine.engine,
+            presetProvider: presets.presetProvider,
+            setupChecker: audioSettings.setupChecker
+        )
         return Dependencies(
             audioSettings: audioSettings,
             audioUnits: .live,
             engine: engine,
             presets: presets,
             purchases: purchases,
-            session: SessionManager(
+            session: session,
+            audioSettingsObserver: AudioSettingsObserver(
+                audioSettings: audioSettings.audioSettingsModel,
                 engine: engine.engine,
-                presetProvider: presets.presetProvider,
-                setupChecker: audioSettings.setupChecker,
-                eventBus: eventBus
+                midiManager: engine.midiManager,
+                session: session
             ),
-            eventBus: eventBus
+            saveAsCommand: BindableCommand()
         )
     }()
 
-    @MainActor func makeHostViewModel() -> HostViewModelType {
-        HostViewModel(
+    func makeHostPresenter() -> HostPresenter {
+        HostPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
-            purchasesService: purchases.purchasesService,
-            eventBus: eventBus
+            purchases: purchases.purchasesModel
         )
     }
 
-    @MainActor func makePresetsViewModel() -> PresetsViewModelType {
-        PresetsViewModel(
+    func makePresetsPresenter() -> PresetsPresenter {
+        PresetsPresenter(
             session: session,
-            purchasesService: purchases.purchasesService,
-            eventBus: eventBus
+            purchases: purchases.purchasesModel,
+            saveAsCommandBinder: saveAsCommand
         )
     }
 
-    @MainActor func makeAppCommandsViewModel() -> AppCommandsViewModelType {
-        AppCommandsViewModel(
+    func makeAppCommandsPresenter() -> AppCommandsPresenter {
+        AppCommandsPresenter(
             session: session,
-            eventBus: eventBus
+            saveAsCommand: saveAsCommand
         )
     }
 
-    @MainActor func makePresetNameDialogViewModel(
-        mode: PresetNameDialogMode
-    ) -> PresetNameDialogViewModelType {
-        PresetNameDialogViewModel(
+    func makePresetNameDialogPresenter(mode: PresetNameDialogMode) -> PresetNameDialogPresenter {
+        PresetNameDialogPresenter(
             mode: mode,
             session: session,
             validator: presets.presetNameValidator
         )
     }
 
-    @MainActor func makeSettingsViewModel() -> SettingsViewModelType {
-        SettingsViewModel(
-            audioSettings: audioSettings.audioSettingsProvider,
-            targetSettings: audioSettings.targetSettingsProvider,
-            devicesProvider: audioSettings.devicesProvider,
-            midiDevicesProvider: audioSettings.midiDevicesProvider,
-            engine: engine.engine,
-            midiManager: engine.midiManager,
-            setupChecker: audioSettings.setupChecker
-        )
+    func makeSettingsPresenter() -> SettingsPresenter {
+        SettingsPresenter(audioSettings: audioSettings.audioSettingsModel)
     }
 
-    @MainActor func makePurchasesViewModel() -> PurchasesViewModelType {
-        PurchasesViewModel(purchasesService: purchases.purchasesService)
+    func makePurchasesPresenter() -> PurchasesPresenter {
+        PurchasesPresenter(purchases: purchases.purchasesModel)
     }
-
 }
 
 // MARK: - Environment
 
 extension EnvironmentValues {
-    @Entry var dependencies: Dependencies = .live
+    @Entry var dependencies: Dependencies = MainActor.assumeIsolated { .live }
 }

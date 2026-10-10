@@ -11,39 +11,39 @@ import Testing
 
 @Suite
 struct AudioDevicesProviderTests {
-    var gatewayMock: CoreAudioGatewayMock!
+    var gatewaySpy: CoreAudioGatewaySpy!
     var sut: AudioDevicesProviderType!
 
     init() {
-        gatewayMock = CoreAudioGatewayMock()
+        gatewaySpy = CoreAudioGatewaySpy()
     }
 
     mutating func createSut() {
-        sut = AudioDevicesProvider(gateway: gatewayMock)
+        sut = AudioDevicesProvider(gateway: gatewaySpy)
     }
 
     // MARK: - device(id:) resolution
 
     @Test
     mutating func deviceReturnsNilWhenUIDMissing() {
-        gatewayMock.deviceUIDResult = nil
-        gatewayMock.deviceNameResult = "Device"
+        gatewaySpy.deviceUIDResult = nil
+        gatewaySpy.deviceNameResult = "Device"
         createSut()
         #expect(sut.device(id: 1) == nil)
     }
 
     @Test
     mutating func deviceReturnsNilWhenNameMissing() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = nil
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = nil
         createSut()
         #expect(sut.device(id: 1) == nil)
     }
 
     @Test
     mutating func deviceResolvesUIDAndName() {
-        gatewayMock.deviceUIDResult = "uid-1"
-        gatewayMock.deviceNameResult = "Device One"
+        gatewaySpy.deviceUIDResult = "uid-1"
+        gatewaySpy.deviceNameResult = "Device One"
         createSut()
         let device = sut.device(id: 7)
         #expect(device?.id == 7)
@@ -55,10 +55,10 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceSumsChannelsPerFrameAcrossStreams() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10, 11] // two streams...
-        gatewayMock.channelsPerFrameResult = 2 // ...two channels each -> 4 total
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.streamIDsResult = [10, 11] // two streams...
+        gatewaySpy.channelsPerFrameResult = 2 // ...two channels each -> 4 total
         createSut()
         #expect(sut.device(id: 1)?.inputChannels == [
             AudioChannel(id: 1, name: "Channel 1"),
@@ -70,11 +70,11 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceUsesHardwareChannelNamesWhenAvailable() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        gatewayMock.channelNameResult = "Mic In"
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.streamIDsResult = [10]
+        gatewaySpy.channelsPerFrameResult = 2
+        gatewaySpy.channelNameResult = "Mic In"
         createSut()
         #expect(sut.device(id: 1)?.inputChannels == [
             AudioChannel(id: 1, name: "Mic In"),
@@ -84,11 +84,11 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceFallsBackToGenericChannelNameWhenHardwareHasNone() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        gatewayMock.channelNameResult = nil
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.streamIDsResult = [10]
+        gatewaySpy.channelsPerFrameResult = 2
+        gatewaySpy.channelNameResult = nil
         createSut()
         #expect(sut.device(id: 1)?.inputChannels == [
             AudioChannel(id: 1, name: "Channel 1"),
@@ -98,9 +98,9 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceHasNoChannelsWhenStreamsAbsent() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = []
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.streamIDsResult = []
         createSut()
         let device = sut.device(id: 1)
         #expect(device?.inputChannels.isEmpty == true)
@@ -111,18 +111,18 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceFiltersBufferSizesToHardwareRange() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.bufferSizeRangeResult = 32...256
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.bufferSizeRangeResult = 32...256
         createSut()
         #expect(sut.device(id: 1)?.availableBufferSizes == [32, 64, 128, 256])
     }
 
     @Test
     mutating func deviceReturnsNoBufferSizesWhenRangeMissing() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.bufferSizeRangeResult = nil
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.bufferSizeRangeResult = nil
         createSut()
         #expect(sut.device(id: 1)?.availableBufferSizes == [])
     }
@@ -131,93 +131,39 @@ struct AudioDevicesProviderTests {
 
     @Test
     mutating func deviceFiltersSampleRatesToHardwareRanges() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.sampleRateRangesResult = [44_100...48_000]
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.sampleRateRangesResult = [44_100...48_000]
         createSut()
         #expect(sut.device(id: 1)?.availableSampleRates == [44_100, 48_000])
     }
 
     @Test
     mutating func deviceReturnsNoSampleRatesWhenRangesMissing() {
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.sampleRateRangesResult = []
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
+        gatewaySpy.sampleRateRangesResult = []
         createSut()
         #expect(sut.device(id: 1)?.availableSampleRates == [])
     }
 
-    // MARK: - devices(_:) filtering
+    // MARK: - scanDevices
 
     @Test
-    mutating func devicesAllResolvesEveryID() {
-        gatewayMock.allDeviceIDsResult = [1, 2]
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
+    mutating func scanDevicesResolvesEveryID() async {
+        gatewaySpy.allDeviceIDsResult = [1, 2]
+        gatewaySpy.deviceUIDResult = "uid"
+        gatewaySpy.deviceNameResult = "Device"
         createSut()
-        #expect(sut.devices(.all).map(\.id) == [1, 2])
+        #expect(await sut.scanDevices().map(\.id) == [1, 2])
     }
 
     @Test
-    mutating func devicesAllSkipsUnresolvableDevices() {
-        gatewayMock.allDeviceIDsResult = [1, 2]
-        gatewayMock.deviceUIDResult = nil // nothing resolves
-        gatewayMock.deviceNameResult = "Device"
+    mutating func scanDevicesSkipsUnresolvableDevices() async {
+        gatewaySpy.allDeviceIDsResult = [1, 2]
+        gatewaySpy.deviceUIDResult = nil
+        gatewaySpy.deviceNameResult = "Device"
         createSut()
-        #expect(sut.devices(.all).isEmpty)
-    }
-
-    @Test
-    mutating func devicesInputReturnsDevicesWithInputChannels() {
-        gatewayMock.allDeviceIDsResult = [1]
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        createSut()
-        #expect(sut.devices(.input).map(\.id) == [1])
-    }
-
-    @Test
-    mutating func devicesInputExcludesDevicesWithoutChannels() {
-        gatewayMock.allDeviceIDsResult = [1]
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [] // no channels on any scope
-        createSut()
-        #expect(sut.devices(.input).isEmpty)
-    }
-
-    @Test
-    mutating func devicesOutputReturnsDevicesWithOutputChannels() {
-        gatewayMock.allDeviceIDsResult = [1]
-        gatewayMock.deviceUIDResult = "uid"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        createSut()
-        #expect(sut.devices(.output).map(\.id) == [1])
-    }
-
-    @Test
-    mutating func devicesInputExcludesSystemAggregateDevices() {
-        gatewayMock.allDeviceIDsResult = [1]
-        gatewayMock.deviceUIDResult = "CADefaultDeviceAggregate-1234"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        createSut()
-        #expect(sut.devices(.input).isEmpty)
-    }
-
-    @Test
-    mutating func devicesInputExcludesOwnAggregateDevices() {
-        gatewayMock.allDeviceIDsResult = [1]
-        gatewayMock.deviceUIDResult = AggregateDeviceFactory.uidPrefix + "x"
-        gatewayMock.deviceNameResult = "Device"
-        gatewayMock.streamIDsResult = [10]
-        gatewayMock.channelsPerFrameResult = 2
-        createSut()
-        #expect(sut.devices(.input).isEmpty)
+        #expect(await sut.scanDevices().isEmpty)
     }
 }

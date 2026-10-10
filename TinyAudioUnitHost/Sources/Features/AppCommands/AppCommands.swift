@@ -9,27 +9,27 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    @State var viewModel: AppCommandsViewModelType
+    let presenter: AppCommandsPresenter
 
     var body: some Commands {
         CommandGroup(replacing: .saveItem) {
             Button("Save Preset") {
-                Task { await viewModel.accept(action: .save) }
+                presenter.savePreset()
             }
             .keyboardShortcut("s", modifiers: .command)
-            .disabled(viewModel.isSaveButtonDisabled)
+            .disabled(presenter.isSaveButtonDisabled)
 
             Button("Save Preset As…") {
-                Task { await viewModel.accept(action: .saveAs) }
+                presenter.saveAsPreset()
             }
             .keyboardShortcut("s", modifiers: [.command, .shift])
-            .disabled(viewModel.isSaveAsButtonDisabled)
+            .disabled(presenter.isSaveAsButtonDisabled)
 
             Button("Restore Preset") {
-                Task { await viewModel.accept(action: .restore) }
+                Task { await presenter.restorePreset() }
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(viewModel.isRestoreButtonDisabled)
+            .disabled(presenter.isRestoreButtonDisabled)
         }
     }
 }

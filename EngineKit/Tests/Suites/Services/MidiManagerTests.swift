@@ -11,21 +11,21 @@ import AudioUnitsKit
 import Testing
 @testable import EngineKit
 
-@Suite
+@Suite @MainActor
 struct MidiManagerTests {
-    var coreMidiGatewayMock: CoreMidiGatewayMock!
-    var audioSettingsMock: AudioSettingsProviderMock!
+    var coreMidiGatewaySpy: CoreMidiGatewaySpy!
+    var audioSettingsSpy: AudioSettingsModelSpy!
     var sut: MidiManagerType!
 
     init() {
-        coreMidiGatewayMock = CoreMidiGatewayMock()
-        audioSettingsMock = AudioSettingsProviderMock()
+        coreMidiGatewaySpy = CoreMidiGatewaySpy()
+        audioSettingsSpy = AudioSettingsModelSpy()
     }
 
     mutating func createSut() {
         sut = MidiManager(
-            coreMidiGateway: coreMidiGatewayMock,
-            audioSettings: audioSettingsMock
+            coreMidiGateway: coreMidiGatewaySpy,
+            audioSettings: audioSettingsSpy
         )
     }
 
@@ -33,15 +33,15 @@ struct MidiManagerTests {
 
     @Test
     mutating func setupMIDI_createsClientAndInputPort_andConnectsSelectedSources() async {
-        coreMidiGatewayMock.createClientResult = 1
-        coreMidiGatewayMock.createInputPortResult = 2
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
+        coreMidiGatewaySpy.createClientResult = 1
+        coreMidiGatewaySpy.createInputPortResult = 2
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
         let audioUnit = AUAudioUnitWrapper()
 
         await sut.setupMIDI(for: audioUnit)
 
-        #expect(coreMidiGatewayMock.calls == [
+        #expect(coreMidiGatewaySpy.calls == [
             .createClient("TinyAUHost"),
             .createInputPort(1, "Input", audioUnit),
             .connect(10, 2)
@@ -50,13 +50,13 @@ struct MidiManagerTests {
 
     @Test
     mutating func setupMIDI_emptySelection_connectsNothing() async {
-        coreMidiGatewayMock.createInputPortResult = 2
+        coreMidiGatewaySpy.createInputPortResult = 2
         createSut()
         let audioUnit = AUAudioUnitWrapper()
 
         await sut.setupMIDI(for: audioUnit)
 
-        #expect(coreMidiGatewayMock.calls == [
+        #expect(coreMidiGatewaySpy.calls == [
             .createClient("TinyAUHost"),
             .createInputPort(1, "Input", audioUnit)
         ])
@@ -64,24 +64,24 @@ struct MidiManagerTests {
 
     @Test
     mutating func setupMIDI_clientCreationFails_stopsBeforeInputPort() async {
-        coreMidiGatewayMock.createClientResult = nil
+        coreMidiGatewaySpy.createClientResult = nil
         createSut()
 
         await sut.setupMIDI(for: AUAudioUnitWrapper())
 
-        #expect(coreMidiGatewayMock.calls == [.createClient("TinyAUHost")])
+        #expect(coreMidiGatewaySpy.calls == [.createClient("TinyAUHost")])
     }
 
     @Test
     mutating func setupMIDI_inputPortCreationFails_doesNotConnectSources() async {
-        coreMidiGatewayMock.createInputPortResult = nil
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
+        coreMidiGatewaySpy.createInputPortResult = nil
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
         let audioUnit = AUAudioUnitWrapper()
 
         await sut.setupMIDI(for: audioUnit)
 
-        #expect(coreMidiGatewayMock.calls == [
+        #expect(coreMidiGatewaySpy.calls == [
             .createClient("TinyAUHost"),
             .createInputPort(1, "Input", audioUnit)
         ])
@@ -91,14 +91,14 @@ struct MidiManagerTests {
 
     @Test
     mutating func teardownMIDI_disposesInputPort() async {
-        coreMidiGatewayMock.createInputPortResult = 2
+        coreMidiGatewaySpy.createInputPortResult = 2
         createSut()
         let audioUnit = AUAudioUnitWrapper()
 
         await sut.setupMIDI(for: audioUnit)
         await sut.teardownMIDI()
 
-        #expect(coreMidiGatewayMock.calls == [
+        #expect(coreMidiGatewaySpy.calls == [
             .createClient("TinyAUHost"),
             .createInputPort(1, "Input", audioUnit),
             .disposePort(2)
@@ -109,15 +109,15 @@ struct MidiManagerTests {
 
     @Test
     mutating func reconnectMIDISources_selectionChanged_disconnectsOldAndConnectsNew() async {
-        coreMidiGatewayMock.createInputPortResult = 2
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
+        coreMidiGatewaySpy.createInputPortResult = 2
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
         await sut.setupMIDI(for: AUAudioUnitWrapper())
 
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 20)])
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 20)])
         await sut.reconnectMIDISources()
 
-        #expect(coreMidiGatewayMock.calls.suffix(2) == [
+        #expect(coreMidiGatewaySpy.calls.suffix(2) == [
             .disconnect(10, 2),
             .connect(20, 2)
         ])
@@ -125,25 +125,25 @@ struct MidiManagerTests {
 
     @Test
     mutating func reconnectMIDISources_selectionUnchanged_doesNothing() async {
-        coreMidiGatewayMock.createInputPortResult = 2
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
+        coreMidiGatewaySpy.createInputPortResult = 2
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
         await sut.setupMIDI(for: AUAudioUnitWrapper())
-        let callsAfterSetup = coreMidiGatewayMock.calls
+        let callsAfterSetup = coreMidiGatewaySpy.calls
 
         await sut.reconnectMIDISources()
 
-        #expect(coreMidiGatewayMock.calls == callsAfterSetup)
+        #expect(coreMidiGatewaySpy.calls == callsAfterSetup)
     }
 
     @Test
     mutating func reconnectMIDISources_withoutInputPort_doesNothing() async {
-        audioSettingsMock.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
+        audioSettingsSpy.settings = .fake(selectedMidiDevices: [.fake(ref: 10)])
         createSut()
 
         await sut.reconnectMIDISources()
 
-        #expect(coreMidiGatewayMock.calls.isEmpty)
+        #expect(coreMidiGatewaySpy.calls.isEmpty)
     }
 
 }

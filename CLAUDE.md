@@ -25,13 +25,18 @@
 
 ## Architecture
 
-- MVVM with `@Observable` ViewModels that expose state as observed properties directly
-- **ViewModels live and die with their view.** A VM must be held *only* by the view that renders it (`@State` inside the SwiftUI `View` struct). Never stash a VM in App-scope `@State`, an `NSApplicationDelegate`, an environment value, a singleton, or any object that outlives the view. When the view is dismissed the VM must deinit. If something needs to outlive the view (cached data, in-flight async work, an AU reference for a quit-time persist), put it in a use case / service that the VM talks to via DI — never the other way around. The VM is also not a state bag for non-view consumers; if AppDelegate or a use case needs information, surface it through the use case's own state, not by reaching into the VM.
-- DI via `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
+- **Models own state, presenters project it, views render it.** Three layers, one job each:
+  - A **model** (`*Model`, e.g. `PurchasesModel`) is a `@MainActor @Observable` class that owns one domain's state and is its single source of truth. It exposes that state as observed properties — ideally one `enum` (`PurchasesState`) in which contradictory combinations are unrepresentable — plus the operations that change it. Operations return `Void`; outcomes land in the state, never in return values. Models live for the app's lifetime and are wired through `Dependencies`. Everything around a model is a stateless service: gateways, providers, stores.
+  - A **presenter** (`*Presenter`) sits between a view and one or more models. It projects model state into exactly what the view renders (`var isPro: Bool { purchases.state.isPro }`, `var errorMessage: String?`) and forwards view actions to model operations. **A presenter owns only state nobody outside its view can see.** Everything that mirrors a model is a computed `var` over that model, so there is one source of truth and nothing to keep in sync. State that exists only while the view is on screen — a text field's draft (`var name: String`), what the view is presenting — is a stored `var` on the presenter, so the view can bind to it (`$presenter.name`). Navigation is the presenting view's presenter's state: one private optional destination enum (`destination: PresetsDestination?`) so contradictory combinations are unrepresentable, exposed as settable projections the view binds (`var presentedDialog: PresetNameDialogMode? { get set }` into `.sheet(item:)`). The decision that picks a destination (free tier → Pro window instead of the dialog) lives next to it in `saveAs()`. The presented view's presenter flips `private(set) var isDismissed` when it's done; its view watches it with `.onChange` and calls the environment's `dismiss`, which clears the presenting presenter's destination through the sheet binding. Neither side knows the other. A menu command reaches a view's presenter through a `BindableCommand` held in `Dependencies`: the presenter binds its handler with `[weak self]` in `task()`, which the view calls from `.task`, never in `init`, because a parent re-render constructs throwaway presenters and only the `@State` one must own the binding; the commands presenter executes it. A presenter is a `@MainActor @Observable final class`.
+  - A **view** reads `presenter.foo` and calls `presenter.buy()`. Presentation only.
+- **Presenters live and die with their view.** A presenter is held *only* by the view that renders it. Never stash one in App-scope `@State`, an `NSApplicationDelegate`, an environment value, a singleton, or any object that outlives the view. Anything that must outlive the view — cached data, in-flight async work, an AU reference for a quit-time persist — belongs in a model or service the presenter talks to via DI, never the other way around. Non-view consumers (AppDelegate, services) read model state, never a presenter.
+- **Models register observers in `init` and expose `load()` for initial async state.** A foreign-world subscription (`Transaction.updates`) is registered in the model's `init` through the gateway's callback primitive; the returned `Cancellation` is stored so the subscription dies with the model, and the closure captures `self` weakly. Initial async state (products, entitlements) is fetched by `func load() async`, called from `AppDelegate`'s launch hook. No `Task { }` inside a model.
+- DI via `@MainActor` `Dependencies` structs with `static let live` factory + SwiftUI `EnvironmentKey` (see [Dependencies pattern](#dependencies-pattern))
+- **Delegate or closure? Ask "who is the other side?"** An object we own gets a delegate (`AudioSettingsModelDelegate`): weak by construction, named methods, nothing to capture or cancel. A foreign event source gets a closure plus a handle (`observeTransactionUpdates`, `DeviceListChangeListener.observeChanges`): the closure is the shape of the callback being wrapped, the `Cancellation` tears the foreign subscription down.
 - Keep framework types (CoreAudio, CoreMIDI, AudioToolbox, etc.) out of the view layer. Framework imports belong in module-internal files (e.g. `EngineKit`, `StorageKit`) and shared model definitions.
-- **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, view models) consume the resolved types and never see UIDs.
-- **Stateless services are structs, not actors.** When a service holds only `let` references to injected dependencies and doesn't cache anything between calls (e.g. `RawPresetStore`, `PresetProvider`), declare it as `struct` (or `final class` if reference semantics are needed) and keep its protocol sync. The mock follows: `final class @unchecked Sendable`, not `actor`. Reserve `actor` for types that actually own mutable state — caching loaded data (e.g. `RawSettingsStore` caches `RawAudioSettings`), serializing concurrent access to shared state, or composing async work. Drop `actor` on sight whenever it isn't earned — async-from-outside, isolation, and forced `await` cost everyone time when no suspension is happening.
-- **Protocols are for services (injected); models stay concrete types.** A `*Type` protocol + mock earns its place only for a *service* — a collaborator wired through a module's `Dependencies` and injected at the composition root (gateways, providers, stores, managers). There's exactly one construction site, so substituting a mock there is a clean seam. It does **not** work for *models* — types you create on the fly and pass around (an audio unit, a `LoadedAudioUnit`, a loaded document). They have many construction sites and no injection seam, so wrapping them in a protocol just buys friction: `any` existentials everywhere, no natural `Equatable`/`Sendable`, and mocks that must be threaded through every caller instead of registered once. Model those as concrete types; for tests give the concrete type a cheap construction path — a `fake(...)` or a headless init (e.g. `AUAudioUnitWrapper(fullState:)`) — not a protocol + mock. Rule of thumb: if you can't register it in `Dependencies` and inject it, it shouldn't be a protocol. (When the concrete type wraps a foreign one that can't be cleanly constructed, the wrapper *is* the seam — see `AUAudioUnitWrapper`.)
+- **Layered persistence: store raw, expose resolved.** The persistence layer (`StorageKit`) holds *only* raw external identifiers — UIDs, numeric IDs, primitive arrays — never resolved domain types. The domain layer (`AudioSettingsKit`) reads those raw values, resolves them against live system state (`AudioDevicesProvider`, etc.), and exposes typed domain values (`AudioDevice`, `SelectedChannel`) to consumers. A type that requires a live-system lookup to be meaningful does **not** belong in the persistence module. Consumers (engine, presenters) consume the resolved types and never see UIDs.
+- **Stateless services are structs, not actors.** When a service holds only `let` references to injected dependencies and doesn't cache anything between calls (e.g. `RawPresetStore`, `PresetProvider`), declare it as `struct` (or `final class` if reference semantics are needed) and keep its protocol sync. The spy follows: `final class @unchecked Sendable`, not `actor`. Reserve `actor` for types that actually own mutable state — caching loaded data (e.g. `RawSettingsStore` caches `RawAudioSettings`), serializing concurrent access to shared state, or composing async work. Drop `actor` on sight whenever it isn't earned — async-from-outside, isolation, and forced `await` cost everyone time when no suspension is happening.
+- **Protocols are for services and models (injected); entities and presenters stay concrete types.** A `*Type` protocol + spy earns its place only for a *service* or a *model* — a collaborator wired through a module's `Dependencies` and injected at the composition root (gateways, providers, stores, models). A presenter is constructed by a `Dependencies` factory but never injected anywhere; its tests substitute the models behind it. There's exactly one construction site, so substituting a spy there is a clean seam. It does **not** work for *entities* — types you create on the fly and pass around (an audio unit, a `LoadedAudioUnit`, a loaded document). They have many construction sites and no injection seam, so wrapping them in a protocol just buys friction: `any` existentials everywhere, no natural `Equatable`/`Sendable`, and spies that must be threaded through every caller instead of registered once. Keep those concrete; for tests give the concrete type a cheap construction path — a `fake(...)` or a headless init (e.g. `AUAudioUnitWrapper(fullState:)`) — not a protocol + spy. Rule of thumb: if you can't register it in `Dependencies` and inject it, it shouldn't be a protocol. (When the concrete type wraps a foreign one that can't be cleanly constructed, the wrapper *is* the seam — see `AUAudioUnitWrapper`.)
 
 ## Code Style
 
@@ -45,16 +50,12 @@
   //  Copyright © YYYY Alex Shubin. All rights reserved.
   //
   ```
-- Avoid using `any` with protocol types when it's not required. Prefer `let sut: HostViewModelType` over `let sut: any HostViewModelType`.
-- Don't write explicit `Sendable` conformance on internal value types whose stored members are all `Sendable` — the compiler infers it (`enum StorePurchaseOutcome { … }`, not `enum StorePurchaseOutcome: Sendable { … }`). Keep explicit `Sendable` for public types (where it's part of the API contract) and for `@unchecked Sendable` mocks. Same for `Identifiable` and similar — don't conform to a protocol the type isn't actually used through.
+- Avoid using `any` with protocol types when it's not required. Prefer `let engine: EngineType` over `let engine: any EngineType`.
+- Don't write explicit `Sendable` conformance on internal value types whose stored members are all `Sendable` — the compiler infers it (`enum StorePurchaseOutcome { … }`, not `enum StorePurchaseOutcome: Sendable { … }`). Keep explicit `Sendable` for public types (where it's part of the API contract) and for `@unchecked Sendable` spies. Same for `Identifiable` and similar — don't conform to a protocol the type isn't actually used through.
 - Avoid copy-pasted logic. Extract repeated lines into a private helper function.
-- **Use typed throws.** Every throwing function declares its concrete error type — `throws(SomeError)` — not bare `throws`. This applies to protocol requirements, public APIs, and internal helpers. Bare `throws` is only OK when the function is a thin wrapper that intentionally accepts `any Error` (e.g., a `logging` helper that catches and logs). If you have to translate an upstream untyped throw into a domain error, do it where the upstream is called (`do { try foreign() } catch { throw DomainError.specific }`) so the function's signature stays typed. Mocks must match the protocol's typed throws — `throws(DomainError)`, not bare `throws`.
-- **Never use `Task` static methods (`Task.yield()`, `Task.sleep(...)`, `Task.detached`) to "give the scheduler a chance to run" or "wait for async work to settle".** They're non-deterministic and brittle. Two real patterns instead:
-  1. **`withObservationTracking` to wait on the *next* state change** — for `@Observable` consumers (tests, glue code) that need to observe a downstream mutation. The shared helper is `next` (`TinyAudioUnitHost/Tests/Helpers/Next.swift`): `withObservationTracking(value) { continuation.resume() }` inside a `withCheckedContinuation`, single-shot — it fires on exactly one transition of whatever `value` reads, then returns. Use it on its own line and assert the landed state on the next line (`await next { sut.isPro }; #expect(sut.isPro == true)`) — never fold the assertion into the wait. **Do not loop-until-a-predicate-is-true**: that masks wrong intermediate states (it skips past a stray value to reach the one you wanted) and can't catch "the next state is exactly X." For a multi-step progression (e.g. `SessionManager`'s `content`: `.loading` → terminal), assert each hop — `#expect(sut.content == .loading)` for the in-flight state, then `await next { sut.content }`, then `#expect(sut.content == .loaded(...))` — rather than polling to the final state; skipping the intermediate is wrong, not a convenience. Because `next` waits for the *next* change, call it only when a transition is actually expected — if the value is already in the target state (no change coming), assert it directly instead of awaiting, or it waits forever. This is the only pattern tests should use for waiting on session/VM state.
-  2. **Return spawned `Task`s as `@discardableResult Task<...>`** from the method that creates them. Callers — typically tests — can `await` the task instead of guessing how long it needs to finish.
-
-  If neither fits, stop and ask — don't reach for `Task.yield()` as a workaround.
-- **A service doesn't kick off its own long-running work in `init`.** Don't bootstrap a listener / refresh loop from `init` via a fire-and-forget `Task { … }` — that hides untestable, racy work in construction. Instead expose `@discardableResult func start() -> Task<Void, Error>` (the shape `MidiReloader`, `EngineReloader`, `SetupRefresher`, and `PurchasesService` share). App-lifetime services start from `AppDelegate`'s launch hook, guarded by `isRunningTests` (`MidiReloader.start` must stay first — it pins CoreMIDI notification delivery to the main run loop); view-scoped work starts from the owning view's `.task` action. Never start from the composition root (`Dependencies` wires, it doesn't run). `init` just stores dependencies. Returning the task keeps the lifecycle awaitable in tests; a `nonisolated` `start()` on an `actor` stays callable without `await`, uniformly with non-actor siblings.
+- **Use typed throws.** Every throwing function declares its concrete error type — `throws(SomeError)` — not bare `throws`. This applies to protocol requirements, public APIs, and internal helpers. Bare `throws` is only OK when the function is a thin wrapper that intentionally accepts `any Error` (e.g., a `logging` helper that catches and logs). If you have to translate an upstream untyped throw into a domain error, do it where the upstream is called (`do { try foreign() } catch { throw DomainError.specific }`) so the function's signature stays typed. Spies must match the protocol's typed throws — `throws(DomainError)`, not bare `throws`.
+- **Never use `Task` static methods (`Task.yield()`, `Task.sleep(...)`, `Task.detached`) to "give the scheduler a chance to run" or "wait for async work to settle".** They're non-deterministic and brittle. Tests don't wait for state: every operation on a model or service is awaited to completion, so a test calls `await sut.save(...)` and asserts the landed state on the next line. Presenter tests set the model spy's state (`purchasesSpy.state = .pro`) and read the presenter's computed property. Long-running work spawned by a service is returned as a `@discardableResult Task<...>` so a test can `await` it. If a test seems to need a wait, the production code has a fire-and-forget Task or a stream in it that should become an awaited call or a delegate instead — fix that, don't add a wait.
+- **Observers start via `func start()`** from `AppDelegate`'s launch hook, guarded by `isRunningTests`. `start()` registers a closure with the foreign seam (`createClient(name:onSetupChange:)`, `NotificationCenterType.observe`) or sets the observer as a model's delegate, and keeps only the handle. No returned `Task`: a test calls `start()`, then invokes the handler the spy captured, and asserts on the next line. Models `load()` from the same hook; view-scoped work starts from the owning view's `.task`.
 - Prefer a noun-named computed `var` over a `func` with no parameters — it's the Swift-native way to expose derived state. `var physicalChannelCount: Int? { ... }` instead of `func physicalChannelCount() -> Int? { ... }`; `var snapshot: Data?` instead of `func snapshot() -> Data?`. Even verb-y nouns like `snapshot` read as state when surfaced as a property.
 - Don't add domain logic via globally-visible computed properties or extensions on shared types. If a single consumer needs a derived value or helper, write a `private extension` on the input type in the consumer's own file so the call site reads `value.derived` rather than `derived(value)` — e.g. prefer `private extension EngineLoadError { var message: String { … } }` (used as `error.message`) over a `private func message(for: EngineLoadError) -> String` helper on the consumer. Public extensions/computed properties stay data-only (e.g. `var channels: [AudioChannel]` projecting an enum's payload).
 - In `<Type>.swift`, declarations appear in this order:
@@ -68,11 +69,13 @@
 ## Naming Conventions
 
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
-- `*Action` for view model action enums
-- Features organized as `Features/FeatureName/` with View, ViewModel, and optional `Subviews/`
+- `*Action` for view action enums
+- Features organized as `Features/FeatureName/` with View, Presenter, and optional `Subviews/`
 - Naming patterns we use, when they fit:
-  - `*Gateway` — protocols that wrap foreign-API surfaces that aren't already instance methods: C calls (CoreAudio, CoreMIDI), static methods (`AVCaptureDevice.authorizationStatus(for:)`), free/global functions (`Date.now`), external SDK entry points. The wrapper is a thin instance struct/class delegating to the originals so consumers see a normal injectable protocol with per-instance mocks — no `Type` metatypes, no `nonisolated(unsafe)` static state, no `.serialized` test suites. Naming the FFI seam tells the reader why the protocol exists. Example: `CoreAudioGatewayType` over `CoreAudioManagerType`.
-  - `*Provider` — protocols that produce/resolve domain values (`AudioSettingsProviderType`, `TargetSettingsProviderType`, `AudioDevicesProviderType`).
+  - `*Model` — `@MainActor @Observable` owner of one domain's state (`PurchasesModel`); see [Architecture](#architecture).
+  - `*Presenter` — the projection layer between a view and its models (`PurchasesPresenter`).
+  - `*Gateway` — protocols that wrap foreign-API surfaces that aren't already instance methods: C calls (CoreAudio, CoreMIDI), static methods (`AVCaptureDevice.authorizationStatus(for:)`), free/global functions (`Date.now`), external SDK entry points. The wrapper is a thin instance struct/class delegating to the originals so consumers see a normal injectable protocol with per-instance spies — no `Type` metatypes, no `nonisolated(unsafe)` static state, no `.serialized` test suites. Naming the FFI seam tells the reader why the protocol exists. Example: `CoreAudioGatewayType` over `CoreAudioManagerType`.
+  - `*Provider` — protocols that produce/resolve domain values (`AudioDevicesProviderType`, `MidiDevicesProviderType`, `PresetProviderType`).
   - `*Manager` — when the type actually owns lifecycle/state across operations (e.g. holds a live runtime object and persists derived state).
   - `*Store` / `*Factory` / `*Repository` — when one of those names actually fits.
 - **`*Gateway` protocols hold only foreign-API primitives, not domain logic.** Each gateway method should map roughly 1:1 onto an underlying foreign call (`setChannelMap(_ map: [Int32], element:, on:)`, `physicalChannelCount(of:) -> Int?`, `authorizationStatus(for:)`). Logic that *builds* the call's inputs from domain types (e.g. computing a channel map from `SelectedChannel` + an offset) stays in the caller as private methods. Otherwise correctness-critical code hides behind a non-substitutable boundary and the gateway gets coupled to types that have nothing to do with the foreign API.
@@ -83,61 +86,77 @@
 
 ## View state and actions
 
-Every view gets a dedicated action enum (`<View>Action`), defined in the same file as the view. Phase / mode enums specific to one view live alongside the VM in the same file.
+Phase / mode enums specific to one view live alongside the presenter in the same file.
 
-### Top-level feature views (own a VM)
+### Top-level feature views (own a presenter)
 
-The view holds a `@State var viewModel: <View>ViewModelType`. The VM exposes its observable state as individual `@Observable` properties and dispatches via `func accept(action: <View>Action) async`. The view reads `viewModel.foo` directly and dispatches `viewModel.accept(action: .bar)`.
+Presenters are concrete classes with no `*Type` protocol: they sit in the same target as their view and tests drive them through model spies, so a protocol would only buy an existential. The view holds its presenter as `@State var presenter: <View>Presenter`, seeded through the memberwise init, so it survives the parent's re-renders. Presenter state binds directly: `$presenter.name`, `.sheet(item: $presenter.presentedDialog)`. The presenter exposes what the view renders as properties and one `func` per view event (`buy()`, `restore()`, `selectPreset(name:)`). A func is `async` only when it awaits something; a sync event handler stays sync so the view doesn't pay an actor hop for nothing. No `accept(action:)` funnel on presenters — a `switch` over an action enum just adds a hop and a second vocabulary for the same calls.
 
 ```swift
 // PurchasesView.swift
 struct PurchasesView: View {
-    @State var viewModel: PurchasesViewModelType
+    @State var presenter: PurchasesPresenter
 
     var body: some View {
-        Text(viewModel.headline)
-        Button("Buy") { Task { await viewModel.accept(action: .buyTapped) } }
+        Text(presenter.priceLabel ?? "")
+        Button("Buy") { Task { await presenter.buy() } }
+            .disabled(presenter.isBusy)
     }
 }
 
-@MainActor
-protocol PurchasesViewModelType: AnyObject, Observable {
-    var headline: String { get }
-    var phase: PurchasesPhase { get }
-    func accept(action: PurchasesViewAction) async
-}
+// PurchasesPresenter.swift
+@MainActor @Observable
+final class PurchasesPresenter {
+    var isPro: Bool { purchases.state.isPro }
+    var isBusy: Bool { purchases.state == .loading }
+    var priceLabel: String? { purchases.productInfo?.displayPrice }
 
-enum PurchasesPhase: Sendable, Equatable { case idle, purchasing, restoring }
+    private let purchases: PurchasesModelType
 
-enum PurchasesViewAction: Sendable, Equatable {
-    case task
-    case buyTapped
+    init(purchases: PurchasesModelType) {
+        self.purchases = purchases
+    }
+
+    func buy() async {
+        await purchases.purchase()
+    }
+
+    func restore() async {
+        await purchases.restore()
+    }
 }
 ```
 
-`@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap the whole VM state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
+Observation flows through the model for projected state: the presenter's computed vars read the model's observed properties during `body`, so the view re-renders on model changes. Stored presenter state is observed directly.
 
-**Keep view-side logic out of the body — model each UI element's state as one VM property.** The goal isn't "no comparisons in the view," it's that *one atomic UI element's complete state lives in one VM property*, so contradictory combinations are unrepresentable and the view never has to reconcile several sources. Two failure modes this rules out:
-  - **Deriving an element's state from multiple VM values in the body.** If a view body needs `viewModel.activeName == nil || !viewModel.content.isOperable`, the VM should expose `var isRestoreButtonDisabled: Bool`. If it needs `if case .loaded(let loaded) = viewModel.content { return loaded.component.name }`, the VM should expose `var audioUnitTitle: String`. The deriving (combining values, unwrapping cases) happens on the VM.
-  - **Scattering one element across several overlapping bools.** A button that's enabled / shows a spinner / is disabled-without-spinner is *one* element with three mutually-exclusive states — model it as a single `enum` property (`purchaseButtonState`), not `isPurchasing` + `isUpgradeButtonDisabled`, whose combinations can contradict (`isPurchasing && !isDisabled`?).
+`@Observable` tracks reads per-property, so a change to one field only re-evaluates consumers that read that specific field — no need to wrap a model's whole state in a single struct. When fields genuinely cluster (multiple values that always change together and are read by the same consumer), grouping them into a small `Sendable, Equatable` value type is fine — judgment call, not a requirement.
 
-  Once the VM exposes that single property, the view *is* allowed to map it to presentation inline — `.disabled(viewModel.purchaseButtonState != .enabled)`, `if viewModel.purchaseButtonState == .purchasing`, or a `switch` over its cases. That's presentation, not deriving: there's one source of truth, so no contradiction is possible. Mapping the element's state enum to spinner-vs-label or enabled-vs-disabled belongs *in the view*, next to the layout it drives — not as extra bools on the VM. The view does presentation (layout, styling, dispatching actions, mapping a single state property to widgets); the VM does the deriving.
+**Keep view-side logic out of the body — model each UI element's state as one presenter property.** The goal isn't "no comparisons in the view," it's that *one atomic UI element's complete state lives in one presenter property*, so contradictory combinations are unrepresentable and the view never has to reconcile several sources. Two failure modes this rules out:
+  - **Deriving an element's state from multiple presenter values in the body.** If a view body needs `presenter.activeName == nil || !presenter.content.isOperable`, the presenter should expose `var isRestoreButtonDisabled: Bool`. If it needs `if case .loaded(let loaded) = presenter.content { return loaded.component.name }`, the presenter should expose `var audioUnitTitle: String`. The deriving (combining values, unwrapping cases) happens on the presenter.
+  - **Scattering one element across several overlapping bools.** A button that's enabled / shows a spinner / is disabled-without-spinner is *one* element with three mutually-exclusive states — model it as a single property (`buttonState`), not `isPurchasing` + `isUpgradeButtonDisabled`, whose combinations can contradict (`isPurchasing && !isDisabled`?).
 
-### Subviews (no VM)
+  Once the presenter exposes that single property, the view *is* allowed to map it to presentation inline — `.disabled(presenter.isBusy)`, `if presenter.isBusy { ProgressView() }`, or a `switch` over an enum property's cases. That's presentation, not deriving: there's one source of truth, so no contradiction is possible. Mapping the element's state enum to spinner-vs-label or enabled-vs-disabled belongs *in the view*, next to the layout it drives — not as extra bools on the presenter. The view does presentation (layout, styling, dispatching actions, mapping a single state property to widgets); the presenter does the deriving.
 
-Subviews don't own a view model and don't mutate shared state. The view takes `let state: <View>ViewState` and `let onAction: (<View>Action) -> Void`; every event bubbles up through `onAction` to the parent feature's VM, which is the only thing that decides what to do.
+### Subviews (no presenter)
+
+Subviews don't own a presenter and don't mutate shared state. The view takes `let state: <View>ViewState` and one outbound channel; every event bubbles up through it to the parent feature's presenter, which is the only thing that decides what to do.
 
 ```swift
 struct FeedbackToast: View {
     let state: FeedbackToastViewState
-    let onAction: (FeedbackToastAction) -> Void
+    let onTimeout: () -> Void
+}
+
+struct DevicePickerView: View {
+    let state: DevicePickerState
+    let onAction: (DevicePickerViewAction) -> Void
 }
 ```
 
-- *All* events go through `onAction`, including internally-generated ones (timers firing, async work completing, gesture-driven dismissals). No extra `onTimeout` / `onDone` / etc. closures — the subview has exactly one outbound channel.
-- The parent's VM wraps the subview's action enum in a dedicated case (`case fooAction(<View>Action)`); the switch matches the inner case (`.fooAction(.someEvent)`) and decides what to do. This holds even for single-instance subviews — keeps the subview's vocabulary distinct from the VM's.
-- When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own wrapping case (`.inputFooAction(...)`, `.outputFooAction(...)`) so the handler can tell instances apart.
-- If multiple instances share write logic on the VM, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
+- A subview with one event takes one closure named for the event (`onTimeout`). A subview with several events takes `let onAction: (<View>Action) -> Void` and a dedicated action enum defined in the same file. Never both, and never a second closure next to `onAction` — the subview has exactly one outbound channel, including for internally-generated events (timers firing, async work completing, gesture-driven dismissals).
+- The parent's presenter exposes one func per single-event subview (`feedbackTimedOut()`) or one `func handle(_ action: <View>Action)` per multi-event subview type; the switch inside decides what to do. This keeps the subview's vocabulary distinct from the presenter's own event funcs.
+- When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own handler (`handleInput(_:)`, `handleOutput(_:)`) so the presenter can tell instances apart.
+- If multiple instances share write logic on the presenter, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
 - Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
 
 ## Project Structure
@@ -158,35 +177,39 @@ struct FeedbackToast: View {
 - Cross-target dependencies *within the same project* use `.target(name: "OtherTargetInSameProject")`; cross-project dependencies use `.project(target: "<Other>", path: .relativeToManifest("../<Other>"))`.
 - Library projects expose their API as `public` types. Keep concrete types `internal` whenever a `public` protocol covers the API surface — only the protocol(s) and the module's `Dependencies` factory should leak to consumers. App-only projects keep types `internal`.
 - Every `Project.swift` enables Swift 6.2's approachable concurrency: `"SWIFT_APPROACHABLE_CONCURRENCY": "YES"` in the project's base settings (alongside `SWIFT_VERSION`).
-- Inside `Sources/`, library modules use three top-level folders. The split is "what things are" (nouns) vs "things that act on the foreign world" (verbs):
-  - `Sources/Models/` — what things *are*: public value types (settings, devices, IDs), protocols that describe a domain entity's shape (`AUAudioUnitType` — "what an audio unit is in our domain"), **and** concrete representations of those entities, even when the impl is a thin wrapper around a foreign type (`AUAudioUnitWrapper` — it *is* an audio unit instance, the wrapping is incidental).
+- Inside `Sources/`, library modules use these top-level folders:
+  - `Sources/Entities/` — what things *are*: public value types (settings, devices, IDs, state enums like `PurchasesState`), protocols that describe a domain entity's shape (`AUAudioUnitType`, `StoreProductType`), **and** concrete representations of those entities, even when the impl is a thin wrapper around a foreign type (`AUAudioUnitWrapper` — it *is* an audio unit instance, the wrapping is incidental).
+  - `Sources/Models/` — the `@MainActor @Observable` owners of a domain's state (`PurchasesModel`), see [Architecture](#architecture).
   - `Sources/Services/` — things that *act* on the foreign world: providers, stores, factories, gateways. These perform operations — they're not domain entities themselves.
+  - `Sources/Observers/` — `*Observer` services that subscribe to an event source (a model's delegate, a gateway's callback, a notification) and ping the services that must react (`AudioSettingsObserver`, `SystemWakeObserver`). They start from `AppDelegate`'s launch hook via `start()` and hold nothing but the subscription handle.
   - `Sources/Helpers/` — internal extensions and FFI helpers, e.g. `CoreAudioHelpers.swift`.
 
   `Sources/Dependencies.swift` sits at the top level. Small modules can omit a subfolder if it would be empty.
-- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Mocks/` for mocks. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Engine.swift` → `Tests/Suites/Services/EngineTests.swift`). `Tests/Mocks/` stays flat.
-- Inside `TestSupport/`, two flat folders: `TestSupport/Mocks/` (mocks for `public` protocols, see [Mock pattern](#mock-pattern)) and `TestSupport/Fakes/` (`Type+Fake.swift` for public value types, see [Fake pattern](#fake-pattern)).
+- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Spies/` for spies. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Engine.swift` → `Tests/Suites/Services/EngineTests.swift`). `Tests/Spies/` stays flat.
+- Inside `TestSupport/`, two flat folders: `TestSupport/Spies/` (spies for `public` protocols, see [Spy pattern](#spy-pattern)) and `TestSupport/Fakes/` (`Type+Fake.swift` for public value types, see [Fake pattern](#fake-pattern)).
 
 ## Dependencies pattern
 
-Each library module owns a `Sources/Dependencies.swift` with a `public struct Dependencies: Sendable` that exposes only the module's protocol-typed services. Concrete implementations stay `internal`. Don't add a `public init` — let the synthesized memberwise init stay internal so external code can only construct a module's `Dependencies` through the `live` factory.
+Each library module owns a `Sources/Dependencies.swift` with a `@MainActor public struct Dependencies: Sendable` that exposes only the module's protocol-typed services. Concrete implementations stay `internal`. Don't add a `public init` — let the synthesized memberwise init stay internal so external code can only construct a module's `Dependencies` through the `live` factory.
 
 The factory is **always** a parameterless `public static let live: Dependencies`, never a function. When a module needs services from an upstream module, reach into that module's own factory directly inside the closure (e.g. `StorageKit.Dependencies.live.audioSettingsStore`) — don't accept upstream services as parameters. This keeps every consumer's call site uniform: `<Module>.Dependencies.live` is always a property access.
 
-The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. View-model factories then reach through the nested struct (e.g. `engine.engine`). Adding a new service to a module becomes zero-touch in the app.
+**The composition root is main-isolated.** Every `Dependencies` struct, module and app alike, is `@MainActor`, so `live` constructs `@MainActor` models and services through their ordinary inits — no `nonisolated init`, no `nonisolated(unsafe)` storage to work around a nonisolated global. The SwiftUI environment default is `MainActor.assumeIsolated { .live }`, because `EnvironmentKey.defaultValue` is a nonisolated requirement that SwiftUI only ever reads on main.
+
+The app's `TinyAudioUnitHost/Sources/Dependencies.swift` is the composition root. It holds each module's `Dependencies` as a nested field (`let storage: StorageKit.Dependencies`, `let engine: EngineKit.Dependencies`) — don't fan individual services out into a flat list. Presenter factories then reach through the nested struct (e.g. `engine.engine`). Adding a new service to a module becomes zero-touch in the app.
 
 **One init per type — push live wiring to the composition root, not a convenience init.** When you make a previously-internal helper injectable for testing (e.g. adding `factory: AggregateDeviceFactoryType` to a type's init), do *not* keep a second convenience init that constructs the live helper internally. Pass the live helper explicitly at the composition site (`AudioSettingsKit.Dependencies.live`). One construction path keeps the dependency tree auditable in one place; two paths invite drift, and the convenience init papers over the wiring you wanted to make visible in the first place.
 
-## Mock pattern
+## Spy pattern
 
-Mocks for `*Type` protocols live in one of two places depending on scope:
-- `<Feature>/TestSupport/Mocks/<Type>Mock.swift` (target `<Feature>TestSupport`, `public`) — when the protocol is `public` and *other* modules' tests need it.
-- `<Feature>/Tests/Mocks/<Type>Mock.swift` (target `<Feature>Tests`, internal) — when the protocol is module-internal. The test target uses `@testable import <Feature>` to reach internal types, so the mock stays internal too.
+Spies for `*Type` protocols live in one of two places depending on scope:
+- `<Feature>/TestSupport/Spies/<Type>Spy.swift` (target `<Feature>TestSupport`, `public`) — when the protocol is `public` and *other* modules' tests need it.
+- `<Feature>/Tests/Spies/<Type>Spy.swift` (target `<Feature>Tests`, internal) — when the protocol is module-internal. The test target uses `@testable import <Feature>` to reach internal types, so the spy stays internal too.
 
 Default shape:
 
 ```swift
-public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Sendable {
+public final class AudioSettingsStoreSpy: AudioSettingsStoreType, @unchecked Sendable {
     public enum Calls: Equatable {
         case update
         case current
@@ -210,7 +233,7 @@ public final class AudioSettingsStoreMock: AudioSettingsStoreType, @unchecked Se
 A `<method>Result` stub and a `<thing>Stream` read the same way — each stub adjacent to its method:
 
 ```swift
-final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
+final class CoreMidiGatewaySpy: CoreMidiGatewayType, @unchecked Sendable {
     enum Calls: Equatable {
         case createInputPort(UInt32, String, AUAudioUnitWrapper)
     }
@@ -232,14 +255,15 @@ final class CoreMidiGatewayMock: CoreMidiGatewayType, @unchecked Sendable {
 
 - One `Calls` case per protocol method; add associated values when arguments matter. `Calls: Equatable` so tests can assert sequences with `==`.
 - Append to `calls` *after* the real effect runs.
-- **No `init`: each stub is a mutable `var` with an inline default, declared directly above the method it feeds.** A `final class @unchecked Sendable` whose stored properties are all defaulted gets a synthesized no-arg `init()`, so tests construct it with `()` and configure only what they need by direct assignment (`mock.settings = ...`, `mock.createClientResult = nil`) in the concrete test. Don't clump stubs at the top — keeping each `var` next to its method makes the stub and the value it produces read together. No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
+- **No `init`: each stub is a mutable `var` with an inline default, declared directly above the method it feeds.** A `final class @unchecked Sendable` whose stored properties are all defaulted gets a synthesized no-arg `init()`, so tests construct it with `()` and configure only what they need by direct assignment (`spy.settings = ...`, `spy.createClientResult = nil`) in the concrete test. Don't clump stubs at the top — keeping each `var` next to its method makes the stub and the value it produces read together. No `setX(_:)` helpers — they're ceremony that only existed to work around actor isolation.
 - **Name each stub after its method: `<method>Result` for a returned value, `<method>Error` for a thrown one** (`createClientResult`, `createInputPortResult`, `setEnableIOError`). One stub per method, never a shared `result` — methods that wrap distinct foreign calls each get their own, even when the shapes match, because each underlying call can independently succeed or fail.
-- **A method that returns *or* throws stubs as a non-optional `Result`** — `var instantiateResult: Result<AVAudioUnit, Error> = .failure(NSError(domain: "AVAudioUnitFactoryMock", code: -1))`, switched (or `.get()`) in the method body. The function has exactly two outcomes, so the stub has exactly two cases — no optional whose `nil` needs a made-up third path behind a `guard`.
-- **A streamed return is a stored `AsyncStream.makeStream()` named `<thing>Stream`** (`setupChangesStream`). The method returns its `.stream`; the test drives it through the continuation directly — `mock.setupChangesStream.continuation.yield(...)` / `.finish()`. Don't wrap the continuation in `emit`/`broadcast` helpers; expose it and let the test call it.
-- **A mock returns one configured result per method, not a result computed from the call's arguments.** Expose the return as a flat stub (`deviceUIDResult: String?`, `createResult: AudioDeviceID?`); the call's arguments go into `calls` for assertion, not into a lookup that picks the return. No `switch` on a parameter, no input-keyed dictionary, no branching in the method body — that's SUT logic leaking into the mock, and every test override would silently replace it. Exception: when a single test genuinely must return *different* values for *different* inputs within one call sequence, an input-keyed collection (`deviceByID: [UInt32: AudioDevice]`) is acceptable — reach for it only when a flat result truly can't express the scenario, never by default.
+- **A method that returns *or* throws stubs as a non-optional `Result`** — `var instantiateResult: Result<AVAudioUnit, Error> = .failure(NSError(domain: "AVAudioUnitFactorySpy", code: -1))`, switched (or `.get()`) in the method body. The function has exactly two outcomes, so the stub has exactly two cases — no optional whose `nil` needs a made-up third path behind a `guard`.
+- **A streamed return is a stored `AsyncStream.makeStream()` named `<thing>Stream`** (`setupChangesStream`). The method returns its `.stream`; the test drives it through the continuation directly — `spy.setupChangesStream.continuation.yield(...)` / `.finish()`. Don't wrap the continuation in `emit`/`broadcast` helpers; expose it and let the test call it.
+- **A spy returns one configured result per method, not a result computed from the call's arguments.** Expose the return as a flat stub (`deviceUIDResult: String?`, `createResult: AudioDeviceID?`); the call's arguments go into `calls` for assertion, not into a lookup that picks the return. No `switch` on a parameter, no input-keyed dictionary, no branching in the method body — that's SUT logic leaking into the spy, and every test override would silently replace it. Exception: when a single test genuinely must return *different* values for *different* inputs within one call sequence, an input-keyed collection (`deviceByID: [UInt32: AudioDevice]`) is acceptable — reach for it only when a flat result truly can't express the scenario, never by default.
 - No `clearCalls()`. No mutators that don't correspond to a config-time stub. Side effects a test needs to trigger (e.g. emitting on a stream) go through the exposed primitive directly — the stream's `continuation` — not a bespoke helper method.
 - Visibility follows location: `public` in `TestSupport`, internal in `Tests`.
-- Default to `final class @unchecked Sendable` for *every* mock. The protocol's `async` declarations stay on the methods so call sites still look right (`await mock.current()`); only test-side property reads/writes become sync (`mock.calls`, `mock.settings = ...`). The trade-off vs `actor`: you lose compiler-enforced isolation. In practice the established `await sut.someCall(); #expect(mock.calls == ...)` pattern has a sync point in the `await`, so the race window is theoretical. Reserve `actor` for mocks that *simulate genuinely concurrent state* — readers and writers running on multiple isolations whose interleaving you want the compiler to police. None of the current mocks meet that bar.
+- **A spy for a model protocol is `@MainActor @Observable final class`**, mirroring the model: its observed state is plain settable `var`s with inline defaults (`public var state: PurchasesState = .loading`), operations only record `calls`. Tests drive it by assignment (`purchasesSpy.state = .pro`) and read the presenter under test on the next line. Main isolation covers `Sendable`; no `@unchecked`.
+- Default to `final class @unchecked Sendable` for every *service* spy. The protocol's `async` declarations stay on the methods so call sites still look right (`await spy.current()`); only test-side property reads/writes become sync (`spy.calls`, `spy.settings = ...`). The trade-off vs `actor`: you lose compiler-enforced isolation. In practice the established `await sut.someCall(); #expect(spy.calls == ...)` pattern has a sync point in the `await`, so the race window is theoretical. Reserve `actor` for spies that *simulate genuinely concurrent state* — readers and writers running on multiple isolations whose interleaving you want the compiler to police. None of the current spies meet that bar.
 
 ## Fake pattern
 
@@ -264,32 +288,32 @@ public extension AudioDevice {
 - Every parameter is defaulted. `Type.fake()` must work with no arguments — that's the whole point. Overrides happen at the call site.
 - Compose fakes by defaulting one to another (`device: AudioDevice = .fake()`). Tests can override at any layer (e.g. `TargetAudioDevice.fake(inputOffset: 2)`).
 - A type's fake lives in the same module's `TestSupport` as the type (`AudioDevice` → `CommonTestSupport`, `TargetAudioDevice` → `EngineKitTestSupport`). Cross-module composition flows through `import CommonTestSupport` etc.
-- Fakes are for value types (data shapes); mocks are for protocols. Different folders (`Fakes/` vs `Mocks/`), different naming. Don't conflate.
+- Fakes are for value types (data shapes); spies are for protocols. Different folders (`Fakes/` vs `Spies/`), different naming. Don't conflate.
 - Don't put `make<Type>(...)` helpers in test files. If a test needs a fixture, the type's `fake(...)` is the only home — discoverable via autocomplete on the type itself.
 - Keep fakes dumb: just construction with defaults, no logic, no pattern-matching factories. If you need shaped data, override at the call site.
 
 ## Test fixture pattern
 
-Each `@Suite` is a struct that holds its mocks and the sut as IUO `var` properties. `init()` builds every mock from its no-arg default and does nothing else — it never constructs the sut. Each `@Test` is `mutating`, configures the mocks it needs, then calls `createSut()` once. `createSut()` is the only place that constructs the sut.
+Each `@Suite` is a struct that holds its spies and the sut as IUO `var` properties. `init()` builds every spy from its no-arg default and does nothing else — it never constructs the sut. Each `@Test` is `mutating`, configures the spies it needs, then calls `createSut()` once. `createSut()` is the only place that constructs the sut.
 
 ```swift
 @Suite
 struct FooTests {
-    var someMock: SomeMock!
+    var someSpy: SomeSpy!
     var sut: FooType!  // protocol type, not the concrete
 
     init() {
-        someMock = SomeMock()
-        // ... only mock construction goes here
+        someSpy = SomeSpy()
+        // ... only spy construction goes here
     }
 
     mutating func createSut() {
-        sut = Foo(some: someMock, ...)
+        sut = Foo(some: someSpy, ...)
     }
 
     @Test
     mutating func someTest() async {
-        someMock.result = .success(...)
+        someSpy.result = .success(...)
         createSut()
         // exercise sut...
     }
@@ -297,13 +321,13 @@ struct FooTests {
 ```
 
 - Type the sut as the protocol (`FooType`), never the concrete (`Foo`). Tests should exercise only the protocol surface.
-- No parameterized `makeSut(...)` factory. Each test configures mocks in its body and then calls `createSut()`.
+- No parameterized `makeSut(...)` factory. Each test configures spies in its body and then calls `createSut()`.
 - Don't build the sut in `init()`. Calling `createSut()` again later would double up any side effects the constructor records (e.g. an `attach` call), and forcing every test to do its setup before sut construction keeps the recorded call sequence clean.
-- Mutate class mocks' properties directly in tests (`someMock.result = .success(...)`).
-- For actor mocks, mutate through the protocol's own methods (e.g. `await mock.update { ... }`). When the protocol has no setter, replace the mock var (`someActorMock = SomeActorMock(field: ...)`) before calling `createSut()`.
-- Read the test's name to identify which mock(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary mocks with full-array equality (`#expect(mock.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental mocks, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those mocks, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-mock orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named mock.
+- Mutate class spies' properties directly in tests (`someSpy.result = .success(...)`).
+- For actor spies, mutate through the protocol's own methods (e.g. `await spy.update { ... }`). When the protocol has no setter, replace the spy var (`someActorSpy = SomeActorSpy(field: ...)`) before calling `createSut()`.
+- Read the test's name to identify which spy(s) it commits to — those are **primary**; the rest are **incidental**. Assert primary spies with full-array equality (`#expect(spy.calls == [.foo, .bar])`), not `.count == N` or piecewise `.contains` — that's the whole point of `Calls: Equatable`. For incidental spies, prefer a targeted `.contains(...)` (or skip them) so an unrelated wiring change in the sut doesn't cascade across the suite. Other tests, named after those spies, will cover them fully. When the primary claim is "nothing else happened", `.isEmpty` is the right form. The exception: tests whose name commits to multi-spy orchestration (e.g. "detachesOldAndTearsDownMIDI") legitimately need full `==` on every named spy.
 - **Order of declarations inside a `@Suite`:**
-  1. Mock / sut fields (`var someMock: SomeMock!`, `var sut: FooType!`).
+  1. Spy / sut fields (`var someSpy: SomeSpy!`, `var sut: FooType!`).
   2. `init()`.
   3. `deinit` (if any).
   4. `createSut()`.
@@ -316,6 +340,6 @@ struct FooTests {
 ## Testing through DI seams
 
 - Direct unit tests target code that sits behind a real dependency-injection seam — a protocol injected via the module's `Dependencies` factory. Tests that reach past `private` scope, exercise file-private extensions, or pull a standalone helper out for isolated assertions are hacks.
-- When a helper has no DI seam (a `private extension`, a small inline transformation, an internal `enum` namespace), don't add a test that targets it directly. Either test it through the consumer that uses it (the VM, the store, the engine), or — if the testing need is real — extract it into a properly injected dependency. The seam should be motivated by the behavior's importance, not invented to make a test possible.
+- When a helper has no DI seam (a `private extension`, a small inline transformation, an internal `enum` namespace), don't add a test that targets it directly. Either test it through the consumer that uses it (the presenter, the store, the engine), or — if the testing need is real — extract it into a properly injected dependency. The seam should be motivated by the behavior's importance, not invented to make a test possible.
 - Corollary: not every Swift file deserves a sibling test file. Some code's only meaningful test lives one layer up.
 - **Mirror the original interface at the seam — don't bundle SUT logic into the dependency.** The point of a DI seam is to put SUT behavior in front of test assertions, not behind a replacement closure. When the dependency wraps a foreign API, expose each foreign primitive as its own protocol method (one method per `AVCaptureDevice.authorizationStatus(for:)`, per `AudioUnitSetProperty(...)`, per `Date.now`), and keep conditionals, ordering, and post-processing inside the SUT. A closure default that bundles two foreign calls plus an `if` makes that branch part of the boundary — every test override silently replaces the logic too, so the SUT can't be exercised in isolation. The Gateway pattern is the typical realization for free/static/global function APIs; for instance-based foreign types the same rule applies — keep the protocol shape close to the original.

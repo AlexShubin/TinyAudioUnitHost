@@ -17,11 +17,9 @@ protocol AggregateDeviceFactoryType: Sendable {
 struct AggregateDeviceFactory: AggregateDeviceFactoryType {
     static let uidPrefix = "com.alexshubin.TinyAudioUnitHost.aggregate."
 
-    private let devicesProvider: AudioDevicesProviderType
     private let gateway: CoreAudioGatewayType
 
-    init(devicesProvider: AudioDevicesProviderType, gateway: CoreAudioGatewayType) {
-        self.devicesProvider = devicesProvider
+    init(gateway: CoreAudioGatewayType) {
         self.gateway = gateway
     }
 
@@ -44,8 +42,8 @@ struct AggregateDeviceFactory: AggregateDeviceFactoryType {
     }
 
     func destroyOrphans() {
-        devicesProvider.devices(.all)
-            .filter { $0.uid.hasPrefix(Self.uidPrefix) }
-            .forEach { gateway.destroyAggregateDevice(id: $0.id) }
+        gateway.allDeviceIDs
+            .filter { gateway.deviceUID(of: $0)?.hasPrefix(Self.uidPrefix) == true }
+            .forEach { gateway.destroyAggregateDevice(id: $0) }
     }
 }
