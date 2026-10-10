@@ -33,7 +33,7 @@ public struct Dependencies: Sendable {
             ),
             deviceConfigurator: AudioDeviceConfigurator(gateway: coreAudioGateway),
             coreAudioGateway: coreAudioGateway,
-            midiSetupChangeListener: MidiSetupChangeListener(gateway: coreMidiGateway)
+            coreMidiGateway: coreMidiGateway
         )
         return Dependencies(
             audioSettingsModel: audioSettingsModel,

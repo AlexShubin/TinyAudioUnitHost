@@ -8,6 +8,7 @@
 
 import Common
 import CoreAudioGatewayKit
+import CoreMidiGatewayKit
 import Observation
 import StorageKit
 
@@ -54,7 +55,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         targetResolver: TargetDeviceResolverType,
         deviceConfigurator: AudioDeviceConfiguratorType,
         coreAudioGateway: CoreAudioGatewayType,
-        midiSetupChangeListener: MidiSetupChangeListenerType
+        coreMidiGateway: CoreMidiGatewayType
     ) {
         self.rawStore = rawStore
         self.devicesProvider = devicesProvider
@@ -66,7 +67,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         }
         // Must be the process's first CoreMIDI call, made on the main run loop,
         // otherwise the process would never receive another MIDI notification.
-        midiSetupObservation = midiSetupChangeListener.observeChanges { [weak self] in
+        midiSetupObservation = coreMidiGateway.observeSetupChanges { [weak self] in
             await self?.refreshMidiDevices()
         }
     }
