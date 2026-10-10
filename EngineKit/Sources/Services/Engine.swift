@@ -97,8 +97,8 @@ final actor Engine: EngineType {
 
     private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(EngineLoadError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
-        logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
-        logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: audioUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: audioUnit) }
         do {
             try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
         } catch {
@@ -120,7 +120,7 @@ final actor Engine: EngineType {
 
         if let inputAudioUnit = engine.inputAudioUnit {
             let map: [Int32] = channels.channels.map { Int32($0.id) - 1 }
-            logging { try audioUnitGateway.setChannelMap(map, element: 1, on: inputAudioUnit) }
+            logging { try audioUnitGateway.setChannelMap(map, bus: .input, on: inputAudioUnit) }
         }
 
         engine.connectHardwareInput(to: inputMixer, format: userFormat)
@@ -143,7 +143,7 @@ final actor Engine: EngineType {
                 guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
                 map[physicalIdx] = Int32(virtualIdx)
             }
-            logging { try audioUnitGateway.setChannelMap(map, element: 0, on: outputAudioUnit) }
+            logging { try audioUnitGateway.setChannelMap(map, bus: .output, on: outputAudioUnit) }
         }
     }
 

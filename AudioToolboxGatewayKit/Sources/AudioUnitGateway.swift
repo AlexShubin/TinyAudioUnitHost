@@ -7,13 +7,17 @@
 //
 
 import AudioToolbox
-import CoreAudio
 
 public protocol AudioUnitGatewayType: Sendable {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
+    func setEnableIO(_ enabled: Bool, bus: AudioUnitBus, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
+    func setCurrentDevice(_ deviceID: UInt32, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
+    func setChannelMap(_ map: [Int32], bus: AudioUnitBus, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
+}
+
+public enum AudioUnitBus: Sendable, Equatable {
+    case input
+    case output
 }
 
 public struct AudioUnitGatewayError: Error, Sendable, Equatable {
@@ -33,20 +37,20 @@ public struct AudioUnitGatewayError: Error, Sendable, Equatable {
 }
 
 struct AudioUnitGateway: AudioUnitGatewayType {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
+    func setEnableIO(_ enabled: Bool, bus: AudioUnitBus, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var flag: UInt32 = enabled ? 1 : 0
         let status = AudioUnitSetProperty(
             audioUnit,
             kAudioOutputUnitProperty_EnableIO,
-            scope,
-            element,
+            bus.scope,
+            bus.element,
             &flag,
             UInt32(MemoryLayout<UInt32>.size)
         )
         try check(status, operation: .setEnableIO)
     }
 
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
+    func setCurrentDevice(_ deviceID: UInt32, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var id = deviceID
         let size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioUnitSetProperty(
@@ -60,14 +64,14 @@ struct AudioUnitGateway: AudioUnitGatewayType {
         try check(status, operation: .setCurrentDevice)
     }
 
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
+    func setChannelMap(_ map: [Int32], bus: AudioUnitBus, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var mutableMap = map
         let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
         let status = AudioUnitSetProperty(
             audioUnit,
             kAudioOutputUnitProperty_ChannelMap,
             kAudioUnitScope_Output,
-            element, // 1 input bus, 0 output bus
+            bus.element,
             &mutableMap,
             size
         )
@@ -92,6 +96,22 @@ struct AudioUnitGateway: AudioUnitGatewayType {
     private func check(_ status: OSStatus, operation: AudioUnitGatewayError.Operation) throws(AudioUnitGatewayError) {
         guard status == noErr else {
             throw AudioUnitGatewayError(operation: operation, status: status)
+        }
+    }
+}
+
+private extension AudioUnitBus {
+    var scope: AudioUnitScope {
+        switch self {
+        case .input: kAudioUnitScope_Input
+        case .output: kAudioUnitScope_Output
+        }
+    }
+
+    var element: AudioUnitElement {
+        switch self {
+        case .input: 1
+        case .output: 0
         }
     }
 }
