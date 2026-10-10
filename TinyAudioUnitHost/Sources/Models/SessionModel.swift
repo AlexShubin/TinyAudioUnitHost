@@ -42,12 +42,12 @@ struct PresetEvent: Sendable, Equatable {
 }
 
 enum HostContent: Sendable, Equatable {
-    case idle
-    case unmet(Set<SetupRequirement>)
+    case idle(source: AudioUnitComponent?)
+    case unmet(requirements: Set<SetupRequirement>, source: AudioUnitComponent?)
     case empty
-    case loading
-    case loaded(LoadedAudioUnit)
-    case failed(String)
+    case loading(source: AudioUnitComponent)
+    case loaded(source: LoadedAudioUnit)
+    case failed(message: String)
 
     var isLoaded: Bool {
         if case .loaded = self { return true }
@@ -66,7 +66,7 @@ enum HostContent: Sendable, Equatable {
 
 @MainActor @Observable
 final class SessionModel: SessionModelType {
-    private(set) var content: HostContent = .idle
+    private(set) var content: HostContent
     private(set) var activeName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
@@ -84,6 +84,7 @@ final class SessionModel: SessionModelType {
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
         presets = presetProvider.presets
+        content = .idle(source: presetProvider.activeComponent)
     }
 
     func refreshSetup() async {
@@ -148,7 +149,7 @@ final class SessionModel: SessionModelType {
 
     private func applyUnmet(_ next: Set<SetupRequirement>) async {
         if !next.isEmpty {
-            content = .unmet(next)
+            content = .unmet(requirements: next, source: presetProvider.activeComponent)
             return
         }
         switch content {
@@ -168,21 +169,27 @@ final class SessionModel: SessionModelType {
         if let preset = presetProvider.load(name: active) {
             await load(component: preset.component, state: preset.state)
         } else {
-            content = .failed("Couldn't load this preset.")
+            content = .failed(message: "Couldn't load this preset.")
         }
     }
 
     private func load(component: AudioUnitComponent, state: Data?) async {
-        content = .loading
+        content = .loading(source: component)
         let result: HostContent
         do {
-            result = .loaded(try await engine.load(component: component, state: state))
+            result = .loaded(source: try await engine.load(component: component, state: state))
         } catch {
-            result = .failed(error.message)
+            result = .failed(message: error.message)
         }
         if case .loading = content {
             content = result
         }
+    }
+}
+
+private extension PresetProviderType {
+    var activeComponent: AudioUnitComponent? {
+        activeName.flatMap { load(name: $0) }?.component
     }
 }
 
