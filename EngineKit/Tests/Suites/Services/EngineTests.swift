@@ -20,7 +20,7 @@ struct EngineTests {
     var avEngineSpy: AVAudioEngineSpy!
     nonisolated(unsafe) var inputMixerSpy: AVAudioMixerNode!
     var avAudioUnitFactorySpy: AVAudioUnitFactorySpy!
-    var coreAudioGatewaySpy: CoreAudioGatewaySpy!
+    var audioUnitGatewaySpy: AudioUnitGatewaySpy!
     var midiManagerSpy: MidiManagerSpy!
     var audioSettingsSpy: AudioSettingsModelSpy!
     var sut: EngineType!
@@ -29,7 +29,7 @@ struct EngineTests {
         avEngineSpy = AVAudioEngineSpy()
         inputMixerSpy = AVAudioMixerNode()
         avAudioUnitFactorySpy = AVAudioUnitFactorySpy()
-        coreAudioGatewaySpy = CoreAudioGatewaySpy()
+        audioUnitGatewaySpy = AudioUnitGatewaySpy()
         midiManagerSpy = MidiManagerSpy()
         audioSettingsSpy = AudioSettingsModelSpy()
     }
@@ -39,7 +39,7 @@ struct EngineTests {
             engine: avEngineSpy,
             inputMixer: inputMixerSpy,
             avAudioUnitFactory: avAudioUnitFactorySpy,
-            coreAudioGateway: coreAudioGatewaySpy,
+            audioUnitGateway: audioUnitGatewaySpy,
             midiManager: midiManagerSpy,
             audioSettings: audioSettingsSpy
         )
@@ -163,7 +163,7 @@ struct EngineTests {
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
 
-        #expect(coreAudioGatewaySpy.calls == [
+        #expect(audioUnitGatewaySpy.calls == [
             .setEnableIO(true, kAudioUnitScope_Input, 1, outputAU),
             .setEnableIO(false, kAudioUnitScope_Output, 0, outputAU),
             .setCurrentDevice(targetDevice.id, outputAU)
@@ -177,7 +177,7 @@ struct EngineTests {
 
         _ = try? await sut.load(component: Self.effectComponent, state: nil)
 
-        #expect(coreAudioGatewaySpy.calls.isEmpty)
+        #expect(audioUnitGatewaySpy.calls.isEmpty)
     }
 
     @Test
@@ -199,7 +199,7 @@ struct EngineTests {
         _ = try await sut.load(component: Self.effectComponent, state: nil)
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
-        #expect(coreAudioGatewaySpy.calls == [.setChannelMap([0, 1], 1, inputAU)])
+        #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], 1, inputAU)])
         #expect(avEngineSpy.calls.contains(.connectHardwareInput(inputMixerSpy, userFormat)))
     }
 
@@ -222,7 +222,7 @@ struct EngineTests {
         _ = try await sut.load(component: Self.mixerComponent, state: nil)
 
         #expect(!avEngineSpy.calls.contains { if case .connectHardwareInput = $0 { true } else { false } })
-        #expect(!coreAudioGatewaySpy.calls.contains { if case .setChannelMap(_, let element, _) = $0 { element == 1 } else { false } })
+        #expect(!audioUnitGatewaySpy.calls.contains { if case .setChannelMap(_, let element, _) = $0 { element == 1 } else { false } })
     }
 
     @Test
@@ -239,7 +239,7 @@ struct EngineTests {
 
         avEngineSpy.outputAudioUnit = outputAU
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        coreAudioGatewaySpy.physicalChannelCountResult = 4
+        audioUnitGatewaySpy.physicalChannelCountResult = 4
         createSut()
 
         _ = try await sut.load(component: Self.effectComponent, state: nil)
@@ -248,7 +248,7 @@ struct EngineTests {
             standardFormatWithSampleRate: 48_000,
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
-        #expect(coreAudioGatewaySpy.calls == [
+        #expect(audioUnitGatewaySpy.calls == [
             .setEnableIO(false, kAudioUnitScope_Input, 1, outputAU),
             .setEnableIO(true, kAudioUnitScope_Output, 0, outputAU),
             .setCurrentDevice(targetDevice.id, outputAU),

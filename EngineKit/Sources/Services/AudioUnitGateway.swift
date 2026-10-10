@@ -1,5 +1,5 @@
 //
-//  CoreAudioGateway.swift
+//  AudioUnitGateway.swift
 //  EngineKit
 //
 //  Created by Alex Shubin on 30.04.26.
@@ -9,14 +9,14 @@
 import AVFoundation
 import CoreAudio
 
-protocol CoreAudioGatewayType {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError)
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(CoreAudioGatewayError)
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError)
+protocol AudioUnitGatewayType {
+    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
+    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError)
     func physicalChannelCount(of audioUnit: AudioUnit) -> Int?
 }
 
-struct CoreAudioGatewayError: Error, Sendable, Equatable {
+struct AudioUnitGatewayError: Error, Sendable, Equatable {
     enum Operation: Sendable, Equatable {
         case setEnableIO
         case setCurrentDevice
@@ -27,8 +27,8 @@ struct CoreAudioGatewayError: Error, Sendable, Equatable {
     let status: Int32
 }
 
-struct CoreAudioGateway: CoreAudioGatewayType {
-    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+struct AudioUnitGateway: AudioUnitGatewayType {
+    func setEnableIO(_ enabled: Bool, scope: AudioUnitScope, element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var flag: UInt32 = enabled ? 1 : 0
         let status = AudioUnitSetProperty(
             audioUnit,
@@ -41,7 +41,7 @@ struct CoreAudioGateway: CoreAudioGatewayType {
         try check(status, operation: .setEnableIO)
     }
 
-    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+    func setCurrentDevice(_ deviceID: AudioDeviceID, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var id = deviceID
         let size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioUnitSetProperty(
@@ -55,7 +55,7 @@ struct CoreAudioGateway: CoreAudioGatewayType {
         try check(status, operation: .setCurrentDevice)
     }
 
-    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(CoreAudioGatewayError) {
+    func setChannelMap(_ map: [Int32], element: AudioUnitElement, on audioUnit: AudioUnit) throws(AudioUnitGatewayError) {
         var mutableMap = map
         let size = UInt32(MemoryLayout<Int32>.size * mutableMap.count)
         let status = AudioUnitSetProperty(
@@ -84,9 +84,9 @@ struct CoreAudioGateway: CoreAudioGatewayType {
         return Int(streamFormat.mChannelsPerFrame)
     }
 
-    private func check(_ status: OSStatus, operation: CoreAudioGatewayError.Operation) throws(CoreAudioGatewayError) {
+    private func check(_ status: OSStatus, operation: AudioUnitGatewayError.Operation) throws(AudioUnitGatewayError) {
         guard status == noErr else {
-            throw CoreAudioGatewayError(operation: operation, status: status)
+            throw AudioUnitGatewayError(operation: operation, status: status)
         }
     }
 }

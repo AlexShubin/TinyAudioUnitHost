@@ -6,8 +6,10 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import Testing
 import AudioSettingsKitTestSupport
+import CoreAudioGatewayKit
+import CoreAudioGatewayKitTestSupport
+import Testing
 @testable import AudioSettingsKit
 
 @Suite

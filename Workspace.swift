@@ -7,6 +7,7 @@ let workspace = Workspace(
         "StorageKit",
         "AudioSettingsKit",
         "AudioUnitsKit",
+        "CoreAudioGatewayKit",
         "CoreMidiGatewayKit",
         "EngineKit",
         "PresetKit",

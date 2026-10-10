@@ -27,7 +27,7 @@ final actor Engine: EngineType {
     private let engine: AVAudioEngineType
     private let inputMixer: AVAudioMixerNode
     private let avAudioUnitFactory: AVAudioUnitFactoryType
-    private let coreAudioGateway: CoreAudioGatewayType
+    private let audioUnitGateway: AudioUnitGatewayType
     private let midiManager: MidiManagerType
     private let audioSettings: AudioSettingsModelType
     private var currentAVAudioUnit: AVAudioUnit?
@@ -36,14 +36,14 @@ final actor Engine: EngineType {
         engine: AVAudioEngineType,
         inputMixer: AVAudioMixerNode,
         avAudioUnitFactory: AVAudioUnitFactoryType,
-        coreAudioGateway: CoreAudioGatewayType,
+        audioUnitGateway: AudioUnitGatewayType,
         midiManager: MidiManagerType,
         audioSettings: AudioSettingsModelType
     ) {
         self.engine = engine
         self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
-        self.coreAudioGateway = coreAudioGateway
+        self.audioUnitGateway = audioUnitGateway
         self.midiManager = midiManager
         self.audioSettings = audioSettings
         engine.attach(inputMixer)
@@ -96,10 +96,10 @@ final actor Engine: EngineType {
 
     private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(EngineLoadError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
-        logging { try coreAudioGateway.setEnableIO(settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
-        logging { try coreAudioGateway.setEnableIO(settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, scope: kAudioUnitScope_Input, element: 1, on: audioUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, scope: kAudioUnitScope_Output, element: 0, on: audioUnit) }
         do {
-            try coreAudioGateway.setCurrentDevice(device.id, on: audioUnit)
+            try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
         } catch {
             logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
             throw EngineLoadError.deviceUnavailable
@@ -119,7 +119,7 @@ final actor Engine: EngineType {
 
         if let inputAudioUnit = engine.inputAudioUnit {
             let map: [Int32] = channels.channels.map { Int32($0.id) - 1 }
-            logging { try coreAudioGateway.setChannelMap(map, element: 1, on: inputAudioUnit) }
+            logging { try audioUnitGateway.setChannelMap(map, element: 1, on: inputAudioUnit) }
         }
 
         engine.connectHardwareInput(to: inputMixer, format: userFormat)
@@ -135,14 +135,14 @@ final actor Engine: EngineType {
 
         engine.connectToMainMixer(avAudioUnit, format: outputFormat)
 
-        if let outputAudioUnit = engine.outputAudioUnit, let physicalCount = coreAudioGateway.physicalChannelCount(of: outputAudioUnit) {
+        if let outputAudioUnit = engine.outputAudioUnit, let physicalCount = audioUnitGateway.physicalChannelCount(of: outputAudioUnit) {
             var map = [Int32](repeating: -1, count: physicalCount)
             for (virtualIdx, channel) in channels.channels.enumerated() {
                 let physicalIdx = hardwareOffset + Int(channel.id) - 1
                 guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
                 map[physicalIdx] = Int32(virtualIdx)
             }
-            logging { try coreAudioGateway.setChannelMap(map, element: 0, on: outputAudioUnit) }
+            logging { try audioUnitGateway.setChannelMap(map, element: 0, on: outputAudioUnit) }
         }
     }
 

@@ -7,6 +7,7 @@
 //
 
 import Common
+import CoreAudioGatewayKit
 import Observation
 import StorageKit
 
@@ -52,7 +53,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         midiDevicesProvider: MidiDevicesProviderType,
         targetResolver: TargetDeviceResolverType,
         deviceConfigurator: AudioDeviceConfiguratorType,
-        deviceListChangeListener: DeviceListChangeListenerType,
+        coreAudioGateway: CoreAudioGatewayType,
         midiSetupChangeListener: MidiSetupChangeListenerType
     ) {
         self.rawStore = rawStore
@@ -60,7 +61,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         self.midiDevicesProvider = midiDevicesProvider
         self.targetResolver = targetResolver
         self.deviceConfigurator = deviceConfigurator
-        deviceListObservation = deviceListChangeListener.observeChanges { [weak self] in
+        deviceListObservation = coreAudioGateway.observeDeviceListChanges { [weak self] in
             await self?.rescanDevices()
         }
         // Must be the process's first CoreMIDI call, made on the main run loop,
