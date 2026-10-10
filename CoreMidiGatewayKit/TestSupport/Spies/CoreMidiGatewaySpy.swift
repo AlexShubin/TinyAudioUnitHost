@@ -7,10 +7,12 @@
 //
 
 import AudioUnitsKit
+import Common
 import CoreMidiGatewayKit
 
 public final class CoreMidiGatewaySpy: CoreMidiGatewayType, @unchecked Sendable {
     public enum Calls: Equatable {
+        case observeSetupChanges
         case createClient(String)
         case disposeClient(UInt32)
         case sourceCount
@@ -28,10 +30,15 @@ public final class CoreMidiGatewaySpy: CoreMidiGatewayType, @unchecked Sendable 
 
     public init() {}
 
-    public var createClientResult: UInt32? = 1
     public private(set) var setupChangeHandler: (@Sendable () async -> Void)?
-    public func createClient(name: String, onSetupChange: @escaping @Sendable () async -> Void) -> UInt32? {
-        setupChangeHandler = onSetupChange
+    public func observeSetupChanges(_ handler: @escaping @Sendable () async -> Void) -> Cancellation {
+        setupChangeHandler = handler
+        calls.append(.observeSetupChanges)
+        return Cancellation {}
+    }
+
+    public var createClientResult: UInt32? = 1
+    public func createClient(name: String) -> UInt32? {
         calls.append(.createClient(name))
         return createClientResult
     }

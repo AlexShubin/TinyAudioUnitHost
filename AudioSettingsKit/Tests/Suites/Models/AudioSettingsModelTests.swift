@@ -8,6 +8,7 @@
 
 import AudioSettingsKitTestSupport
 import CoreAudioGatewayKitTestSupport
+import CoreMidiGatewayKitTestSupport
 import StorageKit
 import StorageKitTestSupport
 import Testing
@@ -21,7 +22,7 @@ struct AudioSettingsModelTests {
     var targetResolverSpy: TargetDeviceResolverSpy!
     var deviceConfiguratorSpy: AudioDeviceConfiguratorSpy!
     var coreAudioGatewaySpy: CoreAudioGatewaySpy!
-    var midiSetupListenerSpy: MidiSetupChangeListenerSpy!
+    var coreMidiGatewaySpy: CoreMidiGatewaySpy!
     var delegateSpy: AudioSettingsModelDelegateSpy!
     var sut: AudioSettingsModelType!
 
@@ -32,7 +33,7 @@ struct AudioSettingsModelTests {
         targetResolverSpy = TargetDeviceResolverSpy()
         deviceConfiguratorSpy = AudioDeviceConfiguratorSpy()
         coreAudioGatewaySpy = CoreAudioGatewaySpy()
-        midiSetupListenerSpy = MidiSetupChangeListenerSpy()
+        coreMidiGatewaySpy = CoreMidiGatewaySpy()
         delegateSpy = AudioSettingsModelDelegateSpy()
     }
 
@@ -44,7 +45,7 @@ struct AudioSettingsModelTests {
             targetResolver: targetResolverSpy,
             deviceConfigurator: deviceConfiguratorSpy,
             coreAudioGateway: coreAudioGatewaySpy,
-            midiSetupChangeListener: midiSetupListenerSpy
+            coreMidiGateway: coreMidiGatewaySpy
         )
         sut.delegate = delegateSpy
     }
@@ -62,7 +63,7 @@ struct AudioSettingsModelTests {
     mutating func init_observesMidiSetupChanges() async {
         createSut()
 
-        #expect(midiSetupListenerSpy.calls == [.observeChanges])
+        #expect(coreMidiGatewaySpy.calls == [.observeSetupChanges])
     }
 
     @Test
@@ -522,7 +523,7 @@ struct AudioSettingsModelTests {
         let keyboard = MidiDevice.fake(ref: 7, uid: 42)
         midiDevicesProviderSpy.devicesResult = [keyboard]
 
-        await midiSetupListenerSpy.changesHandler?()
+        await coreMidiGatewaySpy.setupChangeHandler?()
 
         #expect(sut.midiDevices == [keyboard])
         #expect(devicesProviderSpy.calls == [.scanDevices])
@@ -537,7 +538,7 @@ struct AudioSettingsModelTests {
         await sut.load()
         midiDevicesProviderSpy.devicesResult = []
 
-        await midiSetupListenerSpy.changesHandler?()
+        await coreMidiGatewaySpy.setupChangeHandler?()
 
         #expect(sut.settings.selectedMidiDevices.isEmpty)
         #expect(delegateSpy.calls == [.audioSettingsDidChange, .audioSettingsDidChange])
