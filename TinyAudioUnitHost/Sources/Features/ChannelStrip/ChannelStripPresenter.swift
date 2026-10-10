@@ -12,59 +12,76 @@ import Observation
 @MainActor @Observable
 final class ChannelStripPresenter {
     var sourceTitle: String {
-        slots[sourceIndex]?.component.kind == .instrument ? "Instrument" : "Input"
+        session.content.audioUnit?.component.kind == .instrument ? "Instrument" : "Input"
     }
 
     var sourceSlot: ChannelStripSlotViewState {
-        slotState(at: sourceIndex)
+        ChannelStripSlotViewState(
+            id: sourceIndex,
+            loaded: session.content.audioUnit.map { loaded($0.component, isBypassed: false, at: sourceIndex) },
+            catalogs: [catalog("Instruments", kind: .instrument), catalog("Effects", kind: .effect)]
+        )
     }
 
     var insertSlots: [ChannelStripSlotViewState] {
-        (sourceIndex + 1 ..< slots.count).map(slotState)
+        insertIndices.map { index in
+            ChannelStripSlotViewState(
+                id: index,
+                loaded: inserts[index].map { loaded($0.component, isBypassed: $0.isBypassed, at: index) },
+                catalogs: [catalog("Effects", kind: .effect)]
+            )
+        }
     }
 
     private let sourceIndex = 0
-    private var selectedIndex: Int?
-    private var slots: [PrototypeSlot?] = Array(repeating: nil, count: 6)
+    private let insertIndices = 1...5
+    private var selectedIndex: Int? = 0
+    private var inserts: [Int: PrototypeSlot] = [:]
 
     private let library: AudioUnitComponentsLibraryType
+    private let session: SessionModelType
 
-    init(library: AudioUnitComponentsLibraryType) {
+    init(library: AudioUnitComponentsLibraryType, session: SessionModelType) {
         self.library = library
+        self.session = session
     }
 
-    func handleSlot(_ action: ChannelStripSlotViewAction, at index: Int) {
+    func handleSource(_ action: ChannelStripSlotViewAction) async {
+        switch action {
+        case .select:
+            selectedIndex = sourceIndex
+        case .load(let component):
+            selectedIndex = sourceIndex
+            await session.loadComponent(component)
+        case .toggleBypass, .remove:
+            break
+        }
+    }
+
+    func handleInsert(_ action: ChannelStripSlotViewAction, at index: Int) {
         switch action {
         case .select:
             selectedIndex = index
         case .toggleBypass:
-            slots[index]?.isBypassed.toggle()
+            inserts[index]?.isBypassed.toggle()
         case .load(let component):
-            slots[index] = PrototypeSlot(component: component)
+            inserts[index] = PrototypeSlot(component: component)
             selectedIndex = index
         case .remove:
-            slots[index] = nil
+            inserts[index] = nil
             if selectedIndex == index {
                 selectedIndex = nil
             }
         }
     }
 
-    private func slotState(at index: Int) -> ChannelStripSlotViewState {
-        ChannelStripSlotViewState(
-            id: index,
-            loaded: slots[index].map { slot in
-                ChannelStripSlotViewState.Loaded(
-                    name: slot.component.name,
-                    manufacturer: slot.component.manufacturer,
-                    kind: slot.component.kind,
-                    isBypassed: slot.isBypassed,
-                    isSelected: selectedIndex == index
-                )
-            },
-            catalogs: index == sourceIndex
-                ? [catalog("Instruments", kind: .instrument), catalog("Effects", kind: .effect)]
-                : [catalog("Effects", kind: .effect)]
+    private func loaded(_ component: AudioUnitComponent, isBypassed: Bool, at index: Int) -> ChannelStripSlotViewState.Loaded {
+        ChannelStripSlotViewState.Loaded(
+            name: component.name,
+            manufacturer: component.manufacturer,
+            kind: component.kind,
+            isBypassed: isBypassed,
+            isSelected: selectedIndex == index
         )
     }
 
@@ -73,6 +90,13 @@ final class ChannelStripPresenter {
             .map { ChannelStripSlotViewState.Catalog.PluginGroup(manufacturer: $0.key, components: $0.value) }
             .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
         return ChannelStripSlotViewState.Catalog(title: title, pluginGroups: pluginGroups)
+    }
+}
+
+private extension HostContent {
+    var audioUnit: LoadedAudioUnit? {
+        guard case .loaded(let audioUnit) = self else { return nil }
+        return audioUnit
     }
 }
 
