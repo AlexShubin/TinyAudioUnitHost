@@ -19,50 +19,23 @@ import Testing
 @MainActor
 @Suite
 struct HostPresenterTests {
-    var librarySpy: AudioUnitComponentsLibrarySpy!
     var sessionSpy: SessionModelSpy!
     var purchasesSpy: PurchasesModelSpy!
     var sut: HostPresenter!
 
     init() {
-        librarySpy = AudioUnitComponentsLibrarySpy()
         sessionSpy = SessionModelSpy()
         purchasesSpy = PurchasesModelSpy()
     }
 
     mutating func createSut() {
         sut = HostPresenter(
-            library: librarySpy,
             session: sessionSpy,
             purchases: purchasesSpy
         )
     }
 
-    // MARK: - groups
-
-    @Test
-    mutating func groups_libraryComponentsByManufacturerAlphabetically() {
-        librarySpy.components = [
-            .fake(name: "Reverb", manufacturer: "Zoom"),
-            .fake(name: "Dynamics", manufacturer: "Apple"),
-            .fake(name: "Compressor", manufacturer: "Korn"),
-        ]
-        createSut()
-
-        #expect(sut.groups.map(\.manufacturer) == ["Apple", "Korn", "Zoom"])
-    }
-
-    // MARK: - select / save / restore (forwarding)
-
-    @Test
-    mutating func select_forwardsToSessionLoadComponent() async {
-        let component = AudioUnitComponent.fake(name: "Dynamics")
-        createSut()
-
-        await sut.select(component)
-
-        #expect(sessionSpy.calls == [.loadComponent(component)])
-    }
+    // MARK: - save / restore (forwarding)
 
     @Test
     mutating func savePreset_forwardsToSession() {
@@ -164,51 +137,7 @@ struct HostPresenterTests {
         #expect(sut.presetLabel == "Preset: foo")
     }
 
-    // MARK: - audioUnitTitle
-
-    @Test
-    mutating func audioUnitTitle_loaded_returnsComponentName() async {
-        let component = AudioUnitComponent.fake(name: "Reverb")
-        let loaded = LoadedAudioUnit(component: component)
-        sessionSpy.content = .loaded(loaded)
-        createSut()
-
-        #expect(sut.audioUnitTitle == "Reverb")
-    }
-
-    @Test
-    mutating func audioUnitTitle_notLoaded_returnsChooseAudioUnit() async {
-        sessionSpy.content = .empty
-        createSut()
-
-        #expect(sut.audioUnitTitle == "Choose Audio Unit")
-    }
-
     // MARK: - button-disabled derivations
-
-    @Test
-    mutating func isAudioUnitPickerDisabled_whenContentIsLoading() async {
-        sessionSpy.content = .loading
-        createSut()
-
-        #expect(sut.isAudioUnitPickerDisabled == true)
-    }
-
-    @Test
-    mutating func isAudioUnitPickerDisabled_whenContentIsUnmet() async {
-        sessionSpy.content = .unmet([.microphonePermission])
-        createSut()
-
-        #expect(sut.isAudioUnitPickerDisabled == true)
-    }
-
-    @Test
-    mutating func isAudioUnitPickerDisabled_whenContentIsEmpty() async {
-        sessionSpy.content = .empty
-        createSut()
-
-        #expect(sut.isAudioUnitPickerDisabled == false)
-    }
 
     @Test
     mutating func isSaveButtonDisabled_noActive() async {
