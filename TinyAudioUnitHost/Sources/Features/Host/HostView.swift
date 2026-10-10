@@ -13,17 +13,11 @@ struct HostView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: .zero) {
-            audioUnitHeader
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            Divider()
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .overlay(alignment: .top) { feedbackOverlay }
-        .animation(.snappy, value: presenter.feedback != nil)
-        .toolbar { toolbarContent }
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) { feedbackOverlay }
+            .animation(.snappy, value: presenter.feedback != nil)
+            .toolbar { toolbarContent }
     }
 
     @ViewBuilder
@@ -56,47 +50,6 @@ struct HostView: View {
             }
             .padding(.top, 12)
             .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-
-    // MARK: - Audio Unit header (Logic-style dropdown)
-
-    @ViewBuilder
-    private var audioUnitHeader: some View {
-        Menu {
-            audioUnitMenuItems
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "puzzlepiece.extension")
-                    .foregroundStyle(.secondary)
-                Text(presenter.audioUnitTitle)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Image(systemName: "chevron.down")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .disabled(presenter.isAudioUnitPickerDisabled)
-    }
-
-    @ViewBuilder
-    private var audioUnitMenuItems: some View {
-        if presenter.groups.isEmpty {
-            Text("No Audio Units installed")
-        } else {
-            ForEach(presenter.groups) { group in
-                Menu(group.manufacturer) {
-                    ForEach(group.components) { component in
-                        Button(component.name) {
-                            Task { await presenter.select(component) }
-                        }
-                    }
-                }
-            }
         }
     }
 

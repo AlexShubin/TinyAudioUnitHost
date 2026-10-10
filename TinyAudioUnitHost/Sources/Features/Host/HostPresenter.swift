@@ -6,25 +6,11 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioUnitsKit
 import Observation
 import PurchasesKit
 
-struct ManufacturerGroup: Identifiable, Hashable {
-    let manufacturer: String
-    let components: [AudioUnitComponent]
-
-    var id: String { manufacturer }
-}
-
 @MainActor @Observable
 final class HostPresenter {
-    var groups: [ManufacturerGroup] {
-        Dictionary(grouping: library.components, by: \.manufacturer)
-            .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value) }
-            .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
-    }
-
     var content: HostContent { session.content }
 
     var feedback: FeedbackToastViewState? {
@@ -33,34 +19,19 @@ final class HostPresenter {
 
     var presetLabel: String { "Preset: \(session.activeName ?? "—")" }
 
-    var audioUnitTitle: String {
-        if case .loaded(let audioUnit) = session.content {
-            return audioUnit.component.name
-        }
-        return "Choose Audio Unit"
-    }
-
-    var isAudioUnitPickerDisabled: Bool { !session.content.isOperable }
     var isSaveButtonDisabled: Bool { session.activeName == nil || !session.content.isLoaded }
     var isRestoreButtonDisabled: Bool { session.activeName == nil || !session.content.isOperable }
     var isStarFilled: Bool { purchases.state.isPro }
 
-    private let library: AudioUnitComponentsLibraryType
     private let session: SessionModelType
     private let purchases: PurchasesModelType
 
     init(
-        library: AudioUnitComponentsLibraryType,
         session: SessionModelType,
         purchases: PurchasesModelType
     ) {
-        self.library = library
         self.session = session
         self.purchases = purchases
-    }
-
-    func select(_ component: AudioUnitComponent) async {
-        await session.loadComponent(component)
     }
 
     func savePreset() {

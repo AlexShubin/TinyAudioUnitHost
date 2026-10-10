@@ -53,7 +53,6 @@ struct Dependencies: Sendable {
 
     func makeHostPresenter() -> HostPresenter {
         HostPresenter(
-            library: audioUnits.audioUnitComponentsLibrary,
             session: session,
             purchases: purchases.purchasesModel
         )
