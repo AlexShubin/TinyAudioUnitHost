@@ -11,7 +11,6 @@ import SwiftUI
 struct PresetNameDialogView: View {
     @State var presenter: PresetNameDialogPresenter
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -25,7 +24,6 @@ struct PresetNameDialogView: View {
             VStack(alignment: .leading, spacing: 4) {
                 TextField("Preset Name", text: $presenter.name)
                     .textFieldStyle(.roundedBorder)
-                    .focused($isNameFocused)
                     .font(.title3)
                     .onSubmit { presenter.commit() }
                 if let message = presenter.errorMessage {
@@ -49,8 +47,6 @@ struct PresetNameDialogView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 440)
-        // Explicit focus avoids the double focus flicker on the sheet's first presentation.
-        .onAppear { isNameFocused = true }
         .onChange(of: presenter.isDismissed) { _, isDismissed in
             if isDismissed { dismiss() }
         }
