@@ -8,6 +8,7 @@
 
 import AppKit
 import AudioSettingsKit
+import AudioToolboxGatewayKit
 import AVFoundation
 import Common
 import CoreMidiGatewayKit
@@ -28,7 +29,7 @@ public struct Dependencies: Sendable {
             engine: AVAudioEngine(),
             inputMixer: AVAudioMixerNode(),
             avAudioUnitFactory: AVAudioUnitFactory(),
-            audioUnitGateway: AudioUnitGateway(),
+            audioUnitGateway: AudioToolboxGatewayKit.Dependencies.live.audioUnitGateway,
             midiManager: midiManager,
             audioSettings: audioSettings
         )

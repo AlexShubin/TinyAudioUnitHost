@@ -9,6 +9,7 @@
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
 import AudioToolbox
+import AudioToolboxGatewayKitTestSupport
 import AudioUnitsKit
 import AVFoundation
 import EngineKitTestSupport

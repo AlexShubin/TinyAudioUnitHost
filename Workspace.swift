@@ -6,6 +6,7 @@ let workspace = Workspace(
         "TinyAudioUnitHost",
         "StorageKit",
         "AudioSettingsKit",
+        "AudioToolboxGatewayKit",
         "AudioUnitsKit",
         "CoreAudioGatewayKit",
         "CoreMidiGatewayKit",

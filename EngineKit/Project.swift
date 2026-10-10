@@ -4,6 +4,7 @@ import ProjectDescriptionHelpers
 let project = Project.library(
     name: "EngineKit",
     dependencies: [
+        .module("AudioToolboxGatewayKit"),
         .module("Common"),
         .module("CoreMidiGatewayKit"),
         .module("StorageKit"),
@@ -15,6 +16,8 @@ let project = Project.library(
         .module("AudioUnitsKit"),
     ],
     tests: [
+        .module("AudioToolboxGatewayKit"),
+        .testSupport("AudioToolboxGatewayKit"),
         .module("CoreMidiGatewayKit"),
         .testSupport("CoreMidiGatewayKit"),
         .module("Common"),
