@@ -6,11 +6,12 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
 import SwiftUI
 
 struct ChannelStripSlotView: View {
     let state: ChannelStripSlotViewState
-    let onAction: (ChannelStripSlotAction) -> Void
+    let onAction: (ChannelStripSlotViewAction) -> Void
 
     @State private var isHovered = false
 
@@ -130,12 +131,12 @@ struct ChannelStripSlotView: View {
 
     @ViewBuilder
     private var catalogMenu: some View {
-        ForEach(state.catalog) { section in
-            Section(section.title) {
-                ForEach(section.manufacturers) { manufacturer in
-                    Menu(manufacturer.name) {
-                        ForEach(manufacturer.plugins) { plugin in
-                            Button(plugin.name) { onAction(.load(plugin)) }
+        ForEach(state.catalogs) { catalog in
+            Section(catalog.title) {
+                ForEach(catalog.pluginGroups) { group in
+                    Menu(group.manufacturer) {
+                        ForEach(group.components) { component in
+                            Button(component.name) { onAction(.load(component)) }
                         }
                     }
                 }
@@ -144,10 +145,10 @@ struct ChannelStripSlotView: View {
     }
 }
 
-enum ChannelStripSlotAction {
+enum ChannelStripSlotViewAction {
     case select
     case toggleBypass
-    case load(ChannelStripPlugin)
+    case load(AudioUnitComponent)
     case remove
 }
 
@@ -155,44 +156,31 @@ struct ChannelStripSlotViewState: Equatable, Identifiable {
     struct Loaded: Equatable {
         let name: String
         let manufacturer: String
-        let kind: ChannelStripPluginKind
+        let kind: AudioUnitComponent.Kind
         let isBypassed: Bool
         let isSelected: Bool
     }
 
+    struct Catalog: Equatable, Identifiable {
+        struct PluginGroup: Equatable, Identifiable {
+            let manufacturer: String
+            let components: [AudioUnitComponent]
+
+            var id: String { manufacturer }
+        }
+
+        let title: String
+        let pluginGroups: [PluginGroup]
+
+        var id: String { title }
+    }
+
     let id: Int
     let loaded: Loaded?
-    let catalog: [ChannelStripCatalogSection]
+    let catalogs: [Catalog]
 }
 
-struct ChannelStripCatalogSection: Equatable, Identifiable {
-    let title: String
-    let manufacturers: [ChannelStripCatalogManufacturer]
-
-    var id: String { title }
-}
-
-struct ChannelStripCatalogManufacturer: Equatable, Identifiable {
-    let name: String
-    let plugins: [ChannelStripPlugin]
-
-    var id: String { name }
-}
-
-struct ChannelStripPlugin: Equatable, Identifiable {
-    let name: String
-    let manufacturer: String
-    let kind: ChannelStripPluginKind
-
-    var id: String { "\(manufacturer).\(name)" }
-}
-
-enum ChannelStripPluginKind {
-    case instrument
-    case effect
-}
-
-private extension ChannelStripPluginKind {
+private extension AudioUnitComponent.Kind {
     var tint: Color {
         switch self {
         case .instrument: Color(red: 0.20, green: 0.56, blue: 0.30)

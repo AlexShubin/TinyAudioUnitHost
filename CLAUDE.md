@@ -69,7 +69,7 @@
 ## Naming Conventions
 
 - `*Type` suffix for protocols (`AudioUnitHostEngineType`)
-- `*Action` for view action enums
+- `*ViewState` / `*ViewAction` for a subview's render data and events — see [Subviews](#subviews-no-presenter)
 - Features organized as `Features/FeatureName/` with View, Presenter, and optional `Subviews/`
 - Naming patterns we use, when they fit:
   - `*Model` — `@MainActor @Observable` owner of one domain's state (`PurchasesModel`); see [Architecture](#architecture).
@@ -139,7 +139,7 @@ Observation flows through the model for projected state: the presenter's compute
 
 ### Subviews (no presenter)
 
-Subviews don't own a presenter and don't mutate shared state. The view takes `let state: <View>ViewState` and one outbound channel; every event bubbles up through it to the parent feature's presenter, which is the only thing that decides what to do.
+Subviews don't own a presenter and don't mutate shared state. The view takes `let state: <Name>ViewState` and one outbound channel; every event bubbles up through it to the parent feature's presenter, which is the only thing that decides what to do.
 
 ```swift
 struct FeedbackToast: View {
@@ -147,17 +147,19 @@ struct FeedbackToast: View {
     let onTimeout: () -> Void
 }
 
-struct DevicePickerView: View {
-    let state: DevicePickerState
-    let onAction: (DevicePickerViewAction) -> Void
+struct ChannelStripSlotView: View {
+    let state: ChannelStripSlotViewState
+    let onAction: (ChannelStripSlotViewAction) -> Void
 }
 ```
 
-- A subview with one event takes one closure named for the event (`onTimeout`). A subview with several events takes `let onAction: (<View>Action) -> Void` and a dedicated action enum defined in the same file. Never both, and never a second closure next to `onAction` — the subview has exactly one outbound channel, including for internally-generated events (timers firing, async work completing, gesture-driven dismissals).
-- The parent's presenter exposes one func per single-event subview (`feedbackTimedOut()`) or one `func handle(_ action: <View>Action)` per multi-event subview type; the switch inside decides what to do. This keeps the subview's vocabulary distinct from the presenter's own event funcs.
+- A subview with one event takes one closure named for the event (`onTimeout`). A subview with several events takes `let onAction: (<Name>ViewAction) -> Void` and a dedicated action enum defined in the same file. Never both, and never a second closure next to `onAction` — the subview has exactly one outbound channel, including for internally-generated events (timers firing, async work completing, gesture-driven dismissals).
+- The parent's presenter exposes one func per single-event subview (`feedbackTimedOut()`) or one `func handle(_ action: <Name>ViewAction)` per multi-event subview type; the switch inside decides what to do. This keeps the subview's vocabulary distinct from the presenter's own event funcs.
 - When the same subview type is used multiple times (input vs. output picker, e.g.), each instance gets its own handler (`handleInput(_:)`, `handleOutput(_:)`) so the presenter can tell instances apart.
 - If multiple instances share write logic on the presenter, route mutations through a small instance-keyed `inout` helper instead of duplicating per-slice setters.
-- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<View>ViewState` struct — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
+- Input shape is a per-subview judgment call. When the inputs cluster, prefer a `<Name>ViewState` struct — kept Sendable + Equatable so SwiftUI can diff it cheaply. For one or two simple fields, individual `let`s read fine. Bindings cross the "no shared mutable state" line — avoid them unless the subview's API is binding-shaped (e.g. wrapping a system control).
+- **Naming.** A subview's render data and events are `<Name>ViewState` and `<Name>ViewAction`, where the view is `<Name>View` or just `<Name>`: `ChannelStripSlotView` → `ChannelStripSlotViewState`, `ChannelStripSlotViewAction`; `FeedbackToast` → `FeedbackToastViewState`. The `View` marker is what flags a type as render data — a plain `*State` is a model's domain state (`PurchasesState`).
+- **Nest what only shapes a view state or action.** Its helper types live inside it and drop the prefix, since the enclosing type already gives the context: `ChannelStripSlotViewState.Loaded`, `ChannelStripSlotViewState.Catalog`, `Catalog.PluginGroup`. Nest consistently — never one helper inside and its sibling top-level.
 
 ## Project Structure
 

@@ -60,7 +60,7 @@ struct Dependencies: Sendable {
     }
 
     func makeChannelStripPresenter() -> ChannelStripPresenter {
-        ChannelStripPresenter()
+        ChannelStripPresenter(library: audioUnits.audioUnitComponentsLibrary)
     }
 
     func makePresetsPresenter() -> PresetsPresenter {

@@ -9,6 +9,11 @@
 import AudioToolbox
 
 public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
+    public enum Kind: Sendable {
+        case instrument
+        case effect
+    }
+
     public let name: String
     public let manufacturer: String
     public let componentDescription: AudioComponentDescription
@@ -17,6 +22,10 @@ public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
         self.name = name
         self.manufacturer = manufacturer
         self.componentDescription = componentDescription
+    }
+
+    public var kind: Kind {
+        componentDescription.componentType == kAudioUnitType_MusicDevice ? .instrument : .effect
     }
 
     public var id: String {
