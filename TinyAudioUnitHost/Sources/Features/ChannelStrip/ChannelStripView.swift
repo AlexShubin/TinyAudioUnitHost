@@ -28,7 +28,6 @@ struct ChannelStripView: View {
                         .frame(width: 2)
                 }
             }
-            Spacer(minLength: .zero)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 12)
@@ -45,14 +44,12 @@ struct ChannelStripView: View {
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
                     .fixedSize()
-                    .contentTransition(.opacity)
                 Capsule()
                     .fill(.quaternary)
                     .frame(height: 1)
             }
             content()
         }
-        .animation(.snappy, value: title)
     }
 
     private func slot(_ state: ChannelStripSlotViewState) -> some View {

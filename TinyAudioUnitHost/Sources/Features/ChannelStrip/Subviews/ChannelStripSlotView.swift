@@ -25,7 +25,6 @@ struct ChannelStripSlotView: View {
         .frame(height: 36)
         .onHover { isHovered = $0 }
         .animation(.snappy(duration: 0.15), value: isHovered)
-        .animation(.snappy(duration: 0.2), value: state.loaded)
     }
 
     // MARK: - Loaded
@@ -37,7 +36,8 @@ struct ChannelStripSlotView: View {
             } label: {
                 Image(systemName: "power")
                     .font(.system(size: 10, weight: .bold))
-                    .frame(width: 22, height: 36)
+                    .frame(width: 22)
+                    .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -54,7 +54,6 @@ struct ChannelStripSlotView: View {
                         .opacity(0.7)
                 }
                 .lineLimit(1)
-                .truncationMode(.tail)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
             }
@@ -65,7 +64,8 @@ struct ChannelStripSlotView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .bold))
-                    .frame(width: 22, height: 36)
+                    .frame(width: 22)
+                    .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
             .menuStyle(.button)
@@ -73,9 +73,14 @@ struct ChannelStripSlotView: View {
             .menuIndicator(.hidden)
             .opacity(isHovered ? 1 : 0)
         }
-        .foregroundStyle(loaded.isBypassed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white))
+        .foregroundStyle(loaded.isBypassed ? Color.secondary : .white)
         .background { slotFill(loaded) }
-        .overlay { slotBorder(loaded) }
+        .overlay {
+            if loaded.isSelected {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(.white.opacity(0.9), lineWidth: 1.5)
+            }
+        }
         .help("\(loaded.name) — \(loaded.manufacturer)")
         .contextMenu { loadedMenu }
     }
@@ -91,16 +96,6 @@ struct ChannelStripSlotView: View {
         return shape
             .fill(Color(nsColor: .windowBackgroundColor))
             .overlay { shape.fill(loaded.isBypassed ? Color.gray.opacity(0.3) : loaded.kind.tint) }
-    }
-
-    private func slotBorder(_ loaded: ChannelStripSlotViewState.Loaded) -> some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .strokeBorder(
-                loaded.isSelected
-                    ? AnyShapeStyle(.white.opacity(0.9))
-                    : AnyShapeStyle(LinearGradient(colors: [.white.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)),
-                lineWidth: loaded.isSelected ? 1.5 : 0.5
-            )
     }
 
     // MARK: - Empty
@@ -120,7 +115,7 @@ struct ChannelStripSlotView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(
-                            isHovered ? AnyShapeStyle(.secondary) : AnyShapeStyle(.quaternary),
+                            isHovered ? .secondary : .quaternary,
                             style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                         )
                 }
