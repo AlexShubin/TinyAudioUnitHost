@@ -43,8 +43,7 @@ struct Dependencies: Sendable {
             audioSettingsObserver: AudioSettingsObserver(
                 audioSettings: audioSettings.audioSettingsModel,
                 engine: engine.engine,
-                midiManager: engine.midiManager,
-                session: session
+                midiManager: engine.midiManager
             ),
             saveAsCommand: BindableCommand()
         )

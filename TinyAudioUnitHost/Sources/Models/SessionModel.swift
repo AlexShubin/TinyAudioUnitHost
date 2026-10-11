@@ -16,16 +16,14 @@ import PresetKit
 protocol SessionModelType: AnyObject, Observable, Sendable {
     var slots: [PluginSlotContent] { get }
     var selectedIndex: Int { get }
-    var isRunning: Bool { get }
     var isBusy: Bool { get }
     var canSavePreset: Bool { get }
     var activePresetName: String? { get }
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
 
+    func load() async
     func acknowledgePresetEvent()
-    func start() async
-    func stop()
     func load(_ component: AudioUnitComponent, at index: Int) async
     func unload(at index: Int) async
     func setBypassed(_ isBypassed: Bool, at index: Int)
@@ -50,7 +48,6 @@ struct PresetEvent: Sendable, Equatable {
 
 enum PluginSlotContent: Equatable {
     case empty
-    case pending(component: AudioUnitComponent)
     case loading(component: AudioUnitComponent)
     case loaded(audioUnit: LoadedAudioUnit, isBypassed: Bool)
     case failed(component: AudioUnitComponent?, message: String)
@@ -60,13 +57,12 @@ enum PluginSlotContent: Equatable {
 final class SessionModel: SessionModelType {
     private(set) var slots: [PluginSlotContent] = []
     private(set) var selectedIndex = 0
-    private(set) var isRunning = false
     private(set) var activePresetName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
 
     var isBusy: Bool {
-        !isRunning || slots.contains { slot in
+        slots.contains { slot in
             if case .loading = slot { true } else { false }
         }
     }
@@ -87,19 +83,11 @@ final class SessionModel: SessionModelType {
         self.engine = engine
         self.presetProvider = presetProvider
         presets = presetProvider.presets
-        set(presetProvider.pendingSourceSlot, at: Self.sourceIndex)
-    }
-
-    func start() async {
-        guard !isRunning else { return }
-        isRunning = true
         activePresetName = presetProvider.activeName
-        await loadActivePreset()
     }
 
-    func stop() {
-        isRunning = false
-        set(presetProvider.pendingSourceSlot, at: Self.sourceIndex)
+    func load() async {
+        await loadActivePreset()
     }
 
     func acknowledgePresetEvent() {
@@ -237,13 +225,6 @@ private extension PluginSlotContent {
     }
 }
 
-private extension PresetProviderType {
-    var pendingSourceSlot: PluginSlotContent {
-        guard let component = activeName.flatMap({ load(name: $0) })?.firstPluginSlot?.component else { return .empty }
-        return .pending(component: component)
-    }
-}
-
 private extension Preset {
     var firstPluginSlot: PluginSlot? {
         pluginSlots.first ?? nil
@@ -254,7 +235,6 @@ private extension EngineLoadError {
     var message: String {
         switch self {
         case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."
-        case .deviceUnavailable: return "Audio device is unavailable. Check Settings."
         }
     }
 }

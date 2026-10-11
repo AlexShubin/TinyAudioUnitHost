@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dependencies.engine.systemWakeObserver.start()
         dependencies.audioSettingsObserver.start()
         Task { await dependencies.audioSettings.audioSettingsModel.load() }
+        Task { await dependencies.session.load() }
         Task { await dependencies.purchases.purchasesModel.load() }
     }
 
