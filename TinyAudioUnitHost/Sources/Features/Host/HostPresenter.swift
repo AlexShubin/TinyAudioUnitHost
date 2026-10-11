@@ -84,7 +84,7 @@ private extension PluginSlotContent {
         case .empty: .empty
         case .loading: .loading
         case .loaded(let audioUnit, _): .loaded(audioUnit)
-        case .failed(_, let message): .failed(message)
+        case .failed(_, _, _, let message): .failed(message)
         }
     }
 }

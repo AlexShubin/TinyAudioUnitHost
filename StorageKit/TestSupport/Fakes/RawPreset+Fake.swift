@@ -24,7 +24,7 @@ public extension RawPreset.PluginSlot {
         componentManufacturer: UInt32 = 0,
         name: String = "Fake AU",
         manufacturer: String = "FakeCo",
-        state: Data = Data(),
+        state: Data? = Data(),
         isBypassed: Bool = false
     ) -> RawPreset.PluginSlot {
         RawPreset.PluginSlot(

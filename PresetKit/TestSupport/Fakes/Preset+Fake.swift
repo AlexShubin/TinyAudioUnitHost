@@ -23,7 +23,7 @@ public extension Preset {
 public extension Preset.PluginSlot {
     static func fake(
         component: AudioUnitComponent = .fake(),
-        state: Data = Data(),
+        state: Data? = Data(),
         isBypassed: Bool = false,
         isInstalled: Bool = true
     ) -> Preset.PluginSlot {

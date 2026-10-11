@@ -69,7 +69,7 @@ final class ChannelStripPresenter {
         }
         let isSelected = session.selectedIndex == index
         switch slot {
-        case .empty, .failed(component: nil, _):
+        case .empty:
             return .empty(isEnabled: true)
         case .loading(let component):
             return .loading(component: component)
@@ -79,7 +79,7 @@ final class ChannelStripPresenter {
                 bypass: audioUnit.component.bypass(isBypassed: isBypassed),
                 isSelected: isSelected
             )
-        case .failed(let component?, _):
+        case .failed(let component, _, _, _):
             return .failed(component: component, isSelected: isSelected)
         }
     }
@@ -102,7 +102,7 @@ private extension PluginSlotContent {
         case .empty: nil
         case .loading(let component): component
         case .loaded(let audioUnit, _): audioUnit.component
-        case .failed(let component, _): component
+        case .failed(let component, _, _, _): component
         }
     }
 }

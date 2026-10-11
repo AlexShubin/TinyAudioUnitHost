@@ -15,7 +15,7 @@ public struct RawPreset: Sendable, Equatable, Codable {
         public let componentManufacturer: UInt32
         public let name: String
         public let manufacturer: String
-        public let state: Data
+        public let state: Data?
         public let isBypassed: Bool
 
         public init(
@@ -24,7 +24,7 @@ public struct RawPreset: Sendable, Equatable, Codable {
             componentManufacturer: UInt32,
             name: String,
             manufacturer: String,
-            state: Data,
+            state: Data?,
             isBypassed: Bool
         ) {
             self.componentType = componentType
