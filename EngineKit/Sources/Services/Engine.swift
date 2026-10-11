@@ -68,6 +68,7 @@ final actor Engine: EngineType {
             throw error
         }
         if let state { node.audioUnit.fullState = state }
+        detachNode(at: position)
         chain[position] = node
 
         do {
@@ -103,6 +104,7 @@ final actor Engine: EngineType {
     }
 
     private func rebuild() async throws(EngineLoadError) {
+        await tearDown()
         guard let first = orderedNodes.first else { return }
         try await connectAndStart()
         await midiManager.setupMIDI(for: first.audioUnit)

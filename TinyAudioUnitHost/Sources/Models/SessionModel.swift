@@ -17,6 +17,7 @@ import PresetKit
 protocol SessionModelType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
     var sourceSlot: PluginSlotContent { get }
+    var inserts: [PluginSlotContent] { get }
     var activeName: String? { get }
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
@@ -26,6 +27,9 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     func loadComponent(_ component: AudioUnitComponent) async
     func unloadComponent() async
     func setSourceBypassed(_ isBypassed: Bool)
+    func loadInsert(_ component: AudioUnitComponent, at index: Int) async
+    func unloadInsert(at index: Int) async
+    func setInsertBypassed(_ isBypassed: Bool, at index: Int)
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
@@ -78,6 +82,7 @@ enum PluginSlotContent: Sendable, Equatable {
 final class SessionModel: SessionModelType {
     private(set) var content: HostContent = .idle
     private(set) var sourceSlot: PluginSlotContent
+    private(set) var inserts: [PluginSlotContent] = Array(repeating: .empty(isEnabled: false), count: 5)
     private(set) var activeName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
@@ -119,9 +124,26 @@ final class SessionModel: SessionModelType {
     }
 
     func setSourceBypassed(_ isBypassed: Bool) {
-        guard case .loaded(let audioUnit, _) = sourceSlot else { return }
-        audioUnit.isBypassed = isBypassed
-        sourceSlot = .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
+        sourceSlot = sourceSlot.applyingBypass(isBypassed)
+    }
+
+    func loadInsert(_ component: AudioUnitComponent, at index: Int) async {
+        inserts[index] = .loading(component: component)
+        do {
+            let audioUnit = try await engine.load(component: component, state: nil, at: insertPosition(index))
+            inserts[index] = .loaded(audioUnit: audioUnit, isBypassed: false)
+        } catch {
+            inserts[index] = .empty(isEnabled: true)
+        }
+    }
+
+    func unloadInsert(at index: Int) async {
+        await engine.unload(at: insertPosition(index))
+        inserts[index] = .empty(isEnabled: true)
+    }
+
+    func setInsertBypassed(_ isBypassed: Bool, at index: Int) {
+        inserts[index] = inserts[index].applyingBypass(isBypassed)
     }
 
     func selectPreset(name: String) async {
@@ -171,10 +193,12 @@ final class SessionModel: SessionModelType {
         if !next.isEmpty {
             content = .unmet(next)
             sourceSlot = presetProvider.disabledSlot
+            setEmptyInsertsEnabled(false)
             return
         }
         switch content {
         case .idle, .unmet:
+            setEmptyInsertsEnabled(true)
             activeName = presetProvider.activeName
             await loadActivePreset()
         case .loading, .empty, .loaded, .failed:
@@ -228,6 +252,17 @@ final class SessionModel: SessionModelType {
         sourceSlot = slot
     }
 
+    private func insertPosition(_ index: Int) -> Int {
+        sourcePosition + 1 + index
+    }
+
+    private func setEmptyInsertsEnabled(_ isEnabled: Bool) {
+        inserts = inserts.map { slot in
+            guard case .empty = slot else { return slot }
+            return .empty(isEnabled: isEnabled)
+        }
+    }
+
     private func preset(named name: String) -> Preset? {
         guard case .loaded(let audioUnit, let isBypassed) = sourceSlot,
               let state = audioUnit.fullState else { return nil }
@@ -236,6 +271,14 @@ final class SessionModel: SessionModelType {
             source: Preset.PluginSlot(component: audioUnit.component, state: state, isBypassed: isBypassed, isInstalled: true),
             inserts: []
         )
+    }
+}
+
+private extension PluginSlotContent {
+    func applyingBypass(_ isBypassed: Bool) -> PluginSlotContent {
+        guard case .loaded(let audioUnit, _) = self else { return self }
+        audioUnit.isBypassed = isBypassed
+        return .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
     }
 }
 

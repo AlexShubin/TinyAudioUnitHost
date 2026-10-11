@@ -34,6 +34,7 @@ final class MidiManager: MidiManagerType {
     }
 
     func setupMIDI(for audioUnit: LoadedAudioUnit) async {
+        teardownMIDI()
         guard startClient() else { return }
 
         guard let port = coreMidiGateway.createInputPort(
@@ -47,6 +48,7 @@ final class MidiManager: MidiManagerType {
     }
 
     func teardownMIDI() {
+        guard midiInputPort != 0 else { return }
         coreMidiGateway.disposePort(midiInputPort)
         midiInputPort = 0
         connectedSources = []
