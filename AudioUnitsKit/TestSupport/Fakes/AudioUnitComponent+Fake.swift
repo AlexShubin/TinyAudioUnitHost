@@ -25,4 +25,10 @@ public extension AudioUnitComponent.ID {
         subType: kAudioUnitSubType_DynamicsProcessor,
         manufacturer: kAudioUnitManufacturer_Apple
     )
+
+    static let fakeInstrument = AudioUnitComponent.ID(
+        type: kAudioUnitType_MusicDevice,
+        subType: kAudioUnitSubType_DLSSynth,
+        manufacturer: kAudioUnitManufacturer_Apple
+    )
 }

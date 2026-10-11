@@ -19,14 +19,12 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
     }
 
     public private(set) var calls: [Calls] = []
-    public var loadResult: Result<LoadedAudioUnit, EngineLoadError>
 
-    public init(loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed)) {
-        self.loadResult = loadResult
-    }
+    public init() {}
 
     /// Runs while the load is in flight, before the result is returned.
     public var onLoad: (@Sendable () async -> Void)?
+    public var loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed)
     public func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
         calls.append(.load(slot, at: position))
         await onLoad?()

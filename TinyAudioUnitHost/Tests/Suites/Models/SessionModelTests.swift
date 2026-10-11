@@ -149,7 +149,7 @@ struct SessionModelTests {
     @Test
     mutating func load_whileLoading_slotLoadingAndBusy() async {
         let component = AudioUnitComponent.fake()
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: component))
         createSut()
         let session = sut!
         engineSpy.onLoad = {
@@ -164,7 +164,7 @@ struct SessionModelTests {
     mutating func load_success_slotLoadedAndNotBusy() async {
         let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
-        engineSpy = EngineSpy(loadResult: .success(loaded))
+        engineSpy.loadResult = .success(loaded)
         createSut()
 
         await sut.load(component, at: 0)
@@ -177,7 +177,7 @@ struct SessionModelTests {
     @Test
     mutating func load_failure_slotFailedWithMessage() async {
         let component = AudioUnitComponent.fake()
-        engineSpy = EngineSpy(loadResult: .failure(.audioUnitInstantiationFailed))
+        engineSpy.loadResult = .failure(.audioUnitInstantiationFailed)
         createSut()
 
         await sut.load(component, at: 0)
@@ -187,7 +187,7 @@ struct SessionModelTests {
 
     @Test
     mutating func load_unloadedWhileLoading_dropsLoadResult() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         let session = sut!
         engineSpy.onLoad = {
@@ -203,7 +203,7 @@ struct SessionModelTests {
     mutating func load_nextIndex_appendsAtThatEnginePosition() async {
         let first = AudioUnitComponent.fake(name: "First")
         let second = AudioUnitComponent.fake(id: .init(type: 1, subType: 2, manufacturer: 3), name: "Second")
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: first)))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: first))
         createSut()
         await sut.load(first, at: 0)
 
@@ -215,7 +215,7 @@ struct SessionModelTests {
 
     @Test
     mutating func load_selectsTheSlot() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -229,7 +229,7 @@ struct SessionModelTests {
     @Test
     mutating func unload_unloadsEngineAndRemovesLastSlot() async {
         let component = AudioUnitComponent.fake()
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: component))
         createSut()
         await sut.load(component, at: 0)
 
@@ -242,7 +242,7 @@ struct SessionModelTests {
     @Test
     mutating func unload_middleSlot_leavesGap() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy = EngineSpy(loadResult: .success(loaded))
+        engineSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -260,7 +260,7 @@ struct SessionModelTests {
     @Test
     mutating func unload_lastSlotAfterGap_trimsTrailingEmpties() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy = EngineSpy(loadResult: .success(loaded))
+        engineSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -274,7 +274,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_selectedLastPlugin_selectsFirstPlugin() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -287,7 +287,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_selectedFirstPlugin_selectsNextPlugin() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -300,7 +300,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_unselectedPlugin_keepsSelection() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -313,7 +313,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_onlyPlugin_keepsSelection() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -344,7 +344,7 @@ struct SessionModelTests {
     @Test
     mutating func setBypassed_loaded_appliesToAudioUnitAndSlot() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy = EngineSpy(loadResult: .success(loaded))
+        engineSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -378,7 +378,7 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_slotLoaded_isTrue() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
 
         await sut.load(.fake(), at: 0)
@@ -388,7 +388,7 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_onlyLaterSlotLoaded_isTrue() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -409,7 +409,7 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_slotLoading_isFalse() async {
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         let session = sut!
@@ -444,7 +444,7 @@ struct SessionModelTests {
     mutating func selectPreset_replacesEveryExistingSlot() async {
         let loaded = LoadedAudioUnit(component: .fake())
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         engineSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load(.fake(), at: 0)
@@ -698,7 +698,7 @@ struct SessionModelTests {
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndNotifies() async {
         let component = AudioUnitComponent.fake()
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component, fullState: Data([0xAA]))))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0xAA])))
         createSut()
         await sut.load(component, at: 0)
 
@@ -714,7 +714,7 @@ struct SessionModelTests {
     @Test
     mutating func acknowledgePresetEvent_clearsEvent() async {
         let component = AudioUnitComponent.fake()
-        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component, fullState: Data([0x01]))))
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0x01])))
         createSut()
         await sut.load(component, at: 0)
         sut.saveAsNewPreset(name: "foo")
