@@ -40,13 +40,11 @@ public struct RawPreset: Sendable, Equatable, Codable {
     static let currentVersion = 2
 
     let version: Int
-    public let source: PluginSlot?
-    public let inserts: [PluginSlot?]
+    public let pluginSlots: [PluginSlot?]
 
-    public init(source: PluginSlot?, inserts: [PluginSlot?]) {
+    public init(pluginSlots: [PluginSlot?]) {
         self.version = Self.currentVersion
-        self.source = source
-        self.inserts = inserts
+        self.pluginSlots = pluginSlots
     }
 
     public init(from decoder: Decoder) throws {
@@ -56,8 +54,7 @@ public struct RawPreset: Sendable, Equatable, Codable {
             return
         }
         self.version = version
-        source = try container.decodeIfPresent(PluginSlot.self, forKey: .source)
-        inserts = try container.decode([PluginSlot?].self, forKey: .inserts)
+        pluginSlots = try container.decode([PluginSlot?].self, forKey: .pluginSlots)
     }
 }
 
@@ -72,16 +69,17 @@ struct RawPresetV1: Decodable {
 
     var migrated: RawPreset {
         RawPreset(
-            source: RawPreset.PluginSlot(
-                componentType: componentType,
-                componentSubType: componentSubType,
-                componentManufacturer: componentManufacturer,
-                name: "",
-                manufacturer: "",
-                state: state,
-                isBypassed: false
-            ),
-            inserts: []
+            pluginSlots: [
+                RawPreset.PluginSlot(
+                    componentType: componentType,
+                    componentSubType: componentSubType,
+                    componentManufacturer: componentManufacturer,
+                    name: "",
+                    manufacturer: "",
+                    state: state,
+                    isBypassed: false
+                )
+            ]
         )
     }
 }

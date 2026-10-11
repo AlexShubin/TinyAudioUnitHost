@@ -11,10 +11,9 @@ import StorageKit
 
 public extension RawPreset {
     static func fake(
-        source: PluginSlot? = .fake(),
-        inserts: [PluginSlot?] = []
+        pluginSlots: [PluginSlot?] = [.fake()]
     ) -> RawPreset {
-        RawPreset(source: source, inserts: inserts)
+        RawPreset(pluginSlots: pluginSlots)
     }
 }
 

@@ -14,10 +14,9 @@ import PresetKit
 public extension Preset {
     static func fake(
         name: String = "test",
-        source: PluginSlot? = .fake(),
-        inserts: [PluginSlot?] = []
+        pluginSlots: [PluginSlot?] = [.fake()]
     ) -> Preset {
-        Preset(name: name, source: source, inserts: inserts)
+        Preset(name: name, pluginSlots: pluginSlots)
     }
 }
 

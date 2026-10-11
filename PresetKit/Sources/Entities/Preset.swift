@@ -25,12 +25,10 @@ public struct Preset: Sendable, Equatable {
     }
 
     public let name: String
-    public let source: PluginSlot?
-    public let inserts: [PluginSlot?]
+    public let pluginSlots: [PluginSlot?]
 
-    public init(name: String, source: PluginSlot?, inserts: [PluginSlot?]) {
+    public init(name: String, pluginSlots: [PluginSlot?]) {
         self.name = name
-        self.source = source
-        self.inserts = inserts
+        self.pluginSlots = pluginSlots
     }
 }

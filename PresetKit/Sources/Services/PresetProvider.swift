@@ -73,11 +73,7 @@ struct PresetProvider: PresetProviderType {
     }
 
     private func domainPreset(from raw: RawPreset, name: String) -> Preset {
-        Preset(
-            name: name,
-            source: raw.source.map(domainSlot(from:)),
-            inserts: raw.inserts.map { $0.map(domainSlot(from:)) }
-        )
+        Preset(name: name, pluginSlots: raw.pluginSlots.map { $0.map(domainSlot(from:)) })
     }
 
     private func domainSlot(from raw: RawPreset.PluginSlot) -> Preset.PluginSlot {
@@ -93,10 +89,7 @@ struct PresetProvider: PresetProviderType {
 
 private extension Preset {
     var raw: RawPreset {
-        RawPreset(
-            source: source.map(\.raw),
-            inserts: inserts.map { $0.map(\.raw) }
-        )
+        RawPreset(pluginSlots: pluginSlots.map { $0.map(\.raw) })
     }
 }
 

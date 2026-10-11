@@ -141,7 +141,7 @@ final class SessionModel: SessionModelType {
     func restoreActivePreset() async {
         guard let activePresetName,
               let saved = presetProvider.load(name: activePresetName) else { return }
-        await loadSource(saved.source)
+        await loadSource(saved.firstPluginSlot)
         if case .loaded = slots.first {
             presetEvent = PresetEvent(id: UUID(), kind: .restored)
         }
@@ -177,7 +177,7 @@ final class SessionModel: SessionModelType {
             set(.failed(component: nil, message: Self.presetFailureMessage), at: Self.sourceIndex)
             return
         }
-        await loadSource(preset.source)
+        await loadSource(preset.firstPluginSlot)
     }
 
     private func loadSource(_ slot: Preset.PluginSlot?) async {
@@ -224,8 +224,7 @@ final class SessionModel: SessionModelType {
               let state = audioUnit.fullState else { return nil }
         return Preset(
             name: name,
-            source: Preset.PluginSlot(component: audioUnit.component, state: state, isBypassed: isBypassed, isInstalled: true),
-            inserts: []
+            pluginSlots: [Preset.PluginSlot(component: audioUnit.component, state: state, isBypassed: isBypassed, isInstalled: true)]
         )
     }
 }
@@ -240,8 +239,14 @@ private extension PluginSlotContent {
 
 private extension PresetProviderType {
     var pendingSourceSlot: PluginSlotContent {
-        guard let component = activeName.flatMap({ load(name: $0) })?.source?.component else { return .empty }
+        guard let component = activeName.flatMap({ load(name: $0) })?.firstPluginSlot?.component else { return .empty }
         return .pending(component: component)
+    }
+}
+
+private extension Preset {
+    var firstPluginSlot: PluginSlot? {
+        pluginSlots.first ?? nil
     }
 }
 
