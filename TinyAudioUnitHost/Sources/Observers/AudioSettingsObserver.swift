@@ -45,7 +45,14 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
             try? await engine.reload()
         }
         await midiManager.reconnectMIDISources()
-        await session.refreshSetup()
+        switch audioSettings.setup {
+        case .checking:
+            break
+        case .unmet:
+            session.stop()
+        case .met:
+            await session.start()
+        }
     }
 }
 

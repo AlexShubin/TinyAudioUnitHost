@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioUnitsKit
 import EngineKit
 import Foundation
@@ -15,9 +14,9 @@ import PresetKit
 
 @MainActor
 protocol SessionModelType: AnyObject, Observable, Sendable {
-    var setup: SetupState { get }
     var slots: [PluginSlotContent] { get }
     var selectedIndex: Int { get }
+    var isRunning: Bool { get }
     var isBusy: Bool { get }
     var canSavePreset: Bool { get }
     var activePresetName: String? { get }
@@ -25,7 +24,8 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     var presetEvent: PresetEvent? { get }
 
     func acknowledgePresetEvent()
-    func refreshSetup() async
+    func start() async
+    func stop()
     func load(_ component: AudioUnitComponent, at index: Int) async
     func unload(at index: Int) async
     func setBypassed(_ isBypassed: Bool, at index: Int)
@@ -48,12 +48,6 @@ struct PresetEvent: Sendable, Equatable {
     let kind: Kind
 }
 
-enum SetupState: Equatable {
-    case checking
-    case unmet(Set<SetupRequirement>)
-    case met
-}
-
 enum PluginSlotContent: Equatable {
     case empty
     case pending(component: AudioUnitComponent)
@@ -64,15 +58,15 @@ enum PluginSlotContent: Equatable {
 
 @MainActor @Observable
 final class SessionModel: SessionModelType {
-    private(set) var setup: SetupState = .checking
     private(set) var slots: [PluginSlotContent] = []
     private(set) var selectedIndex = 0
+    private(set) var isRunning = false
     private(set) var activePresetName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
 
     var isBusy: Bool {
-        setup != .met || slots.contains { slot in
+        !isRunning || slots.contains { slot in
             if case .loading = slot { true } else { false }
         }
     }
@@ -86,22 +80,26 @@ final class SessionModel: SessionModelType {
 
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
-    @ObservationIgnored private let setupChecker: SetupCheckerType
-
     init(
         engine: EngineType,
-        presetProvider: PresetProviderType,
-        setupChecker: SetupCheckerType
+        presetProvider: PresetProviderType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
-        self.setupChecker = setupChecker
         presets = presetProvider.presets
         set(presetProvider.pendingSourceSlot, at: Self.sourceIndex)
     }
 
-    func refreshSetup() async {
-        await applySetup(setupChecker.check())
+    func start() async {
+        guard !isRunning else { return }
+        isRunning = true
+        activePresetName = presetProvider.activeName
+        await loadActivePreset()
+    }
+
+    func stop() {
+        isRunning = false
+        set(presetProvider.pendingSourceSlot, at: Self.sourceIndex)
     }
 
     func acknowledgePresetEvent() {
@@ -168,18 +166,6 @@ final class SessionModel: SessionModelType {
         presetProvider.delete(name: name)
         presets = presetProvider.presets
         activePresetName = presetProvider.activeName
-    }
-
-    private func applySetup(_ unmet: Set<SetupRequirement>) async {
-        guard unmet.isEmpty else {
-            setup = .unmet(unmet)
-            set(presetProvider.pendingSourceSlot, at: Self.sourceIndex)
-            return
-        }
-        guard setup != .met else { return }
-        setup = .met
-        activePresetName = presetProvider.activeName
-        await loadActivePreset()
     }
 
     private func loadActivePreset() async {

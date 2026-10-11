@@ -31,8 +31,7 @@ struct Dependencies: Sendable {
         let purchases = PurchasesKit.Dependencies.live
         let session = SessionModel(
             engine: engine.engine,
-            presetProvider: presets.presetProvider,
-            setupChecker: audioSettings.setupChecker
+            presetProvider: presets.presetProvider
         )
         return Dependencies(
             audioSettings: audioSettings,
@@ -54,6 +53,7 @@ struct Dependencies: Sendable {
     func makeHostPresenter() -> HostPresenter {
         HostPresenter(
             session: session,
+            audioSettings: audioSettings.audioSettingsModel,
             purchases: purchases.purchasesModel
         )
     }

@@ -22,7 +22,7 @@ enum HostContent: Sendable, Equatable {
 @MainActor @Observable
 final class HostPresenter {
     var content: HostContent {
-        switch session.setup {
+        switch audioSettings.setup {
         case .checking:
             .loading
         case .unmet(let requirements):
@@ -43,13 +43,16 @@ final class HostPresenter {
     var isStarFilled: Bool { purchases.state.isPro }
 
     private let session: SessionModelType
+    private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
         session: SessionModelType,
+        audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {
         self.session = session
+        self.audioSettings = audioSettings
         self.purchases = purchases
     }
 
