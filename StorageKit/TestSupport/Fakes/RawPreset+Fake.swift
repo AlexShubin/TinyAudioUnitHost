@@ -11,16 +11,31 @@ import StorageKit
 
 public extension RawPreset {
     static func fake(
+        source: PluginSlot? = .fake(),
+        inserts: [PluginSlot?] = []
+    ) -> RawPreset {
+        RawPreset(source: source, inserts: inserts)
+    }
+}
+
+public extension RawPreset.PluginSlot {
+    static func fake(
         componentType: UInt32 = 0,
         componentSubType: UInt32 = 0,
         componentManufacturer: UInt32 = 0,
-        state: Data = Data()
-    ) -> RawPreset {
-        RawPreset(
+        name: String = "Fake AU",
+        manufacturer: String = "FakeCo",
+        state: Data = Data(),
+        isBypassed: Bool = false
+    ) -> RawPreset.PluginSlot {
+        RawPreset.PluginSlot(
             componentType: componentType,
             componentSubType: componentSubType,
             componentManufacturer: componentManufacturer,
-            state: state
+            name: name,
+            manufacturer: manufacturer,
+            state: state,
+            isBypassed: isBypassed
         )
     }
 }
