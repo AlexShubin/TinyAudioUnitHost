@@ -16,13 +16,13 @@ struct RawPresetTests {
     // MARK: - decode v1
 
     @Test
-    func decode_v1File_migratesToSourceSlotWithoutInserts() throws {
+    func decode_v1File_migratesToSinglePluginSlot() throws {
         let json = #"{"componentType":1,"componentSubType":2,"componentManufacturer":3,"state":"3q0="}"#
 
         let preset = try JSONDecoder().decode(RawPreset.self, from: Data(json.utf8))
 
-        #expect(preset == RawPreset.fake(
-            source: .fake(
+        #expect(preset == RawPreset.fake(pluginSlots: [
+            .fake(
                 componentType: 1,
                 componentSubType: 2,
                 componentManufacturer: 3,
@@ -31,27 +31,29 @@ struct RawPresetTests {
                 state: Data([0xDE, 0xAD]),
                 isBypassed: false
             ),
-            inserts: []
-        ))
+        ]))
         #expect(preset.version == RawPreset.currentVersion)
     }
 
     // MARK: - decode v2
 
     @Test
-    func decode_v2File_readsSourceAndGappedInserts() throws {
+    func decode_v2File_readsGappedPluginSlots() throws {
         let json = #"""
         {
           "version": 2,
-          "source": {"componentType":1,"componentSubType":2,"componentManufacturer":3,"name":"AUSampler","manufacturer":"Apple","state":"3q0=","isBypassed":false},
-          "inserts": [null, {"componentType":4,"componentSubType":5,"componentManufacturer":6,"name":"AUDelay","manufacturer":"Apple","state":"","isBypassed":true}]
+          "pluginSlots": [
+            {"componentType":1,"componentSubType":2,"componentManufacturer":3,"name":"AUSampler","manufacturer":"Apple","state":"3q0=","isBypassed":false},
+            null,
+            {"componentType":4,"componentSubType":5,"componentManufacturer":6,"name":"AUDelay","manufacturer":"Apple","state":"","isBypassed":true}
+          ]
         }
         """#
 
         let preset = try JSONDecoder().decode(RawPreset.self, from: Data(json.utf8))
 
-        #expect(preset == RawPreset.fake(
-            source: .fake(
+        #expect(preset == RawPreset.fake(pluginSlots: [
+            .fake(
                 componentType: 1,
                 componentSubType: 2,
                 componentManufacturer: 3,
@@ -59,27 +61,16 @@ struct RawPresetTests {
                 manufacturer: "Apple",
                 state: Data([0xDE, 0xAD])
             ),
-            inserts: [
-                nil,
-                .fake(
-                    componentType: 4,
-                    componentSubType: 5,
-                    componentManufacturer: 6,
-                    name: "AUDelay",
-                    manufacturer: "Apple",
-                    isBypassed: true
-                ),
-            ]
-        ))
-    }
-
-    @Test
-    func decode_v2FileWithoutSource_sourceIsNil() throws {
-        let json = #"{"version":2,"inserts":[]}"#
-
-        let preset = try JSONDecoder().decode(RawPreset.self, from: Data(json.utf8))
-
-        #expect(preset == RawPreset.fake(source: nil, inserts: []))
+            nil,
+            .fake(
+                componentType: 4,
+                componentSubType: 5,
+                componentManufacturer: 6,
+                name: "AUDelay",
+                manufacturer: "Apple",
+                isBypassed: true
+            ),
+        ]))
     }
 
     // MARK: - encode
@@ -94,10 +85,7 @@ struct RawPresetTests {
 
     @Test
     func encodeThenDecode_roundTrips() throws {
-        let preset = RawPreset.fake(
-            source: nil,
-            inserts: [nil, .fake(name: "AUDelay", state: Data([0x01]), isBypassed: true), nil]
-        )
+        let preset = RawPreset.fake(pluginSlots: [nil, .fake(name: "AUDelay", state: Data([0x01]), isBypassed: true), nil])
 
         let decoded = try JSONDecoder().decode(RawPreset.self, from: JSONEncoder().encode(preset))
 

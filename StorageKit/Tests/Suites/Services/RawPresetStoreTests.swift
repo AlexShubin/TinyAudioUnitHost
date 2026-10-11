@@ -63,7 +63,7 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func load_existingPreset_returnsIt() {
-        let stored = RawPreset.fake(source: .fake(componentType: 1, state: Data([0xDE, 0xAD])))
+        let stored = RawPreset.fake(pluginSlots: [.fake(componentType: 1, state: Data([0xDE, 0xAD]))])
         fileStorageSpy.storage["presets/default"] = stored
         createSut()
 
@@ -83,7 +83,7 @@ struct RawPresetStoreTests {
     @Test
     mutating func save_writesAtPresetsSlashName() throws {
         createSut()
-        let preset = RawPreset.fake(source: .fake(componentType: 42, state: Data([0xBE, 0xEF])))
+        let preset = RawPreset.fake(pluginSlots: [.fake(componentType: 42, state: Data([0xBE, 0xEF]))])
 
         sut.save(preset, name: "default")
 
@@ -94,7 +94,7 @@ struct RawPresetStoreTests {
     @Test
     mutating func save_thenLoad_roundTrips() {
         createSut()
-        let preset = RawPreset.fake(source: .fake(componentSubType: 7))
+        let preset = RawPreset.fake(pluginSlots: [.fake(componentSubType: 7)])
 
         sut.save(preset, name: "lead")
 
@@ -105,7 +105,7 @@ struct RawPresetStoreTests {
 
     @Test
     mutating func rename_movesFile() {
-        let preset = RawPreset.fake(source: .fake(componentType: 5))
+        let preset = RawPreset.fake(pluginSlots: [.fake(componentType: 5)])
         fileStorageSpy.storage["presets/old"] = preset
         createSut()
 
