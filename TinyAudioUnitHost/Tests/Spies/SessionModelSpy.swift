@@ -15,11 +15,13 @@ import PresetKit
 @MainActor @Observable
 final class SessionModelSpy: SessionModelType {
     enum Calls: Equatable, Sendable {
-        case refreshSetup
         case acknowledgePresetEvent
-        case loadComponent(AudioUnitComponent)
-        case unloadComponent
-        case setSourceBypassed(Bool)
+        case start
+        case stop
+        case load(AudioUnitComponent, at: Int)
+        case unload(at: Int)
+        case setBypassed(Bool, at: Int)
+        case select(Int)
         case selectPreset(name: String)
         case saveCurrentPreset
         case restoreActivePreset
@@ -30,17 +32,22 @@ final class SessionModelSpy: SessionModelType {
 
     private(set) var calls: [Calls] = []
 
-    var content: HostContent = .empty
-    var sourceSlot: PluginSlotContent = .empty(isEnabled: true)
-    var activeName: String?
+    var slots: [PluginSlotContent] = []
+    var selectedIndex = 0
+    var isRunning = false
+    var isBusy = false
+    var canSavePreset = false
+    var activePresetName: String?
     var presets: [String] = []
     var presetEvent: PresetEvent?
 
-    func refreshSetup() async { calls.append(.refreshSetup) }
     func acknowledgePresetEvent() { calls.append(.acknowledgePresetEvent) }
-    func loadComponent(_ component: AudioUnitComponent) async { calls.append(.loadComponent(component)) }
-    func unloadComponent() async { calls.append(.unloadComponent) }
-    func setSourceBypassed(_ isBypassed: Bool) { calls.append(.setSourceBypassed(isBypassed)) }
+    func start() async { calls.append(.start) }
+    func stop() { calls.append(.stop) }
+    func load(_ component: AudioUnitComponent, at index: Int) async { calls.append(.load(component, at: index)) }
+    func unload(at index: Int) async { calls.append(.unload(at: index)) }
+    func setBypassed(_ isBypassed: Bool, at index: Int) { calls.append(.setBypassed(isBypassed, at: index)) }
+    func select(_ index: Int) { calls.append(.select(index)) }
     func selectPreset(name: String) async { calls.append(.selectPreset(name: name)) }
     func saveCurrentPreset() { calls.append(.saveCurrentPreset) }
     func restoreActivePreset() async { calls.append(.restoreActivePreset) }

@@ -51,7 +51,7 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_reloadsEngineReconnectsMidiAndRefreshesSessionSetup() async {
+    mutating func change_reloadsEngineAndReconnectsMidi() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
@@ -60,7 +60,38 @@ struct AudioSettingsObserverTests {
 
         #expect(engineSpy.calls == [.reload])
         #expect(midiManagerSpy.calls == [.reconnectMIDISources])
-        #expect(sessionSpy.calls == [.refreshSetup])
+    }
+
+    @Test
+    mutating func change_setupMet_startsSession() async {
+        audioSettingsSpy.setup = .met
+        createSut()
+        sut.start()
+
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(sessionSpy.calls == [.start])
+    }
+
+    @Test
+    mutating func change_setupUnmet_stopsSession() async {
+        audioSettingsSpy.setup = .unmet([.noOutputDevice])
+        createSut()
+        sut.start()
+
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(sessionSpy.calls == [.stop])
+    }
+
+    @Test
+    mutating func change_setupChecking_leavesSessionAlone() async {
+        createSut()
+        sut.start()
+
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(sessionSpy.calls.isEmpty)
     }
 
     @Test

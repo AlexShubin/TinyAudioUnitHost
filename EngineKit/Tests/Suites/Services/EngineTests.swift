@@ -67,7 +67,7 @@ struct EngineTests {
 
         #expect(thrown as? EngineLoadError == .audioUnitInstantiationFailed)
         #expect(avAudioUnitFactorySpy.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
-        #expect(midiManagerSpy.calls == [.teardownMIDI])
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI])
         #expect(!avEngineSpy.calls.contains(.start))
     }
 
@@ -80,16 +80,11 @@ struct EngineTests {
         let result = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
 
         #expect(result.component == Self.effectComponent)
-        #expect(avEngineSpy.calls == [
-            .attach(inputMixerSpy),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
-            .disconnectHardwareInput,
-            .attach(avAudioUnit),
-            .start
-        ])
-        #expect(midiManagerSpy.calls == [.teardownMIDI, .setupMIDI(result)])
+        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
+        expected += tearDownCalls + [.attach(avAudioUnit)]
+        expected += tearDownCalls + [.start]
+        #expect(avEngineSpy.calls == expected)
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI, .setupMIDI(result)])
     }
 
     @Test
@@ -124,25 +119,15 @@ struct EngineTests {
 
         let secondResult = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
 
-        #expect(avEngineSpy.calls == [
-            .attach(inputMixerSpy),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
-            .disconnectHardwareInput,
-            .attach(firstAU),
-            .start,
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
-            .disconnectHardwareInput,
-            .detach(firstAU),
-            .attach(secondAU),
-            .start
-        ])
+        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
+        expected += tearDownCalls + [.attach(firstAU)]
+        expected += tearDownCalls + [.start]
+        expected += tearDownCalls + [.detach(firstAU), .attach(secondAU)]
+        expected += tearDownCalls + [.start]
+        #expect(avEngineSpy.calls == expected)
         #expect(midiManagerSpy.calls == [
-            .teardownMIDI, .setupMIDI(firstResult),
-            .teardownMIDI, .setupMIDI(secondResult)
+            .teardownMIDI, .teardownMIDI, .setupMIDI(firstResult),
+            .teardownMIDI, .teardownMIDI, .setupMIDI(secondResult)
         ])
         #expect(avAudioUnitFactorySpy.calls == [
             .instantiate(Self.effectDescription, .loadOutOfProcess),
@@ -322,8 +307,8 @@ struct EngineTests {
         _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
 
         #expect(midiManagerSpy.calls == [
-            .teardownMIDI, .setupMIDI(firstLoaded),
-            .teardownMIDI, .setupMIDI(firstLoaded)
+            .teardownMIDI, .teardownMIDI, .setupMIDI(firstLoaded),
+            .teardownMIDI, .teardownMIDI, .setupMIDI(firstLoaded)
         ])
     }
 
@@ -365,6 +350,30 @@ struct EngineTests {
     }
 
     @Test
+    mutating func load_whileAnotherLoadInstantiates_endsWithBothNodesWired() async throws {
+        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let second = try await Self.makeAVAudioUnit(Self.effectDescription)
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResult = .success(first)
+        createSut()
+        let engine = sut!
+        let factory = avAudioUnitFactorySpy!
+        factory.onInstantiate = {
+            factory.onInstantiate = nil
+            factory.instantiateResult = .success(second)
+            _ = try? await engine.load(component: Self.effectComponent, state: nil, at: 1)
+            factory.instantiateResult = .success(first)
+        }
+
+        let firstLoaded = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+
+        let lastRebuild = avEngineSpy.calls.suffix(from: try #require(avEngineSpy.calls.lastIndex(of: .stop)))
+        #expect(lastRebuild.contains(.connect(first, second, Self.outputFormat(of: first))))
+        #expect(avEngineSpy.calls.last == .start)
+        #expect(midiManagerSpy.calls.suffix(2) == [.teardownMIDI, .setupMIDI(firstLoaded)])
+    }
+
+    @Test
     mutating func unload_middlePosition_connectsNeighbours() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let middle = try await Self.makeAVAudioUnit(Self.effectDescription)
@@ -397,14 +406,9 @@ struct EngineTests {
 
         await sut.unload(at: 0)
 
-        #expect(Array(avEngineSpy.calls.dropFirst(callsAfterLoad.count)) == [
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
-            .disconnectHardwareInput,
-            .detach(avAudioUnit)
-        ])
-        #expect(midiManagerSpy.calls == [.teardownMIDI, .setupMIDI(loaded), .teardownMIDI])
+        let expected: [AVAudioEngineSpy.Calls] = tearDownCalls + [.detach(avAudioUnit)] + tearDownCalls
+        #expect(Array(avEngineSpy.calls.dropFirst(callsAfterLoad.count)) == expected)
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI, .setupMIDI(loaded), .teardownMIDI, .teardownMIDI])
     }
 
     @Test
@@ -413,14 +417,9 @@ struct EngineTests {
 
         await sut.unload(at: 0)
 
-        #expect(avEngineSpy.calls == [
-            .attach(inputMixerSpy),
-            .stop,
-            .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
-            .disconnectHardwareInput
-        ])
-        #expect(midiManagerSpy.calls == [.teardownMIDI])
+        let expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)] + tearDownCalls + tearDownCalls
+        #expect(avEngineSpy.calls == expected)
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI])
     }
 
     @Test
@@ -516,6 +515,10 @@ private extension EngineTests {
             standardFormatWithSampleRate: 48_000,
             channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
         )
+    }
+
+    var tearDownCalls: [AVAudioEngineSpy.Calls] {
+        [.stop, .disconnectMainMixerInput, .disconnectNodeOutput(inputMixerSpy), .disconnectHardwareInput]
     }
 
     static func makeAVAudioUnit(_ desc: AudioComponentDescription) async throws -> AVAudioUnit {

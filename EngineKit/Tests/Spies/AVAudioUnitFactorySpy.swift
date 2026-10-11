@@ -16,12 +16,15 @@ final class AVAudioUnitFactorySpy: AVAudioUnitFactoryType, @unchecked Sendable {
 
     private(set) var calls: [Calls] = []
 
+    /// Runs while the instantiation is in flight, before the result is returned.
+    var onInstantiate: (@Sendable () async -> Void)?
     var instantiateResult: Result<AVAudioUnit, Error> = .failure(NSError(domain: "AVAudioUnitFactorySpy", code: -1))
     func instantiate(
         with description: AudioComponentDescription,
         options: AudioComponentInstantiationOptions
     ) async throws -> AVAudioUnit {
         calls.append(.instantiate(description, options))
+        await onInstantiate?()
         return try instantiateResult.get()
     }
 }

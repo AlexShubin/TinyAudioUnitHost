@@ -41,48 +41,38 @@ struct PresetsPresenterTests {
     // MARK: - forwarded state
 
     @Test
-    mutating func activeName_forwardsSessionActiveName() async {
-        sessionSpy.activeName = "foo"
+    mutating func activeName_forwardsSessionActivePresetName() async {
+        sessionSpy.activePresetName = "foo"
         createSut()
 
         #expect(sut.activeName == "foo")
     }
 
     @Test
-    mutating func isInteractionDisabled_contentLoading_isTrue() async {
-        sessionSpy.content = .loading
+    mutating func isInteractionDisabled_sessionBusy_isTrue() async {
+        sessionSpy.isBusy = true
         createSut()
 
         #expect(sut.isInteractionDisabled == true)
     }
 
     @Test
-    mutating func isInteractionDisabled_contentUnmet_isTrue() async {
-        sessionSpy.content = .unmet([.noOutputDevice])
-        createSut()
-
-        #expect(sut.isInteractionDisabled == true)
-    }
-
-    @Test
-    mutating func isInteractionDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
+    mutating func isInteractionDisabled_sessionNotBusy_isFalse() async {
         createSut()
 
         #expect(sut.isInteractionDisabled == false)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentNotLoaded_isTrue() async {
-        sessionSpy.content = .empty
+    mutating func isSaveAsButtonDisabled_cannotSave_isTrue() async {
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
+    mutating func isSaveAsButtonDisabled_canSave_isFalse() async {
+        sessionSpy.canSavePreset = true
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)

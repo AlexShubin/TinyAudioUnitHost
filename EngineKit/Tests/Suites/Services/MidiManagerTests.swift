@@ -107,6 +107,34 @@ struct MidiManagerTests {
         ])
     }
 
+    @Test
+    mutating func teardownMIDI_withoutPort_doesNothing() async {
+        createSut()
+
+        await sut.teardownMIDI()
+
+        #expect(coreMidiGatewaySpy.calls.isEmpty)
+    }
+
+    @Test
+    mutating func setupMIDI_twice_disposesPreviousPortFirst() async {
+        coreMidiGatewaySpy.createInputPortResult = 2
+        createSut()
+        let first = LoadedAudioUnit(component: .fake())
+        let second = LoadedAudioUnit(component: .fake())
+        await sut.setupMIDI(for: first)
+        coreMidiGatewaySpy.createInputPortResult = 3
+
+        await sut.setupMIDI(for: second)
+
+        #expect(coreMidiGatewaySpy.calls == [
+            .createClient("TinyAUHost"),
+            .createInputPort(1, "Input", first),
+            .disposePort(2),
+            .createInputPort(1, "Input", second)
+        ])
+    }
+
     // MARK: - reconnectMIDISources
 
     @Test
