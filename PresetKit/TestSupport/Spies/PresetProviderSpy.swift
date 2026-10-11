@@ -65,8 +65,8 @@ public final class PresetProviderSpy: PresetProviderType, @unchecked Sendable {
         if let existing = storedPresets.removeValue(forKey: oldName) {
             storedPresets[newName] = Preset(
                 name: newName,
-                component: existing.component,
-                state: existing.state
+                source: existing.source,
+                inserts: existing.inserts
             )
         }
         if currentActiveName == oldName {

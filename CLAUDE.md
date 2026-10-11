@@ -293,6 +293,7 @@ public extension AudioDevice {
 - Fakes are for value types (data shapes); spies are for protocols. Different folders (`Fakes/` vs `Spies/`), different naming. Don't conflate.
 - Don't put `make<Type>(...)` helpers in test files. If a test needs a fixture, the type's `fake(...)` is the only home — discoverable via autocomplete on the type itself.
 - Keep fakes dumb: just construction with defaults, no logic, no pattern-matching factories. If you need shaped data, override at the call site.
+- **Don't widen an init for a fake.** A public type gets a `public init` only when production code in another module constructs it. When only the fake needs it, keep the synthesized internal memberwise init and have the fake file `@testable import <Module>` (`Preset.PluginSlot.Missing.fake`).
 
 ## Test fixture pattern
 
