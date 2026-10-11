@@ -96,7 +96,7 @@ struct SessionModelTests {
         await sut.refreshSetup()
         #expect(sut.content == .loaded(loaded))
         #expect(sut.activeName == "foo")
-        #expect(engineSpy.calls == [.load(component, Data([0x01]))])
+        #expect(engineSpy.calls == [.load(component, Data([0x01]), 0)])
     }
 
     @Test
@@ -187,7 +187,7 @@ struct SessionModelTests {
 
         await sut.refreshSetup()
 
-        #expect(engineSpy.calls == [.load(component, Data())])
+        #expect(engineSpy.calls == [.load(component, Data(), 0)])
         #expect(sut.content == .loaded(loaded))
     }
 
@@ -283,7 +283,7 @@ struct SessionModelTests {
         await sut.loadComponent(component)
 
         #expect(sut.content == .loaded(loaded))
-        #expect(engineSpy.calls == [.load(component, nil)])
+        #expect(engineSpy.calls == [.load(component, nil, 0)])
     }
 
     @Test
@@ -346,7 +346,7 @@ struct SessionModelTests {
 
         await sut.unloadComponent()
 
-        #expect(engineSpy.calls == [.load(component, nil), .unload])
+        #expect(engineSpy.calls == [.load(component, nil, 0), .unload(0)])
         #expect(sut.content == .empty)
         #expect(sut.sourceSlot == .empty(isEnabled: true))
     }
@@ -410,7 +410,7 @@ struct SessionModelTests {
         #expect(sut.activeName == "foo")
         #expect(sut.content == .loaded(loaded))
         #expect(presetProviderSpy.calls.contains(.setActive("foo")))
-        #expect(engineSpy.calls == [.load(component, Data([0x07]))])
+        #expect(engineSpy.calls == [.load(component, Data([0x07]), 0)])
     }
 
     @Test
