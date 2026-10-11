@@ -29,6 +29,7 @@ final class SessionModelSpy: SessionModelType {
     private(set) var calls: [Calls] = []
 
     var content: HostContent = .empty
+    var sourceSlot: PluginSlotContent = .empty(isEnabled: true)
     var activeName: String?
     var presets: [String] = []
     var presetEvent: PresetEvent?

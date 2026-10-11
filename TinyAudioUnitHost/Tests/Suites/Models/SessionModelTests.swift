@@ -61,6 +61,25 @@ struct SessionModelTests {
         #expect(sut.presets.sorted() == ["a", "b", "c"])
     }
 
+    @Test
+    mutating func init_noActivePreset_sourceSlotEmptyAndDisabled() {
+        createSut()
+
+        #expect(sut.sourceSlot == .empty(isEnabled: false))
+    }
+
+    @Test
+    mutating func init_activePreset_sourceSlotDisabledWithPresetComponent() {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        createSut()
+
+        #expect(sut.sourceSlot == .disabled(component: component))
+    }
+
     // MARK: - refreshSetup: setup gate
 
     @Test
@@ -193,6 +212,65 @@ struct SessionModelTests {
         #expect(sut.content == .unmet([.noOutputDevice]))
     }
 
+    @Test
+    mutating func refreshSetup_noActivePreset_sourceSlotEmptyAndEnabled() async {
+        createSut()
+
+        await sut.refreshSetup()
+
+        #expect(sut.sourceSlot == .empty(isEnabled: true))
+    }
+
+    @Test
+    mutating func refreshSetup_storedActiveStale_sourceSlotEmptyAndEnabled() async {
+        presetProviderSpy = PresetProviderSpy(activeName: "ghost")
+        createSut()
+
+        await sut.refreshSetup()
+
+        #expect(sut.sourceSlot == .empty(isEnabled: true))
+    }
+
+    @Test
+    mutating func refreshSetup_unmet_sourceSlotDisabledWithActivePresetComponent() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let loaded = LoadedAudioUnit(component: component)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+        await sut.refreshSetup()
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded))
+
+        setupCheckerSpy.checkResult = [.noOutputDevice]
+        await sut.refreshSetup()
+
+        #expect(sut.sourceSlot == .disabled(component: component))
+    }
+
+    @Test
+    mutating func refreshSetup_whileLoading_unmetWinsOverLoadResultInSourceSlot() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        createSut()
+        let session = sut!
+        let setupChecker = setupCheckerSpy!
+        engineSpy.onLoad = {
+            setupChecker.checkResult = [.noOutputDevice]
+            await session.refreshSetup()
+        }
+
+        await sut.refreshSetup()
+
+        #expect(sut.sourceSlot == .disabled(component: component))
+    }
+
     // MARK: - loadComponent
 
     @Test
@@ -219,6 +297,42 @@ struct SessionModelTests {
         if case .failed = sut.content { /* ok */ } else {
             Issue.record("expected .failed, got \(sut.content)")
         }
+    }
+
+    @Test
+    mutating func loadComponent_whileLoading_sourceSlotLoading() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        createSut()
+        let session = sut!
+        engineSpy.onLoad = {
+            #expect(await session.sourceSlot == .loading(component: component))
+        }
+
+        await sut.loadComponent(component)
+    }
+
+    @Test
+    mutating func loadComponent_success_sourceSlotLoaded() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let loaded = LoadedAudioUnit(component: component)
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+
+        await sut.loadComponent(component)
+
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded))
+    }
+
+    @Test
+    mutating func loadComponent_failure_sourceSlotEmptyAndEnabled() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        engineSpy = EngineSpy(loadResult: .failure(.deviceUnavailable))
+        createSut()
+
+        await sut.loadComponent(component)
+
+        #expect(sut.sourceSlot == .empty(isEnabled: true))
     }
 
     // MARK: - selectPreset
