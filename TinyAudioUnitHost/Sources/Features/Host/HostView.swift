@@ -27,7 +27,7 @@ struct HostView: View {
             SetupChecklistView(unmet: unmet)
         case .empty:
             EmptySelectionView()
-        case .idle, .loading:
+        case .loading:
             LoadingView()
         case .loaded(let audioUnit):
             AudioUnitView(audioUnit: audioUnit)
