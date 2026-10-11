@@ -81,28 +81,13 @@ struct PresetProvider: PresetProviderType {
     }
 
     private func domainSlot(from raw: RawPreset.PluginSlot) -> Preset.PluginSlot {
-        Preset.PluginSlot(
-            plugin: resolve(raw).map(Preset.PluginSlot.Plugin.installed) ?? .missing(
-                Preset.PluginSlot.Missing(
-                    name: raw.name,
-                    manufacturer: raw.manufacturer,
-                    componentType: raw.componentType,
-                    componentSubType: raw.componentSubType,
-                    componentManufacturer: raw.componentManufacturer
-                )
-            ),
+        let installed = library.components.first { $0.id == raw.componentID }
+        return Preset.PluginSlot(
+            component: installed ?? AudioUnitComponent(id: raw.componentID, name: raw.name, manufacturer: raw.manufacturer),
             state: raw.state,
-            isBypassed: raw.isBypassed
+            isBypassed: raw.isBypassed,
+            isInstalled: installed != nil
         )
-    }
-
-    private func resolve(_ raw: RawPreset.PluginSlot) -> AudioUnitComponent? {
-        library.components.first { component in
-            let desc = component.componentDescription
-            return desc.componentType == raw.componentType
-                && desc.componentSubType == raw.componentSubType
-                && desc.componentManufacturer == raw.componentManufacturer
-        }
     }
 }
 
@@ -117,28 +102,20 @@ private extension Preset {
 
 private extension Preset.PluginSlot {
     var raw: RawPreset.PluginSlot {
-        switch plugin {
-        case .installed(let component):
-            let desc = component.componentDescription
-            return RawPreset.PluginSlot(
-                componentType: desc.componentType,
-                componentSubType: desc.componentSubType,
-                componentManufacturer: desc.componentManufacturer,
-                name: component.name,
-                manufacturer: component.manufacturer,
-                state: state,
-                isBypassed: isBypassed
-            )
-        case .missing(let missing):
-            return RawPreset.PluginSlot(
-                componentType: missing.componentType,
-                componentSubType: missing.componentSubType,
-                componentManufacturer: missing.componentManufacturer,
-                name: missing.name,
-                manufacturer: missing.manufacturer,
-                state: state,
-                isBypassed: isBypassed
-            )
-        }
+        RawPreset.PluginSlot(
+            componentType: component.id.type,
+            componentSubType: component.id.subType,
+            componentManufacturer: component.id.manufacturer,
+            name: component.name,
+            manufacturer: component.manufacturer,
+            state: state,
+            isBypassed: isBypassed
+        )
+    }
+}
+
+private extension RawPreset.PluginSlot {
+    var componentID: AudioUnitComponent.ID {
+        AudioUnitComponent.ID(type: componentType, subType: componentSubType, manufacturer: componentManufacturer)
     }
 }

@@ -11,27 +11,16 @@ import Foundation
 
 public struct Preset: Sendable, Equatable {
     public struct PluginSlot: Sendable, Equatable {
-        public enum Plugin: Sendable, Equatable {
-            case installed(AudioUnitComponent)
-            case missing(Missing)
-        }
-
-        public struct Missing: Sendable, Equatable {
-            public let name: String
-            public let manufacturer: String
-            public let componentType: UInt32
-            public let componentSubType: UInt32
-            public let componentManufacturer: UInt32
-        }
-
-        public let plugin: Plugin
+        public let component: AudioUnitComponent
         public let state: Data
         public let isBypassed: Bool
+        public let isInstalled: Bool
 
-        public init(plugin: Plugin, state: Data, isBypassed: Bool) {
-            self.plugin = plugin
+        public init(component: AudioUnitComponent, state: Data, isBypassed: Bool, isInstalled: Bool) {
+            self.component = component
             self.state = state
             self.isBypassed = isBypassed
+            self.isInstalled = isInstalled
         }
     }
 

@@ -25,6 +25,7 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     func refreshSetup() async
     func loadComponent(_ component: AudioUnitComponent) async
     func unloadComponent() async
+    func setSourceBypassed(_ isBypassed: Bool)
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
@@ -68,9 +69,9 @@ enum HostContent: Sendable, Equatable {
 
 enum PluginSlotContent: Sendable, Equatable {
     case empty(isEnabled: Bool)
-    case disabled(component: AudioUnitComponent)
+    case disabled(plugin: Preset.PluginSlot.Plugin)
     case loading(component: AudioUnitComponent)
-    case loaded(audioUnit: LoadedAudioUnit)
+    case loaded(audioUnit: LoadedAudioUnit, isBypassed: Bool)
 }
 
 @MainActor @Observable
@@ -106,13 +107,19 @@ final class SessionModel: SessionModelType {
     }
 
     func loadComponent(_ component: AudioUnitComponent) async {
-        await load(component: component, state: nil)
+        await load(component: component, state: nil, isBypassed: false)
     }
 
     func unloadComponent() async {
         await engine.unload()
         sourceSlot = .empty(isEnabled: true)
         content = .empty
+    }
+
+    func setSourceBypassed(_ isBypassed: Bool) {
+        guard case .loaded(let audioUnit, _) = sourceSlot else { return }
+        audioUnit.isBypassed = isBypassed
+        sourceSlot = .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
     }
 
     func selectPreset(name: String) async {
@@ -122,10 +129,7 @@ final class SessionModel: SessionModelType {
     }
 
     func saveCurrentPreset() {
-        guard case .loaded(let audioUnit) = content,
-              let activeName,
-              let state = audioUnit.fullState else { return }
-        let preset = Preset(name: activeName, component: audioUnit.component, state: state)
+        guard let activeName, let preset = preset(named: activeName) else { return }
         presetProvider.save(preset)
         presets = presetProvider.presets
         presetEvent = PresetEvent(id: UUID(), kind: .saved)
@@ -134,16 +138,14 @@ final class SessionModel: SessionModelType {
     func restoreActivePreset() async {
         guard let activeName,
               let saved = presetProvider.load(name: activeName) else { return }
-        await load(component: saved.component, state: saved.state)
+        await load(saved.source)
         if case .loaded = content {
             presetEvent = PresetEvent(id: UUID(), kind: .restored)
         }
     }
 
     func saveAsNewPreset(name: String) {
-        guard case .loaded(let audioUnit) = content,
-              let state = audioUnit.fullState else { return }
-        let preset = Preset(name: name, component: audioUnit.component, state: state)
+        guard let preset = preset(named: name) else { return }
         presetProvider.save(preset)
         presetProvider.setActive(preset.name)
         activeName = preset.name
@@ -184,20 +186,36 @@ final class SessionModel: SessionModelType {
             content = .empty
             return
         }
-        if let preset = presetProvider.load(name: active) {
-            await load(component: preset.component, state: preset.state)
-        } else {
+        guard let preset = presetProvider.load(name: active) else {
             sourceSlot = .empty(isEnabled: true)
+            content = .failed("Couldn't load this preset.")
+            return
+        }
+        await load(preset.source)
+    }
+
+    private func load(_ slot: Preset.PluginSlot?) async {
+        guard let slot else {
+            sourceSlot = .empty(isEnabled: true)
+            content = .empty
+            return
+        }
+        switch slot.plugin {
+        case .installed(let component):
+            await load(component: component, state: slot.state, isBypassed: slot.isBypassed)
+        case .missing:
+            sourceSlot = .disabled(plugin: slot.plugin)
             content = .failed("Couldn't load this preset.")
         }
     }
 
-    private func load(component: AudioUnitComponent, state: Data?) async {
+    private func load(component: AudioUnitComponent, state: Data?, isBypassed: Bool) async {
         sourceSlot = .loading(component: component)
         content = .loading
         do {
             let audioUnit = try await engine.load(component: component, state: state)
-            finishLoad(.loaded(audioUnit), slot: .loaded(audioUnit: audioUnit))
+            audioUnit.isBypassed = isBypassed
+            finishLoad(.loaded(audioUnit), slot: .loaded(audioUnit: audioUnit, isBypassed: isBypassed))
         } catch {
             finishLoad(.failed(error.message), slot: .empty(isEnabled: true))
         }
@@ -208,12 +226,22 @@ final class SessionModel: SessionModelType {
         content = result
         sourceSlot = slot
     }
+
+    private func preset(named name: String) -> Preset? {
+        guard case .loaded(let audioUnit, let isBypassed) = sourceSlot,
+              let state = audioUnit.fullState else { return nil }
+        return Preset(
+            name: name,
+            source: Preset.PluginSlot(plugin: .installed(audioUnit.component), state: state, isBypassed: isBypassed),
+            inserts: []
+        )
+    }
 }
 
 private extension PresetProviderType {
     var disabledSlot: PluginSlotContent {
-        guard let preset = activeName.flatMap({ load(name: $0) }) else { return .empty(isEnabled: false) }
-        return .disabled(component: preset.component)
+        guard let plugin = activeName.flatMap({ load(name: $0) })?.source?.plugin else { return .empty(isEnabled: false) }
+        return .disabled(plugin: plugin)
     }
 }
 

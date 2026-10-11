@@ -9,7 +9,7 @@
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
-@testable import PresetKit
+import PresetKit
 
 public extension Preset {
     static func fake(
@@ -23,28 +23,11 @@ public extension Preset {
 
 public extension Preset.PluginSlot {
     static func fake(
-        plugin: Plugin = .installed(.fake()),
+        component: AudioUnitComponent = .fake(),
         state: Data = Data(),
-        isBypassed: Bool = false
+        isBypassed: Bool = false,
+        isInstalled: Bool = true
     ) -> Preset.PluginSlot {
-        Preset.PluginSlot(plugin: plugin, state: state, isBypassed: isBypassed)
-    }
-}
-
-public extension Preset.PluginSlot.Missing {
-    static func fake(
-        name: String = "Missing AU",
-        manufacturer: String = "FakeCo",
-        componentType: UInt32 = 0,
-        componentSubType: UInt32 = 0,
-        componentManufacturer: UInt32 = 0
-    ) -> Preset.PluginSlot.Missing {
-        Preset.PluginSlot.Missing(
-            name: name,
-            manufacturer: manufacturer,
-            componentType: componentType,
-            componentSubType: componentSubType,
-            componentManufacturer: componentManufacturer
-        )
+        Preset.PluginSlot(component: component, state: state, isBypassed: isBypassed, isInstalled: isInstalled)
     }
 }
