@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 
@@ -25,10 +26,16 @@ final class ChannelStripPresenter {
 
     private let library: AudioUnitComponentsLibraryType
     private let session: SessionModelType
+    private let audioSettings: AudioSettingsModelType
 
-    init(library: AudioUnitComponentsLibraryType, session: SessionModelType) {
+    init(
+        library: AudioUnitComponentsLibraryType,
+        session: SessionModelType,
+        audioSettings: AudioSettingsModelType
+    ) {
         self.library = library
         self.session = session
+        self.audioSettings = audioSettings
     }
 
     func handleSlot(_ action: ChannelStripSlotViewAction, at index: Int) async {
@@ -57,15 +64,13 @@ final class ChannelStripPresenter {
 
     private func content(at index: Int) -> ChannelStripSlotViewState.Content {
         let slot = slot(at: index)
-        guard session.isRunning else {
+        guard audioSettings.setup == .met else {
             return slot.component.map { .disabled(component: $0) } ?? .empty(isEnabled: false)
         }
         let isSelected = session.selectedIndex == index
         switch slot {
         case .empty, .failed(component: nil, _):
             return .empty(isEnabled: true)
-        case .pending(let component):
-            return .disabled(component: component)
         case .loading(let component):
             return .loading(component: component)
         case .loaded(let audioUnit, let isBypassed):
@@ -95,7 +100,7 @@ private extension PluginSlotContent {
     var component: AudioUnitComponent? {
         switch self {
         case .empty: nil
-        case .pending(let component), .loading(let component): component
+        case .loading(let component): component
         case .loaded(let audioUnit, _): audioUnit.component
         case .failed(let component, _): component
         }

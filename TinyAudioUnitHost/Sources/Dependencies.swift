@@ -60,7 +60,8 @@ struct Dependencies: Sendable {
     func makeChannelStripPresenter() -> ChannelStripPresenter {
         ChannelStripPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
-            session: session
+            session: session,
+            audioSettings: audioSettings.audioSettingsModel
         )
     }
 

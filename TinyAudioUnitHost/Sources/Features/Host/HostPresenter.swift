@@ -82,7 +82,7 @@ private extension PluginSlotContent {
     var hostContent: HostContent {
         switch self {
         case .empty: .empty
-        case .pending, .loading: .loading
+        case .loading: .loading
         case .loaded(let audioUnit, _): .loaded(audioUnit)
         case .failed(_, let message): .failed(message)
         }
