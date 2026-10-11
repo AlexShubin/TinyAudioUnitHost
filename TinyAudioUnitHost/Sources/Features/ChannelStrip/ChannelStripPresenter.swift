@@ -28,7 +28,11 @@ final class ChannelStripPresenter {
             ChannelStripSlotViewState(
                 id: index,
                 content: inserts[index].map { insert in
-                    .loaded(plugin: insert.component.plugin, isBypassed: insert.isBypassed, isSelected: selectedIndex == index)
+                    .loaded(
+                        component: insert.component,
+                        bypass: insert.component.bypass(isBypassed: insert.isBypassed),
+                        isSelected: selectedIndex == index
+                    )
                 } ?? .empty(isEnabled: true),
                 catalogs: [catalog("Effects", kind: .effect)]
             )
@@ -58,7 +62,8 @@ final class ChannelStripPresenter {
         case .remove:
             await session.unloadComponent()
         case .toggleBypass:
-            break
+            guard case .loaded(_, let isBypassed) = session.sourceSlot else { return }
+            session.setSourceBypassed(!isBypassed)
         }
     }
 
@@ -84,11 +89,15 @@ final class ChannelStripPresenter {
         case .empty(let isEnabled):
             .empty(isEnabled: isEnabled)
         case .disabled(let component):
-            .disabled(plugin: component.plugin)
+            .disabled(component: component)
         case .loading(let component):
-            .loading(plugin: component.plugin)
-        case .loaded(let audioUnit):
-            .loaded(plugin: audioUnit.component.plugin, isBypassed: false, isSelected: selectedIndex == sourceIndex)
+            .loading(component: component)
+        case .loaded(let audioUnit, let isBypassed):
+            .loaded(
+                component: audioUnit.component,
+                bypass: audioUnit.component.bypass(isBypassed: isBypassed),
+                isSelected: selectedIndex == sourceIndex
+            )
         }
     }
 
@@ -110,13 +119,16 @@ private extension PluginSlotContent {
         switch self {
         case .empty: nil
         case .disabled(let component), .loading(let component): component
-        case .loaded(let audioUnit): audioUnit.component
+        case .loaded(let audioUnit, _): audioUnit.component
         }
     }
 }
 
 private extension AudioUnitComponent {
-    var plugin: ChannelStripSlotViewState.Plugin {
-        ChannelStripSlotViewState.Plugin(name: name, manufacturer: manufacturer, kind: kind)
+    func bypass(isBypassed: Bool) -> ChannelStripSlotViewState.Bypass {
+        switch kind {
+        case .instrument: .unavailable
+        case .effect: isBypassed ? .bypassed : .active
+        }
     }
 }

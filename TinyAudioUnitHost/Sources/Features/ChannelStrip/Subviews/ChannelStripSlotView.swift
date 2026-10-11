@@ -20,14 +20,14 @@ struct ChannelStripSlotView: View {
             switch state.content {
             case .empty(let isEnabled):
                 emptySlot(isEnabled: isEnabled)
-            case .disabled(let plugin):
-                inactiveSlot(plugin, fill: plugin.kind.tint.opacity(0.35), isLoading: false)
+            case .disabled(let component):
+                inactiveSlot(component, fill: component.kind.tint.opacity(0.35), isLoading: false)
                     .foregroundStyle(.secondary)
-            case .loading(let plugin):
-                inactiveSlot(plugin, fill: plugin.kind.tint, isLoading: true)
+            case .loading(let component):
+                inactiveSlot(component, fill: component.kind.tint, isLoading: true)
                     .foregroundStyle(.white)
-            case .loaded(let plugin, let isBypassed, let isSelected):
-                loadedSlot(plugin, isBypassed: isBypassed, isSelected: isSelected)
+            case .loaded(let component, let bypass, let isSelected):
+                loadedSlot(component, bypass: bypass, isSelected: isSelected)
             }
         }
         .frame(height: 36)
@@ -37,24 +37,24 @@ struct ChannelStripSlotView: View {
 
     // MARK: - Loaded
 
-    private func loadedSlot(_ plugin: ChannelStripSlotViewState.Plugin, isBypassed: Bool, isSelected: Bool) -> some View {
-        HStack(spacing: .zero) {
-            Button {
-                onAction(.toggleBypass)
-            } label: {
-                Image(systemName: "power")
-                    .font(.system(size: 10, weight: .bold))
+    private func loadedSlot(
+        _ component: AudioUnitComponent,
+        bypass: ChannelStripSlotViewState.Bypass,
+        isSelected: Bool
+    ) -> some View {
+        let isBypassed = bypass == .bypassed
+        return HStack(spacing: .zero) {
+            if bypass == .unavailable {
+                Color.clear
                     .frame(width: 22)
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
+            } else {
+                bypassButton(isBypassed: isBypassed)
             }
-            .buttonStyle(.plain)
-            .opacity(isHovered || isBypassed ? 1 : 0)
 
             Button {
                 onAction(.select)
             } label: {
-                pluginLabel(plugin)
+                pluginLabel(component)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -74,15 +74,29 @@ struct ChannelStripSlotView: View {
             .opacity(isHovered ? 1 : 0)
         }
         .foregroundStyle(isBypassed ? Color.secondary : .white)
-        .background { slotFill(isBypassed ? Color.gray.opacity(0.3) : plugin.kind.tint) }
+        .background { slotFill(isBypassed ? Color.gray.opacity(0.3) : component.kind.tint) }
         .overlay {
             if isSelected {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .strokeBorder(.white.opacity(0.9), lineWidth: 1.5)
             }
         }
-        .help("\(plugin.name) — \(plugin.manufacturer)")
+        .help("\(component.name) — \(component.manufacturer)")
         .contextMenu { loadedMenu }
+    }
+
+    private func bypassButton(isBypassed: Bool) -> some View {
+        Button {
+            onAction(.toggleBypass)
+        } label: {
+            Image(systemName: "power")
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: 22)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isHovered || isBypassed ? 1 : 0)
     }
 
     @ViewBuilder
@@ -93,8 +107,8 @@ struct ChannelStripSlotView: View {
 
     // MARK: - Loading / Disabled
 
-    private func inactiveSlot(_ plugin: ChannelStripSlotViewState.Plugin, fill: Color, isLoading: Bool) -> some View {
-        pluginLabel(plugin)
+    private func inactiveSlot(_ component: AudioUnitComponent, fill: Color, isLoading: Bool) -> some View {
+        pluginLabel(component)
             .padding(.horizontal, 22)
             .overlay(alignment: .leading) {
                 if isLoading {
@@ -109,11 +123,11 @@ struct ChannelStripSlotView: View {
 
     // MARK: - Shared
 
-    private func pluginLabel(_ plugin: ChannelStripSlotViewState.Plugin) -> some View {
+    private func pluginLabel(_ component: AudioUnitComponent) -> some View {
         VStack(spacing: 1) {
-            Text(plugin.name)
+            Text(component.name)
                 .font(.system(size: 11, weight: .semibold))
-            Text(plugin.manufacturer)
+            Text(component.manufacturer)
                 .font(.system(size: 9, weight: .medium))
                 .opacity(0.7)
         }
@@ -186,15 +200,15 @@ enum ChannelStripSlotViewAction {
 struct ChannelStripSlotViewState: Equatable, Identifiable {
     enum Content: Equatable {
         case empty(isEnabled: Bool)
-        case disabled(plugin: Plugin)
-        case loading(plugin: Plugin)
-        case loaded(plugin: Plugin, isBypassed: Bool, isSelected: Bool)
+        case disabled(component: AudioUnitComponent)
+        case loading(component: AudioUnitComponent)
+        case loaded(component: AudioUnitComponent, bypass: Bypass, isSelected: Bool)
     }
 
-    struct Plugin: Equatable {
-        let name: String
-        let manufacturer: String
-        let kind: AudioUnitComponent.Kind
+    enum Bypass {
+        case unavailable
+        case active
+        case bypassed
     }
 
     struct Catalog: Equatable, Identifiable {
