@@ -20,6 +20,8 @@ struct ChannelStripSlotView: View {
             switch state.content {
             case .empty(let isEnabled):
                 emptySlot(isEnabled: isEnabled)
+            case .locked:
+                lockedSlot
             case .disabled(let component):
                 inactiveSlot(component, fill: component.kind.tint.opacity(0.35), isLoading: false)
                     .foregroundStyle(.secondary)
@@ -167,32 +169,48 @@ struct ChannelStripSlotView: View {
     // MARK: - Empty
 
     private func emptySlot(isEnabled: Bool) -> some View {
-        let isHighlighted = isHovered && isEnabled
-        return Menu {
+        Menu {
             catalogMenu
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isHighlighted ? .primary : .tertiary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(
-                            isHighlighted ? .secondary : .quaternary,
-                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                        )
-                }
-                .contentShape(Rectangle())
+            dashedLabel(systemImage: "plus", isHighlighted: isHovered && isEnabled)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .disabled(!isEnabled)
-        .background {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
-        }
+        .background { emptyFill }
         .help("Add Plug-in")
+    }
+
+    private var lockedSlot: some View {
+        Button {
+            onAction(.unlock)
+        } label: {
+            dashedLabel(systemImage: "star", isHighlighted: isHovered)
+        }
+        .buttonStyle(.plain)
+        .background { emptyFill }
+        .help("Get Pro to add more plug-ins")
+    }
+
+    private func dashedLabel(systemImage: String, isHighlighted: Bool) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(isHighlighted ? .primary : .tertiary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(
+                        isHighlighted ? .secondary : .quaternary,
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                    )
+            }
+            .contentShape(Rectangle())
+    }
+
+    private var emptyFill: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(Color(nsColor: .windowBackgroundColor))
     }
 
     // MARK: - Catalog
@@ -218,11 +236,13 @@ enum ChannelStripSlotViewAction {
     case toggleBypass
     case load(AudioUnitComponent)
     case remove
+    case unlock
 }
 
 struct ChannelStripSlotViewState: Equatable, Identifiable {
     enum Content: Equatable {
         case empty(isEnabled: Bool)
+        case locked
         case disabled(component: AudioUnitComponent)
         case loading(component: AudioUnitComponent)
         case loaded(component: AudioUnitComponent, bypass: Bypass, isSelected: Bool)

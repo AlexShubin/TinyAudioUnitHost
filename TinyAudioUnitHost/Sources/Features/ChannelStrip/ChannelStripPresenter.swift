@@ -9,6 +9,7 @@
 import AudioSettingsKit
 import AudioUnitsKit
 import Observation
+import PurchasesKit
 
 @MainActor @Observable
 final class ChannelStripPresenter {
@@ -24,18 +25,27 @@ final class ChannelStripPresenter {
         (1..<session.slots.count + 1).map(slotState)
     }
 
+    private(set) var isProWindowRequested = false
+
+    private var canAddPlugin: Bool {
+        purchases.state.isPro || session.slots.isEmpty
+    }
+
     private let library: AudioUnitComponentsLibraryType
     private let session: SessionModelType
     private let audioSettings: AudioSettingsModelType
+    private let purchases: PurchasesModelType
 
     init(
         library: AudioUnitComponentsLibraryType,
         session: SessionModelType,
-        audioSettings: AudioSettingsModelType
+        audioSettings: AudioSettingsModelType,
+        purchases: PurchasesModelType
     ) {
         self.library = library
         self.session = session
         self.audioSettings = audioSettings
+        self.purchases = purchases
     }
 
     func handleSlot(_ action: ChannelStripSlotViewAction, at index: Int) async {
@@ -49,7 +59,13 @@ final class ChannelStripPresenter {
         case .toggleBypass:
             guard case .loaded(_, let isBypassed) = slot(at: index) else { return }
             session.setBypassed(!isBypassed, at: index)
+        case .unlock:
+            isProWindowRequested = true
         }
+    }
+
+    func proWindowOpened() {
+        isProWindowRequested = false
     }
 
     private func slotState(at index: Int) -> ChannelStripSlotViewState {
@@ -70,7 +86,7 @@ final class ChannelStripPresenter {
         let isSelected = session.selectedIndex == index
         switch slot {
         case .empty:
-            return .empty(isEnabled: true)
+            return canAddPlugin ? .empty(isEnabled: true) : .locked
         case .loading(let component):
             return .loading(component: component)
         case .loaded(let audioUnit, let isBypassed):

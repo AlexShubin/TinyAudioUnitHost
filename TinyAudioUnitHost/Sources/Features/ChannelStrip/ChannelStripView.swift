@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ChannelStripView: View {
     @State var presenter: ChannelStripPresenter
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 12) {
@@ -35,6 +36,12 @@ struct ChannelStripView: View {
         .padding(.vertical, 12)
         .frame(width: 148)
         .frame(maxHeight: .infinity, alignment: .top)
+        .onChange(of: presenter.isProWindowRequested) { _, isRequested in
+            if isRequested {
+                openWindow(id: "purchases")
+                presenter.proWindowOpened()
+            }
+        }
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {

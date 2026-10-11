@@ -61,7 +61,8 @@ struct Dependencies: Sendable {
         ChannelStripPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
-            audioSettings: audioSettings.audioSettingsModel
+            audioSettings: audioSettings.audioSettingsModel,
+            purchases: purchases.purchasesModel
         )
     }
 

@@ -22,7 +22,7 @@ struct PurchasesView: View {
                 Text("Tiny Audio Unit Host Pro")
                     .font(.title)
                     .fontWeight(.bold)
-                Text("Save and manage unlimited presets.")
+                Text("Chain as many plug-ins as you like.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
