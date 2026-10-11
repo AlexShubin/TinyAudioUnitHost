@@ -19,14 +19,9 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
 
     public private(set) var calls: [Calls] = []
     public var loadResult: Result<LoadedAudioUnit, EngineLoadError>
-    public var reloadError: EngineLoadError?
 
-    public init(
-        loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed),
-        reloadError: EngineLoadError? = nil
-    ) {
+    public init(loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed)) {
         self.loadResult = loadResult
-        self.reloadError = reloadError
     }
 
     /// Runs while the load is in flight, before the result is returned.
@@ -41,8 +36,7 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
         calls.append(.unload(position))
     }
 
-    public func reload() async throws(EngineLoadError) {
+    public func reload() async {
         calls.append(.reload)
-        if let reloadError { throw reloadError }
     }
 }
