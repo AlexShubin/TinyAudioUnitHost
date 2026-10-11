@@ -198,6 +198,13 @@ final class SessionModel: SessionModelType {
             trimmed.removeLast()
         }
         slots = trimmed
+        selectFilledSlotIfNeeded()
+    }
+
+    private func selectFilledSlotIfNeeded() {
+        let selected = slots.indices.contains(selectedIndex) ? slots[selectedIndex] : .empty
+        guard selected == .empty, let firstFilled = slots.firstIndex(where: { $0 != .empty }) else { return }
+        selectedIndex = firstFilled
     }
 
     private func preset(named name: String) -> Preset? {
