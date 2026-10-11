@@ -55,9 +55,9 @@ public final class LoadedAudioUnit: Equatable, Sendable {
         if let testComponent { return testComponent }
         #endif
         return AudioUnitComponent(
+            id: AudioUnitComponent.ID(au?.componentDescription ?? AudioComponentDescription()),
             name: au?.audioUnitName ?? "",
-            manufacturer: au?.manufacturerName ?? "",
-            componentDescription: au?.componentDescription ?? AudioComponentDescription()
+            manufacturer: au?.manufacturerName ?? ""
         )
     }
 

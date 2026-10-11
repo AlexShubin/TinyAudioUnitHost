@@ -25,9 +25,9 @@ final class AudioUnitComponentsLibrary: AudioUnitComponentsLibraryType {
             .components(matching: predicate)
             .map { component in
                 AudioUnitComponent(
+                    id: AudioUnitComponent.ID(component.audioComponentDescription),
                     name: component.name,
-                    manufacturer: component.manufacturerName,
-                    componentDescription: component.audioComponentDescription
+                    manufacturer: component.manufacturerName
                 )
             }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }

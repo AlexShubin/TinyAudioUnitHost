@@ -14,22 +14,30 @@ public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
         case effect
     }
 
+    public struct ID: Sendable, Hashable {
+        public let type: UInt32
+        public let subType: UInt32
+        public let manufacturer: UInt32
+
+        public init(type: UInt32, subType: UInt32, manufacturer: UInt32) {
+            self.type = type
+            self.subType = subType
+            self.manufacturer = manufacturer
+        }
+    }
+
+    public let id: ID
     public let name: String
     public let manufacturer: String
-    public let componentDescription: AudioComponentDescription
 
-    public init(name: String, manufacturer: String, componentDescription: AudioComponentDescription) {
+    public init(id: ID, name: String, manufacturer: String) {
+        self.id = id
         self.name = name
         self.manufacturer = manufacturer
-        self.componentDescription = componentDescription
     }
 
     public var kind: Kind {
-        componentDescription.componentType == kAudioUnitType_MusicDevice ? .instrument : .effect
-    }
-
-    public var id: String {
-        "\(componentDescription.componentType)-\(componentDescription.componentSubType)-\(componentDescription.componentManufacturer)"
+        id.type == kAudioUnitType_MusicDevice ? .instrument : .effect
     }
 
     public static func == (lhs: AudioUnitComponent, rhs: AudioUnitComponent) -> Bool {
@@ -38,5 +46,15 @@ public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+extension AudioUnitComponent.ID {
+    init(_ description: AudioComponentDescription) {
+        self.init(
+            type: description.componentType,
+            subType: description.componentSubType,
+            manufacturer: description.componentManufacturer
+        )
     }
 }

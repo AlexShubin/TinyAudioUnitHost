@@ -191,6 +191,18 @@ final actor Engine: EngineType {
     }
 }
 
+private extension AudioUnitComponent {
+    var componentDescription: AudioComponentDescription {
+        AudioComponentDescription(
+            componentType: id.type,
+            componentSubType: id.subType,
+            componentManufacturer: id.manufacturer,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
+    }
+}
+
 fileprivate extension AVAudioUnit {
     var acceptsAudioInput: Bool {
         let type = audioComponentDescription.componentType
