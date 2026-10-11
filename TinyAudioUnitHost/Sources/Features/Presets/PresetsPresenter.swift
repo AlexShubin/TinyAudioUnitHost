@@ -7,51 +7,28 @@
 //
 
 import Observation
-import PresetKit
-import PurchasesKit
 
 @MainActor @Observable
 final class PresetsPresenter {
-    private static let freeTierPresetLimit = 2
-
-    var presets: [String] {
-        purchases.state.isPro ? session.presets : Array(session.presets.prefix(Self.freeTierPresetLimit))
-    }
+    var presets: [String] { session.presets }
     var activeName: String? { session.activePresetName }
     var isInteractionDisabled: Bool { session.isBusy }
     var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
-    var presentedDialog: PresetNameDialogMode? {
-        get {
-            if case .presetNameDialog(let mode) = destination {
-                return mode
-            }
-            return nil
-        }
-        set {
-            destination = newValue.map { .presetNameDialog($0) }
-        }
+    var presentedNameDialogMode: PresetNameDialogMode? {
+        get { presetsNavigation.presentedNameDialogMode }
+        set { presetsNavigation.presentedNameDialogMode = newValue }
     }
 
-    var isProWindowRequested: Bool { destination == .proWindow }
-
-    private var destination: PresetsDestination?
     private let session: SessionModelType
-    private let purchases: PurchasesModelType
-    private let saveAsCommandBinder: CommandBinderType
+    private let presetsNavigation: PresetsNavigationModelType
 
     init(
         session: SessionModelType,
-        purchases: PurchasesModelType,
-        saveAsCommandBinder: CommandBinderType
+        presetsNavigation: PresetsNavigationModelType
     ) {
         self.session = session
-        self.purchases = purchases
-        self.saveAsCommandBinder = saveAsCommandBinder
-    }
-
-    func task() {
-        saveAsCommandBinder.bind { [weak self] in self?.saveAs() }
+        self.presetsNavigation = presetsNavigation
     }
 
     func select(name: String) async {
@@ -59,7 +36,7 @@ final class PresetsPresenter {
     }
 
     func rename(name: String) {
-        destination = .presetNameDialog(.rename(currentName: name))
+        presetsNavigation.presentedNameDialogMode = .rename(currentName: name)
     }
 
     func delete(name: String) {
@@ -67,19 +44,6 @@ final class PresetsPresenter {
     }
 
     func saveAs() {
-        if purchases.state.isPro || session.presets.count < Self.freeTierPresetLimit {
-            destination = .presetNameDialog(.saveAs)
-        } else {
-            destination = .proWindow
-        }
+        presetsNavigation.presentedNameDialogMode = .saveAs
     }
-
-    func proWindowOpened() {
-        destination = nil
-    }
-}
-
-enum PresetsDestination: Equatable {
-    case presetNameDialog(PresetNameDialogMode)
-    case proWindow
 }

@@ -22,7 +22,7 @@ struct Dependencies: Sendable {
     let purchases: PurchasesKit.Dependencies
     let session: SessionModelType
     let audioSettingsObserver: AudioSettingsObserverType
-    let saveAsCommand: BindableCommand
+    let presetsNavigation: PresetsNavigationModelType
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
@@ -45,7 +45,7 @@ struct Dependencies: Sendable {
                 engine: engine.engine,
                 midiManager: engine.midiManager
             ),
-            saveAsCommand: BindableCommand()
+            presetsNavigation: PresetsNavigationModel()
         )
     }()
 
@@ -68,15 +68,14 @@ struct Dependencies: Sendable {
     func makePresetsPresenter() -> PresetsPresenter {
         PresetsPresenter(
             session: session,
-            purchases: purchases.purchasesModel,
-            saveAsCommandBinder: saveAsCommand
+            presetsNavigation: presetsNavigation
         )
     }
 
     func makeAppCommandsPresenter() -> AppCommandsPresenter {
         AppCommandsPresenter(
             session: session,
-            saveAsCommand: saveAsCommand
+            presetsNavigation: presetsNavigation
         )
     }
 

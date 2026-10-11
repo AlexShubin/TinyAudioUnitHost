@@ -12,7 +12,6 @@ import SwiftUI
 struct PresetsView: View {
     @State var presenter: PresetsPresenter
     @Environment(\.dependencies) private var dependencies
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         List(selection: selectionBinding) {
@@ -52,17 +51,10 @@ struct PresetsView: View {
         }
         .listStyle(.sidebar)
         .disabled(presenter.isInteractionDisabled)
-        .task { presenter.task() }
-        .sheet(item: $presenter.presentedDialog) { mode in
+        .sheet(item: $presenter.presentedNameDialogMode) { mode in
             PresetNameDialogView(
                 presenter: dependencies.makePresetNameDialogPresenter(mode: mode)
             )
-        }
-        .onChange(of: presenter.isProWindowRequested) { _, isRequested in
-            if isRequested {
-                openWindow(id: "purchases")
-                presenter.proWindowOpened()
-            }
         }
     }
 

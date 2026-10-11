@@ -15,11 +15,11 @@ final class AppCommandsPresenter {
     var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
     private let session: SessionModelType
-    private let saveAsCommand: CommandType
+    private let presetsNavigation: PresetsNavigationModelType
 
-    init(session: SessionModelType, saveAsCommand: CommandType) {
+    init(session: SessionModelType, presetsNavigation: PresetsNavigationModelType) {
         self.session = session
-        self.saveAsCommand = saveAsCommand
+        self.presetsNavigation = presetsNavigation
     }
 
     func savePreset() {
@@ -31,6 +31,6 @@ final class AppCommandsPresenter {
     }
 
     func saveAsPreset() {
-        saveAsCommand.execute()
+        presetsNavigation.presentedNameDialogMode = .saveAs
     }
 }
