@@ -18,6 +18,7 @@ public enum EngineLoadError: Error, Sendable, Equatable {
 
 public protocol EngineType: Sendable {
     func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
+    func loadChain(_ slots: [ChainSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?]
     func unload(at position: Int) async
     func reload() async
 }
@@ -58,19 +59,29 @@ final actor Engine: EngineType {
     func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
         await tearDown()
         detachNode(at: position)
-
-        let node: Node
-        do {
-            node = try await instantiate(component)
-        } catch {
-            await rebuild()
-            throw error
-        }
-        if let state { node.audioUnit.fullState = state }
-        detachNode(at: position)
-        chain[position] = node
+        let result = await insert(ChainSlot(component: component, state: state), at: position)
         await rebuild()
-        return node.audioUnit
+        return try result.get()
+    }
+
+    func loadChain(_ slots: [ChainSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+        await tearDown()
+        for position in chain.keys {
+            detachNode(at: position)
+        }
+        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, EngineLoadError>).self) { group in
+            for (position, slot) in slots.enumerated() {
+                guard let slot else { continue }
+                group.addTask { (position, await self.insert(slot, at: position)) }
+            }
+            var results = [Result<LoadedAudioUnit, EngineLoadError>?](repeating: nil, count: slots.count)
+            for await (position, result) in group {
+                results[position] = result
+            }
+            return results
+        }
+        await rebuild()
+        return results
     }
 
     func unload(at position: Int) async {
@@ -191,6 +202,18 @@ final actor Engine: EngineType {
             channels: source.auAudioUnit.outputBusses[0].format.channelCount
         )
         engine.connect(source, to: destination, format: format)
+    }
+
+    private func insert(_ slot: ChainSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
+        do {
+            let node = try await instantiate(slot.component)
+            if let state = slot.state { node.audioUnit.fullState = state }
+            detachNode(at: position)
+            chain[position] = node
+            return .success(node.audioUnit)
+        } catch {
+            return .failure(error)
+        }
     }
 
     private func instantiate(_ component: AudioUnitComponent) async throws(EngineLoadError) -> Node {
