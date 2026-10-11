@@ -12,13 +12,13 @@ import Observation
 @MainActor @Observable
 final class ChannelStripPresenter {
     var sourceTitle: String {
-        session.content.audioUnit?.component.kind == .instrument ? "Instrument" : "Input"
+        session.sourceSlot.component?.kind == .instrument ? "Instrument" : "Input"
     }
 
     var sourceSlot: ChannelStripSlotViewState {
         ChannelStripSlotViewState(
             id: sourceIndex,
-            loaded: session.content.audioUnit.map { loaded($0.component, isBypassed: false, at: sourceIndex) },
+            content: sourceContent,
             catalogs: [catalog("Instruments", kind: .instrument), catalog("Effects", kind: .effect)]
         )
     }
@@ -27,7 +27,9 @@ final class ChannelStripPresenter {
         insertIndices.map { index in
             ChannelStripSlotViewState(
                 id: index,
-                loaded: inserts[index].map { loaded($0.component, isBypassed: $0.isBypassed, at: index) },
+                content: inserts[index].map { insert in
+                    .loaded(plugin: insert.component.plugin, isBypassed: insert.isBypassed, isSelected: selectedIndex == index)
+                } ?? .empty(isEnabled: true),
                 catalogs: [catalog("Effects", kind: .effect)]
             )
         }
@@ -75,14 +77,17 @@ final class ChannelStripPresenter {
         }
     }
 
-    private func loaded(_ component: AudioUnitComponent, isBypassed: Bool, at index: Int) -> ChannelStripSlotViewState.Loaded {
-        ChannelStripSlotViewState.Loaded(
-            name: component.name,
-            manufacturer: component.manufacturer,
-            kind: component.kind,
-            isBypassed: isBypassed,
-            isSelected: selectedIndex == index
-        )
+    private var sourceContent: ChannelStripSlotViewState.Content {
+        switch session.sourceSlot {
+        case .empty(let isEnabled):
+            .empty(isEnabled: isEnabled)
+        case .disabled(let component):
+            .disabled(plugin: component.plugin)
+        case .loading(let component):
+            .loading(plugin: component.plugin)
+        case .loaded(let audioUnit):
+            .loaded(plugin: audioUnit.component.plugin, isBypassed: false, isSelected: selectedIndex == sourceIndex)
+        }
     }
 
     private func catalog(_ title: String, kind: AudioUnitComponent.Kind) -> ChannelStripSlotViewState.Catalog {
@@ -93,14 +98,23 @@ final class ChannelStripPresenter {
     }
 }
 
-private extension HostContent {
-    var audioUnit: LoadedAudioUnit? {
-        guard case .loaded(let audioUnit) = self else { return nil }
-        return audioUnit
-    }
-}
-
 private struct PrototypeSlot {
     let component: AudioUnitComponent
     var isBypassed = false
+}
+
+private extension PluginSlotContent {
+    var component: AudioUnitComponent? {
+        switch self {
+        case .empty: nil
+        case .disabled(let component), .loading(let component): component
+        case .loaded(let audioUnit): audioUnit.component
+        }
+    }
+}
+
+private extension AudioUnitComponent {
+    var plugin: ChannelStripSlotViewState.Plugin {
+        ChannelStripSlotViewState.Plugin(name: name, manufacturer: manufacturer, kind: kind)
+    }
 }

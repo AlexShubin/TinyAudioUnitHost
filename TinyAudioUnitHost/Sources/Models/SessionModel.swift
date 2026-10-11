@@ -16,6 +16,7 @@ import PresetKit
 @MainActor
 protocol SessionModelType: AnyObject, Observable, Sendable {
     var content: HostContent { get }
+    var sourceSlot: PluginSlotContent { get }
     var activeName: String? { get }
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
@@ -42,12 +43,12 @@ struct PresetEvent: Sendable, Equatable {
 }
 
 enum HostContent: Sendable, Equatable {
-    case idle(source: AudioUnitComponent?)
-    case unmet(requirements: Set<SetupRequirement>, source: AudioUnitComponent?)
+    case idle
+    case unmet(Set<SetupRequirement>)
     case empty
-    case loading(source: AudioUnitComponent)
-    case loaded(source: LoadedAudioUnit)
-    case failed(message: String)
+    case loading
+    case loaded(LoadedAudioUnit)
+    case failed(String)
 
     var isLoaded: Bool {
         if case .loaded = self { return true }
@@ -64,9 +65,17 @@ enum HostContent: Sendable, Equatable {
     }
 }
 
+enum PluginSlotContent: Sendable, Equatable {
+    case empty(isEnabled: Bool)
+    case disabled(component: AudioUnitComponent)
+    case loading(component: AudioUnitComponent)
+    case loaded(audioUnit: LoadedAudioUnit)
+}
+
 @MainActor @Observable
 final class SessionModel: SessionModelType {
-    private(set) var content: HostContent
+    private(set) var content: HostContent = .idle
+    private(set) var sourceSlot: PluginSlotContent
     private(set) var activeName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
@@ -84,7 +93,7 @@ final class SessionModel: SessionModelType {
         self.presetProvider = presetProvider
         self.setupChecker = setupChecker
         presets = presetProvider.presets
-        content = .idle(source: presetProvider.activeComponent)
+        sourceSlot = presetProvider.disabledSlot
     }
 
     func refreshSetup() async {
@@ -149,7 +158,8 @@ final class SessionModel: SessionModelType {
 
     private func applyUnmet(_ next: Set<SetupRequirement>) async {
         if !next.isEmpty {
-            content = .unmet(requirements: next, source: presetProvider.activeComponent)
+            content = .unmet(next)
+            sourceSlot = presetProvider.disabledSlot
             return
         }
         switch content {
@@ -163,33 +173,40 @@ final class SessionModel: SessionModelType {
 
     private func loadActivePreset() async {
         guard let active = activeName else {
+            sourceSlot = .empty(isEnabled: true)
             content = .empty
             return
         }
         if let preset = presetProvider.load(name: active) {
             await load(component: preset.component, state: preset.state)
         } else {
-            content = .failed(message: "Couldn't load this preset.")
+            sourceSlot = .empty(isEnabled: true)
+            content = .failed("Couldn't load this preset.")
         }
     }
 
     private func load(component: AudioUnitComponent, state: Data?) async {
-        content = .loading(source: component)
-        let result: HostContent
+        sourceSlot = .loading(component: component)
+        content = .loading
         do {
-            result = .loaded(source: try await engine.load(component: component, state: state))
+            let audioUnit = try await engine.load(component: component, state: state)
+            finishLoad(.loaded(audioUnit), slot: .loaded(audioUnit: audioUnit))
         } catch {
-            result = .failed(message: error.message)
+            finishLoad(.failed(error.message), slot: .empty(isEnabled: true))
         }
-        if case .loading = content {
-            content = result
-        }
+    }
+
+    private func finishLoad(_ result: HostContent, slot: PluginSlotContent) {
+        guard case .loading = content else { return }
+        content = result
+        sourceSlot = slot
     }
 }
 
 private extension PresetProviderType {
-    var activeComponent: AudioUnitComponent? {
-        activeName.flatMap { load(name: $0) }?.component
+    var disabledSlot: PluginSlotContent {
+        guard let preset = activeName.flatMap({ load(name: $0) }) else { return .empty(isEnabled: false) }
+        return .disabled(component: preset.component)
     }
 }
 

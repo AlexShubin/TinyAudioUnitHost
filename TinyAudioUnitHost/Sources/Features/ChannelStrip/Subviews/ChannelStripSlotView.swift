@@ -17,10 +17,17 @@ struct ChannelStripSlotView: View {
 
     var body: some View {
         Group {
-            if let loaded = state.loaded {
-                loadedSlot(loaded)
-            } else {
-                emptySlot
+            switch state.content {
+            case .empty(let isEnabled):
+                emptySlot(isEnabled: isEnabled)
+            case .disabled(let plugin):
+                inactiveSlot(plugin, fill: plugin.kind.tint.opacity(0.35), isLoading: false)
+                    .foregroundStyle(.secondary)
+            case .loading(let plugin):
+                inactiveSlot(plugin, fill: plugin.kind.tint, isLoading: true)
+                    .foregroundStyle(.white)
+            case .loaded(let plugin, let isBypassed, let isSelected):
+                loadedSlot(plugin, isBypassed: isBypassed, isSelected: isSelected)
             }
         }
         .frame(height: 36)
@@ -30,7 +37,7 @@ struct ChannelStripSlotView: View {
 
     // MARK: - Loaded
 
-    private func loadedSlot(_ loaded: ChannelStripSlotViewState.Loaded) -> some View {
+    private func loadedSlot(_ plugin: ChannelStripSlotViewState.Plugin, isBypassed: Bool, isSelected: Bool) -> some View {
         HStack(spacing: .zero) {
             Button {
                 onAction(.toggleBypass)
@@ -42,21 +49,13 @@ struct ChannelStripSlotView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .opacity(isHovered || loaded.isBypassed ? 1 : 0)
+            .opacity(isHovered || isBypassed ? 1 : 0)
 
             Button {
                 onAction(.select)
             } label: {
-                VStack(spacing: 1) {
-                    Text(loaded.name)
-                        .font(.system(size: 11, weight: .semibold))
-                    Text(loaded.manufacturer)
-                        .font(.system(size: 9, weight: .medium))
-                        .opacity(0.7)
-                }
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+                pluginLabel(plugin)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -74,15 +73,15 @@ struct ChannelStripSlotView: View {
             .menuIndicator(.hidden)
             .opacity(isHovered ? 1 : 0)
         }
-        .foregroundStyle(loaded.isBypassed ? Color.secondary : .white)
-        .background { slotFill(loaded) }
+        .foregroundStyle(isBypassed ? Color.secondary : .white)
+        .background { slotFill(isBypassed ? Color.gray.opacity(0.3) : plugin.kind.tint) }
         .overlay {
-            if loaded.isSelected {
+            if isSelected {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .strokeBorder(.white.opacity(0.9), lineWidth: 1.5)
             }
         }
-        .help("\(loaded.name) — \(loaded.manufacturer)")
+        .help("\(plugin.name) — \(plugin.manufacturer)")
         .contextMenu { loadedMenu }
     }
 
@@ -92,22 +91,53 @@ struct ChannelStripSlotView: View {
         catalogMenu
     }
 
-    private func slotFill(_ loaded: ChannelStripSlotViewState.Loaded) -> some View {
+    // MARK: - Loading / Disabled
+
+    private func inactiveSlot(_ plugin: ChannelStripSlotViewState.Plugin, fill: Color, isLoading: Bool) -> some View {
+        pluginLabel(plugin)
+            .padding(.horizontal, 22)
+            .overlay(alignment: .leading) {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .environment(\.colorScheme, .dark)
+                        .frame(width: 22)
+                }
+            }
+            .background { slotFill(fill) }
+    }
+
+    // MARK: - Shared
+
+    private func pluginLabel(_ plugin: ChannelStripSlotViewState.Plugin) -> some View {
+        VStack(spacing: 1) {
+            Text(plugin.name)
+                .font(.system(size: 11, weight: .semibold))
+            Text(plugin.manufacturer)
+                .font(.system(size: 9, weight: .medium))
+                .opacity(0.7)
+        }
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func slotFill(_ color: Color) -> some View {
         let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
         return shape
             .fill(Color(nsColor: .windowBackgroundColor))
-            .overlay { shape.fill(loaded.isBypassed ? Color.gray.opacity(0.3) : loaded.kind.tint) }
+            .overlay { shape.fill(color) }
     }
 
     // MARK: - Empty
 
-    private var emptySlot: some View {
-        Menu {
+    private func emptySlot(isEnabled: Bool) -> some View {
+        let isHighlighted = isHovered && isEnabled
+        return Menu {
             catalogMenu
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isHovered ? .primary : .tertiary)
+                .foregroundStyle(isHighlighted ? .primary : .tertiary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -116,7 +146,7 @@ struct ChannelStripSlotView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(
-                            isHovered ? .secondary : .quaternary,
+                            isHighlighted ? .secondary : .quaternary,
                             style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                         )
                 }
@@ -124,6 +154,7 @@ struct ChannelStripSlotView: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
+        .disabled(!isEnabled)
         .help("Add Plug-in")
     }
 
@@ -153,12 +184,17 @@ enum ChannelStripSlotViewAction {
 }
 
 struct ChannelStripSlotViewState: Equatable, Identifiable {
-    struct Loaded: Equatable {
+    enum Content: Equatable {
+        case empty(isEnabled: Bool)
+        case disabled(plugin: Plugin)
+        case loading(plugin: Plugin)
+        case loaded(plugin: Plugin, isBypassed: Bool, isSelected: Bool)
+    }
+
+    struct Plugin: Equatable {
         let name: String
         let manufacturer: String
         let kind: AudioUnitComponent.Kind
-        let isBypassed: Bool
-        let isSelected: Bool
     }
 
     struct Catalog: Equatable, Identifiable {
@@ -176,7 +212,7 @@ struct ChannelStripSlotViewState: Equatable, Identifiable {
     }
 
     let id: Int
-    let loaded: Loaded?
+    let content: Content
     let catalogs: [Catalog]
 }
 
