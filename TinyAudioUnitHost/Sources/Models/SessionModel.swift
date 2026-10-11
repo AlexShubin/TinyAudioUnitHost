@@ -82,6 +82,8 @@ final class SessionModel: SessionModelType {
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
 
+    private let sourcePosition = 0
+
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
     @ObservationIgnored private let setupChecker: SetupCheckerType
@@ -111,7 +113,7 @@ final class SessionModel: SessionModelType {
     }
 
     func unloadComponent() async {
-        await engine.unload()
+        await engine.unload(at: sourcePosition)
         sourceSlot = .empty(isEnabled: true)
         content = .empty
     }
@@ -212,7 +214,7 @@ final class SessionModel: SessionModelType {
         sourceSlot = .loading(component: component)
         content = .loading
         do {
-            let audioUnit = try await engine.load(component: component, state: state)
+            let audioUnit = try await engine.load(component: component, state: state, at: sourcePosition)
             audioUnit.isBypassed = isBypassed
             finishLoad(.loaded(audioUnit), slot: .loaded(audioUnit: audioUnit, isBypassed: isBypassed))
         } catch {

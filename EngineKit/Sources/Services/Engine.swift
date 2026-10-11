@@ -18,12 +18,17 @@ public enum EngineLoadError: Error, Sendable, Equatable {
 }
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit
-    func unload() async
+    func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
+    func unload(at position: Int) async
     func reload() async throws(EngineLoadError)
 }
 
 final actor Engine: EngineType {
+    private struct Node {
+        let avAudioUnit: AVAudioUnit
+        let audioUnit: LoadedAudioUnit
+    }
+
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Engine")
 
     private let engine: AVAudioEngineType
@@ -32,7 +37,7 @@ final actor Engine: EngineType {
     private let audioUnitGateway: AudioUnitGatewayType
     private let midiManager: MidiManagerType
     private let audioSettings: AudioSettingsModelType
-    private var currentAVAudioUnit: AVAudioUnit?
+    private var chain: [Int: Node] = [:]
 
     init(
         engine: AVAudioEngineType,
@@ -51,36 +56,59 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
-        await unload()
+    func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+        await tearDown()
+        detachNode(at: position)
 
-        let audioUnit = try await loadAudioUnit(component)
-        if let state { audioUnit.fullState = state }
-
+        let node: Node
         do {
-            try await applyConnections()
+            node = try await instantiate(component)
         } catch {
-            unloadAudioUnit()
+            try? await rebuild()
             throw error
         }
-        logging { try engine.start() }
+        if let state { node.audioUnit.fullState = state }
+        chain[position] = node
 
-        await midiManager.setupMIDI(for: audioUnit)
-
-        return audioUnit
+        do {
+            try await rebuild()
+        } catch {
+            detachNode(at: position)
+            throw error
+        }
+        return node.audioUnit
     }
 
-    func unload() async {
-        engine.stop()
-        disconnect()
-        await midiManager.teardownMIDI()
-        unloadAudioUnit()
+    func unload(at position: Int) async {
+        await tearDown()
+        detachNode(at: position)
+        try? await rebuild()
     }
 
     func reload() async throws(EngineLoadError) {
-        guard currentAVAudioUnit != nil else { return }
+        guard !chain.isEmpty else { return }
         engine.stop()
         disconnect()
+        try await connectAndStart()
+    }
+
+    private var orderedNodes: [Node] {
+        chain.sorted { $0.key < $1.key }.map(\.value)
+    }
+
+    private func tearDown() async {
+        engine.stop()
+        disconnect()
+        await midiManager.teardownMIDI()
+    }
+
+    private func rebuild() async throws(EngineLoadError) {
+        guard let first = orderedNodes.first else { return }
+        try await connectAndStart()
+        await midiManager.setupMIDI(for: first.audioUnit)
+    }
+
+    private func connectAndStart() async throws(EngineLoadError) {
         try await applyConnections()
         logging { try engine.start() }
     }
@@ -91,13 +119,17 @@ final actor Engine: EngineType {
 
         try bindDevice(device, settings: settings)
 
-        guard let avAudioUnit = currentAVAudioUnit else { return }
+        let nodes = orderedNodes.map(\.avAudioUnit)
+        guard let first = nodes.first, let last = nodes.last else { return }
 
-        if let input = settings.inputChannel, avAudioUnit.acceptsAudioInput {
-            connectInputs(avAudioUnit: avAudioUnit, channels: input)
+        if let input = settings.inputChannel, first.acceptsAudioInput {
+            connectInputs(avAudioUnit: first, channels: input)
+        }
+        for (source, destination) in zip(nodes, nodes.dropFirst()) {
+            connect(source, to: destination)
         }
         if let output = settings.outputChannel {
-            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: settings.outputOffset)
+            connectOutputs(avAudioUnit: last, channels: output, hardwareOffset: settings.outputOffset)
         }
     }
 
@@ -159,27 +191,31 @@ final actor Engine: EngineType {
         engine.disconnectHardwareInput()
     }
 
-    private func loadAudioUnit(_ component: AudioUnitComponent) async throws(EngineLoadError) -> LoadedAudioUnit {
+    private func connect(_ source: AVAudioUnit, to destination: AVAudioUnit) {
+        let format = AVAudioFormat(
+            standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
+            channels: source.auAudioUnit.outputBusses[0].format.channelCount
+        )
+        engine.connect(source, to: destination, format: format)
+    }
+
+    private func instantiate(_ component: AudioUnitComponent) async throws(EngineLoadError) -> Node {
         do {
             let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: component.componentDescription,
                 options: .loadOutOfProcess
             )
-
-            currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
-
-            return LoadedAudioUnit(avAudioUnit.auAudioUnit)
+            return Node(avAudioUnit: avAudioUnit, audioUnit: LoadedAudioUnit(avAudioUnit.auAudioUnit))
         } catch {
             logger.warning("AU instantiation failed: \(String(describing: error), privacy: .public)")
             throw EngineLoadError.audioUnitInstantiationFailed
         }
     }
 
-    private func unloadAudioUnit() {
-        guard let node = currentAVAudioUnit else { return }
-        engine.detach(node)
-        currentAVAudioUnit = nil
+    private func detachNode(at position: Int) {
+        guard let node = chain.removeValue(forKey: position) else { return }
+        engine.detach(node.avAudioUnit)
     }
 
     private func logging(_ work: () throws -> Void) {
