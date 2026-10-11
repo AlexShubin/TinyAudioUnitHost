@@ -16,16 +16,16 @@ import Testing
 @Suite
 struct AppCommandsPresenterTests {
     var sessionSpy: SessionModelSpy!
-    var saveAsCommandSpy: BindableCommandSpy!
+    var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: AppCommandsPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()
-        saveAsCommandSpy = BindableCommandSpy()
+        presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 
     mutating func createSut() {
-        sut = AppCommandsPresenter(session: sessionSpy, saveAsCommand: saveAsCommandSpy)
+        sut = AppCommandsPresenter(session: sessionSpy, presetsNavigation: presetsNavigationSpy)
     }
 
     // MARK: - actions
@@ -49,12 +49,12 @@ struct AppCommandsPresenterTests {
     }
 
     @Test
-    mutating func saveAsPreset_executesSaveAsCommand() {
+    mutating func saveAsPreset_presentsSaveAsDialog() {
         createSut()
 
         sut.saveAsPreset()
 
-        #expect(saveAsCommandSpy.calls == [.execute])
+        #expect(presetsNavigationSpy.presentedNameDialogMode == .saveAs)
         #expect(sessionSpy.calls.isEmpty)
     }
 
