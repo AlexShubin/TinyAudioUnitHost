@@ -183,7 +183,7 @@ final class SessionModel: SessionModelType {
     private func load(_ component: AudioUnitComponent, state: Data?, isBypassed: Bool, at index: Int) async {
         set(.loading(component: component), at: index)
         do {
-            let audioUnit = try await engine.load(component: component, state: state, at: index)
+            let audioUnit = try await engine.load(EnginePluginSlot(component: component, state: state), at: index)
             audioUnit.isBypassed = isBypassed
             finishLoad(.loaded(audioUnit: audioUnit, isBypassed: isBypassed), at: index)
         } catch {

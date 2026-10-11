@@ -17,8 +17,8 @@ public enum EngineLoadError: Error, Sendable, Equatable {
 }
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
-    func loadChain(_ slots: [ChainSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?]
+    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
+    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?]
     func unload(at position: Int) async
     func reload() async
 }
@@ -56,15 +56,15 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
         await tearDown()
         detachNode(at: position)
-        let result = await insert(ChainSlot(component: component, state: state), at: position)
+        let result = await insert(slot, at: position)
         await rebuild()
         return try result.get()
     }
 
-    func loadChain(_ slots: [ChainSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
         await tearDown()
         for position in chain.keys {
             detachNode(at: position)
@@ -204,7 +204,7 @@ final actor Engine: EngineType {
         engine.connect(source, to: destination, format: format)
     }
 
-    private func insert(_ slot: ChainSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
+    private func insert(_ slot: EnginePluginSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
         do {
             let node = try await instantiate(slot.component)
             if let state = slot.state { node.audioUnit.fullState = state }

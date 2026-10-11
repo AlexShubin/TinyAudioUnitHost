@@ -1,5 +1,5 @@
 //
-//  ChainSlot.swift
+//  EnginePluginSlot.swift
 //  EngineKit
 //
 //  Created by Alex Shubin on 11.10.26.
@@ -9,7 +9,7 @@
 import AudioUnitsKit
 import Foundation
 
-public struct ChainSlot: Sendable, Equatable {
+public struct EnginePluginSlot: Sendable, Equatable {
     public let component: AudioUnitComponent
     public let state: Data?
 
