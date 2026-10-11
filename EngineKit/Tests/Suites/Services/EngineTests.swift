@@ -61,7 +61,7 @@ struct EngineTests {
 
         var thrown: Error?
         do {
-            _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+            _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         } catch {
             thrown = error
         }
@@ -80,7 +80,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        let result = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         #expect(result.component == Self.effectComponent)
         var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
@@ -104,7 +104,7 @@ struct EngineTests {
         createSut()
 
         try await Task(priority: .utility) { [sut] in
-            _ = try await sut!.load(component: Self.effectComponent, state: stateAtMax, at: 0)
+            _ = try await sut!.load(.fake(component: Self.effectComponent, state: stateAtMax), at: 0)
         }.value
 
         #expect(parameter.value == parameter.maxValue)
@@ -119,10 +119,10 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(firstAU)
         createSut()
 
-        let firstResult = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let firstResult = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(secondAU)
 
-        let secondResult = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let secondResult = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
         expected += tearDownCalls + [.attach(firstAU)]
@@ -153,7 +153,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         #expect(audioUnitGatewaySpy.calls == [
             .setEnableIO(true, .input, outputAU),
@@ -170,7 +170,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         #expect(audioUnitGatewaySpy.calls.isEmpty)
         #expect(avEngineSpy.calls.contains(.attach(avAudioUnit)))
@@ -186,7 +186,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        let result = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
         expected += tearDownCalls + [.attach(avAudioUnit)]
@@ -207,7 +207,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        let result = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
         expected += tearDownCalls + [.attach(avAudioUnit)]
@@ -229,7 +229,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
         #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], .input, inputAU)])
@@ -249,7 +249,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = try await sut.load(component: Self.mixerComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.mixerComponent), at: 0)
 
         #expect(!avEngineSpy.calls.contains { if case .connectHardwareInput = $0 { true } else { false } })
         #expect(!audioUnitGatewaySpy.calls.contains { if case .setChannelMap(_, .input, _) = $0 { true } else { false } })
@@ -269,7 +269,7 @@ struct EngineTests {
         audioUnitGatewaySpy.physicalChannelCountResult = 4
         createSut()
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         let outputFormat = AVAudioFormat(
             standardFormatWithSampleRate: 48_000,
@@ -285,6 +285,122 @@ struct EngineTests {
         #expect(avEngineSpy.calls.contains(.connectToMainMixer(avAudioUnit, outputFormat)))
     }
 
+    // MARK: - load slots
+
+    @Test
+    mutating func loadSlots_attachesEachSlotAndStartsOnce() async throws {
+        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let second = try await Self.makeAVAudioUnit(Self.delayDescription)
+        audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResultByDescription = [
+            Self.effectDescription: .success(first),
+            Self.delayDescription: .success(second),
+        ]
+        createSut()
+
+        let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
+
+        #expect(results.map(\.?.component) == [Self.effectComponent, Self.delayComponent])
+        #expect(avEngineSpy.calls.contains(.attach(first)))
+        #expect(avEngineSpy.calls.contains(.attach(second)))
+        #expect(avEngineSpy.calls.contains(.connect(first, second, Self.outputFormat(of: first))))
+        #expect(avEngineSpy.calls.filter { $0 == .start } == [.start])
+        #expect(avEngineSpy.calls.last == .start)
+    }
+
+    @Test
+    mutating func loadSlots_setsUpMIDIForFirstSlotOnce() async throws {
+        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let second = try await Self.makeAVAudioUnit(Self.delayDescription)
+        avAudioUnitFactorySpy.instantiateResultByDescription = [
+            Self.effectDescription: .success(first),
+            Self.delayDescription: .success(second),
+        ]
+        createSut()
+
+        let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
+
+        let firstLoaded = try #require(try results[0]?.get())
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI, .setupMIDI(firstLoaded)])
+    }
+
+    @Test
+    mutating func loadSlots_gap_returnsNilAndConnectsAcrossIt() async throws {
+        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let third = try await Self.makeAVAudioUnit(Self.delayDescription)
+        audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResultByDescription = [
+            Self.effectDescription: .success(first),
+            Self.delayDescription: .success(third),
+        ]
+        createSut()
+
+        let results = await sut.load([.fake(component: Self.effectComponent), nil, .fake(component: Self.delayComponent)])
+
+        #expect(results.map(\.?.component) == [Self.effectComponent, nil, Self.delayComponent])
+        #expect(avAudioUnitFactorySpy.calls.count == 2)
+        #expect(avEngineSpy.calls.contains(.connect(first, third, Self.outputFormat(of: first))))
+    }
+
+    @Test
+    mutating func loadSlots_oneFails_returnsFailureAndStartsTheRest() async throws {
+        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
+        audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResultByDescription = [Self.effectDescription: .success(first)]
+        createSut()
+
+        let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
+
+        #expect(results.map(\.?.component) == [Self.effectComponent, nil])
+        #expect(results[1] == .failure(.audioUnitInstantiationFailed))
+        #expect(avEngineSpy.calls.contains(.attach(first)))
+        #expect(avEngineSpy.calls.last == .start)
+    }
+
+    @Test
+    mutating func loadSlots_existingChain_detachesEveryOldNode() async throws {
+        let old = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let oldInsert = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let new = try await Self.makeAVAudioUnit(Self.delayDescription)
+        audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResult = .success(old)
+        createSut()
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        avAudioUnitFactorySpy.instantiateResult = .success(oldInsert)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 3)
+        avAudioUnitFactorySpy.instantiateResult = .success(new)
+        let callsBefore = avEngineSpy.calls.count
+
+        _ = await sut.load([.fake(component: Self.delayComponent)])
+
+        let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
+        #expect(calls.contains(.detach(old)))
+        #expect(calls.contains(.detach(oldInsert)))
+        #expect(calls.contains(.attach(new)))
+        #expect(!calls.contains { if case .connect = $0 { true } else { false } })
+        #expect(calls.last == .start)
+    }
+
+    @Test
+    mutating func loadSlots_empty_detachesChainAndStaysStopped() async throws {
+        let old = try await Self.makeAVAudioUnit(Self.effectDescription)
+        audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake()
+        avAudioUnitFactorySpy.instantiateResult = .success(old)
+        createSut()
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let callsBefore = avEngineSpy.calls.count
+
+        let results = await sut.load([])
+
+        #expect(results.isEmpty)
+        #expect(Array(avEngineSpy.calls.dropFirst(callsBefore)) == tearDownCalls + [.detach(old)] + tearDownCalls)
+    }
+
     // MARK: - chain
 
     @Test
@@ -296,11 +412,11 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
         let callsBefore = avEngineSpy.calls.count
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.connect(first, second, Self.outputFormat(of: first))))
@@ -317,11 +433,11 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(upper)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 2)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 2)
         avAudioUnitFactorySpy.instantiateResult = .success(lower)
         let callsBefore = avEngineSpy.calls.count
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.connect(lower, upper, Self.outputFormat(of: lower))))
@@ -337,13 +453,13 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
         avAudioUnitFactorySpy.instantiateResult = .success(replacement)
         let callsBefore = avEngineSpy.calls.count
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.detach(second)))
@@ -357,10 +473,10 @@ struct EngineTests {
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        let firstLoaded = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let firstLoaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
 
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
 
         #expect(midiManagerSpy.calls == [
             .teardownMIDI, .teardownMIDI, .setupMIDI(firstLoaded),
@@ -375,13 +491,13 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        let firstLoaded = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let firstLoaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         let callsBefore = avEngineSpy.calls.count
 
         var thrown: EngineLoadError?
         do {
-            _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+            _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
         } catch {
             thrown = error
         }
@@ -398,11 +514,11 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         let callsBefore = avEngineSpy.calls.count
 
-        _ = try? await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try? await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.detach(first)))
@@ -422,11 +538,11 @@ struct EngineTests {
         factory.onInstantiate = {
             factory.onInstantiate = nil
             factory.instantiateResult = .success(second)
-            _ = try? await engine.load(component: Self.effectComponent, state: nil, at: 1)
+            _ = try? await engine.load(.fake(component: Self.effectComponent), at: 1)
             factory.instantiateResult = .success(first)
         }
 
-        let firstLoaded = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let firstLoaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         let lastRebuild = avEngineSpy.calls.suffix(from: try #require(avEngineSpy.calls.lastIndex(of: .stop)))
         #expect(lastRebuild.contains(.connect(first, second, Self.outputFormat(of: first))))
@@ -443,11 +559,11 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(middle)
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 1)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
         avAudioUnitFactorySpy.instantiateResult = .success(last)
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 2)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 2)
         let callsBefore = avEngineSpy.calls.count
 
         await sut.unload(at: 1)
@@ -463,7 +579,7 @@ struct EngineTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
-        let loaded = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         let callsAfterLoad = avEngineSpy.calls
 
         await sut.unload(at: 0)
@@ -489,7 +605,7 @@ struct EngineTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         await sut.unload(at: 0)
         let callsAfterUnload = avEngineSpy.calls
 
@@ -524,7 +640,7 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         let callsAfterLoad = avEngineSpy.calls
 
         await sut.reload()
@@ -545,7 +661,7 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         audioSettingsSpy.setup = .met
         let callsAfterLoad = avEngineSpy.calls
 
@@ -561,7 +677,7 @@ struct EngineTests {
         audioSettingsSpy.targetDevice = .fake()
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
-        _ = try await sut.load(component: Self.effectComponent, state: nil, at: 0)
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         audioSettingsSpy.setup = .unmet([.noOutputDevice])
         let callsAfterLoad = avEngineSpy.calls
 
@@ -584,6 +700,14 @@ private extension EngineTests {
         componentFlagsMask: 0
     )
 
+    static let delayDescription = AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_Delay,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    )
+
     static let mixerDescription = AudioComponentDescription(
         componentType: kAudioUnitType_Mixer,
         componentSubType: kAudioUnitSubType_MultiChannelMixer,
@@ -594,6 +718,10 @@ private extension EngineTests {
 
     static var effectComponent: AudioUnitComponent {
         AudioUnitComponent(id: effectDescription.componentID, name: "Dyn", manufacturer: "Apple")
+    }
+
+    static var delayComponent: AudioUnitComponent {
+        AudioUnitComponent(id: delayDescription.componentID, name: "Delay", manufacturer: "Apple")
     }
 
     static var mixerComponent: AudioUnitComponent {
@@ -618,6 +746,12 @@ private extension EngineTests {
 
     static func makeAVAudioUnit(_ desc: AudioComponentDescription) async throws -> AVAudioUnit {
         try await AVAudioUnit.instantiate(with: desc, options: [])
+    }
+}
+
+private extension Result<LoadedAudioUnit, EngineLoadError> {
+    var component: AudioUnitComponent? {
+        try? get().component
     }
 }
 

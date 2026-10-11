@@ -12,7 +12,8 @@ import Foundation
 
 public final class EngineSpy: EngineType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
-        case load(AudioUnitComponent, Data?, Int)
+        case load(EnginePluginSlot, at: Int)
+        case load([EnginePluginSlot?])
         case unload(Int)
         case reload
     }
@@ -26,10 +27,16 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
 
     /// Runs while the load is in flight, before the result is returned.
     public var onLoad: (@Sendable () async -> Void)?
-    public func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
-        calls.append(.load(component, state, position))
+    public func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+        calls.append(.load(slot, at: position))
         await onLoad?()
         return try loadResult.get()
+    }
+
+    public var loadSlotsResult: [Result<LoadedAudioUnit, EngineLoadError>?] = []
+    public func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+        calls.append(.load(slots))
+        return loadSlotsResult
     }
 
     public func unload(at position: Int) async {

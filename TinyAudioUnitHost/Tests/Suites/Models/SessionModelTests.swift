@@ -87,7 +87,7 @@ struct SessionModelTests {
         await sut.load()
 
         #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
-        #expect(engineSpy.calls == [.load(component, Data([0x01]), 0)])
+        #expect(engineSpy.calls == [.load(.fake(component: component, state: Data([0x01])), at: 0)])
     }
 
     @Test
@@ -138,7 +138,7 @@ struct SessionModelTests {
         await sut.load(component, at: 0)
 
         #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
-        #expect(engineSpy.calls == [.load(component, nil, 0)])
+        #expect(engineSpy.calls == [.load(.fake(component: component), at: 0)])
         #expect(sut.isBusy == false)
     }
 
@@ -177,7 +177,7 @@ struct SessionModelTests {
 
         await sut.load(second, at: 1)
 
-        #expect(engineSpy.calls == [.load(first, nil, 0), .load(second, nil, 1)])
+        #expect(engineSpy.calls == [.load(.fake(component: first), at: 0), .load(.fake(component: second), at: 1)])
         #expect(sut.slots.count == 2)
     }
 
@@ -203,7 +203,7 @@ struct SessionModelTests {
 
         await sut.unload(at: 0)
 
-        #expect(engineSpy.calls == [.load(component, nil, 0), .unload(0)])
+        #expect(engineSpy.calls == [.load(.fake(component: component), at: 0), .unload(0)])
         #expect(sut.slots == [])
     }
 
@@ -333,7 +333,7 @@ struct SessionModelTests {
         #expect(sut.activePresetName == "foo")
         #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
         #expect(presetProviderSpy.calls.contains(.setActive("foo")))
-        #expect(engineSpy.calls == [.load(component, Data([0x07]), 0)])
+        #expect(engineSpy.calls == [.load(.fake(component: component, state: Data([0x07])), at: 0)])
     }
 
     @Test

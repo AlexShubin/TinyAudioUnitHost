@@ -14,6 +14,7 @@ let project = Project.library(
     testSupportDependencies: [
         .module("AudioSettingsKit"),
         .module("AudioUnitsKit"),
+        .testSupport("AudioUnitsKit"),
     ],
     tests: [
         .module("AudioToolboxGatewayKit"),
