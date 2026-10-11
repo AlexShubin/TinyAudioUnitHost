@@ -17,24 +17,20 @@ enum HostContent: Sendable, Equatable {
     case loading
     case loaded(LoadedAudioUnit)
     case failed(String)
-
-    var isLoaded: Bool {
-        if case .loaded = self { return true }
-        return false
-    }
-
-    /// True for states the user can act on from the UI. False while loading and when blocked (.unmet).
-    var isOperable: Bool {
-        switch self {
-        case .empty, .loaded, .failed: return true
-        case .loading, .unmet: return false
-        }
-    }
 }
 
 @MainActor @Observable
 final class HostPresenter {
-    var content: HostContent { session.content }
+    var content: HostContent {
+        switch session.setup {
+        case .checking:
+            .loading
+        case .unmet(let requirements):
+            .unmet(requirements)
+        case .met:
+            session.slots.indices.contains(session.selectedIndex) ? session.slots[session.selectedIndex].hostContent : .empty
+        }
+    }
 
     var feedback: FeedbackToastViewState? {
         session.presetEvent.map { FeedbackToastViewState(id: $0.id, kind: $0.kind.feedbackKind) }
@@ -42,8 +38,8 @@ final class HostPresenter {
 
     var presetLabel: String { "Preset: \(session.activePresetName ?? "—")" }
 
-    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.content.isLoaded }
-    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || !session.content.isOperable }
+    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
+    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
     var isStarFilled: Bool { purchases.state.isPro }
 
     private let session: SessionModelType
@@ -75,6 +71,17 @@ private extension PresetEvent.Kind {
         switch self {
         case .saved: .saved
         case .restored: .restored
+        }
+    }
+}
+
+private extension PluginSlotContent {
+    var hostContent: HostContent {
+        switch self {
+        case .empty: .empty
+        case .pending, .loading: .loading
+        case .loaded(let audioUnit, _): .loaded(audioUnit)
+        case .failed(_, let message): .failed(message)
         }
     }
 }

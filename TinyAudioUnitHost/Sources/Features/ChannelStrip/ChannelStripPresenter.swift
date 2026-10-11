@@ -12,37 +12,16 @@ import Observation
 @MainActor @Observable
 final class ChannelStripPresenter {
     var sourceTitle: String {
-        session.sourceSlot.component?.kind == .instrument ? "Instrument" : "Input"
+        session.slots.first?.component?.kind == .instrument ? "Instrument" : "Input"
     }
 
     var sourceSlot: ChannelStripSlotViewState {
-        ChannelStripSlotViewState(
-            id: sourceIndex,
-            content: sourceContent,
-            catalogs: [catalog("Instruments", kind: .instrument), catalog("Effects", kind: .effect)]
-        )
+        slotState(at: 0)
     }
 
     var insertSlots: [ChannelStripSlotViewState] {
-        insertIndices.map { index in
-            ChannelStripSlotViewState(
-                id: index,
-                content: inserts[index].map { insert in
-                    .loaded(
-                        component: insert.component,
-                        bypass: insert.component.bypass(isBypassed: insert.isBypassed),
-                        isSelected: selectedIndex == index
-                    )
-                } ?? .empty(isEnabled: true),
-                catalogs: [catalog("Effects", kind: .effect)]
-            )
-        }
+        (1..<session.slots.count + 1).map(slotState)
     }
-
-    private let sourceIndex = 0
-    private let insertIndices = 1...5
-    private var selectedIndex: Int? = 0
-    private var inserts: [Int: PrototypeSlot] = [:]
 
     private let library: AudioUnitComponentsLibraryType
     private let session: SessionModelType
@@ -52,53 +31,52 @@ final class ChannelStripPresenter {
         self.session = session
     }
 
-    func handleSource(_ action: ChannelStripSlotViewAction) async {
+    func handleSlot(_ action: ChannelStripSlotViewAction, at index: Int) async {
         switch action {
         case .select:
-            selectedIndex = sourceIndex
+            session.select(index)
         case .load(let component):
-            selectedIndex = sourceIndex
-            await session.loadComponent(component)
+            await session.load(component, at: index)
         case .remove:
-            await session.unloadComponent()
+            await session.unload(at: index)
         case .toggleBypass:
-            guard case .loaded(_, let isBypassed) = session.sourceSlot else { return }
-            session.setSourceBypassed(!isBypassed)
+            guard case .loaded(_, let isBypassed) = slot(at: index) else { return }
+            session.setBypassed(!isBypassed, at: index)
         }
     }
 
-    func handleInsert(_ action: ChannelStripSlotViewAction, at index: Int) {
-        switch action {
-        case .select:
-            selectedIndex = index
-        case .toggleBypass:
-            inserts[index]?.isBypassed.toggle()
-        case .load(let component):
-            inserts[index] = PrototypeSlot(component: component)
-            selectedIndex = index
-        case .remove:
-            inserts[index] = nil
-            if selectedIndex == index {
-                selectedIndex = nil
-            }
-        }
+    private func slotState(at index: Int) -> ChannelStripSlotViewState {
+        ChannelStripSlotViewState(
+            id: index,
+            content: content(at: index),
+            catalogs: index == 0
+                ? [catalog("Instruments", kind: .instrument), catalog("Effects", kind: .effect)]
+                : [catalog("Effects", kind: .effect)]
+        )
     }
 
-    private var sourceContent: ChannelStripSlotViewState.Content {
-        switch session.sourceSlot {
-        case .empty(let isEnabled):
-            .empty(isEnabled: isEnabled)
-        case .disabled(let component):
-            .disabled(component: component)
+    private func content(at index: Int) -> ChannelStripSlotViewState.Content {
+        let isSelected = session.selectedIndex == index
+        switch slot(at: index) {
+        case .empty, .failed(component: nil, _):
+            return .empty(isEnabled: session.setup == .met)
+        case .pending(let component):
+            return .disabled(component: component)
         case .loading(let component):
-            .loading(component: component)
+            return .loading(component: component)
         case .loaded(let audioUnit, let isBypassed):
-            .loaded(
+            return .loaded(
                 component: audioUnit.component,
                 bypass: audioUnit.component.bypass(isBypassed: isBypassed),
-                isSelected: selectedIndex == sourceIndex
+                isSelected: isSelected
             )
+        case .failed(let component?, _):
+            return .failed(component: component, isSelected: isSelected)
         }
+    }
+
+    private func slot(at index: Int) -> PluginSlotContent {
+        session.slots.indices.contains(index) ? session.slots[index] : .empty
     }
 
     private func catalog(_ title: String, kind: AudioUnitComponent.Kind) -> ChannelStripSlotViewState.Catalog {
@@ -109,17 +87,13 @@ final class ChannelStripPresenter {
     }
 }
 
-private struct PrototypeSlot {
-    let component: AudioUnitComponent
-    var isBypassed = false
-}
-
 private extension PluginSlotContent {
     var component: AudioUnitComponent? {
         switch self {
         case .empty: nil
-        case .disabled(let component), .loading(let component): component
+        case .pending(let component), .loading(let component): component
         case .loaded(let audioUnit, _): audioUnit.component
+        case .failed(let component, _): component
         }
     }
 }

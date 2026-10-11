@@ -14,22 +14,20 @@ struct ChannelStripView: View {
     var body: some View {
         VStack(spacing: 12) {
             section(presenter.sourceTitle) {
-                ChannelStripSlotView(state: presenter.sourceSlot) { action in
-                    Task { await presenter.handleSource(action) }
-                }
+                slot(presenter.sourceSlot)
             }
-            section("Inserts") {
-                VStack(spacing: 6) {
-                    ForEach(presenter.insertSlots) { state in
-                        ChannelStripSlotView(state: state) { action in
-                            presenter.handleInsert(action, at: state.id)
+            if !presenter.insertSlots.isEmpty {
+                section("Inserts") {
+                    VStack(spacing: 6) {
+                        ForEach(presenter.insertSlots) { state in
+                            slot(state)
                         }
                     }
-                }
-                .background {
-                    Capsule()
-                        .fill(.quaternary)
-                        .frame(width: 2)
+                    .background {
+                        Capsule()
+                            .fill(.quaternary)
+                            .frame(width: 2)
+                    }
                 }
             }
         }
@@ -53,6 +51,12 @@ struct ChannelStripView: View {
                     .frame(height: 1)
             }
             content()
+        }
+    }
+
+    private func slot(_ state: ChannelStripSlotViewState) -> some View {
+        ChannelStripSlotView(state: state) { action in
+            Task { await presenter.handleSlot(action, at: state.id) }
         }
     }
 }

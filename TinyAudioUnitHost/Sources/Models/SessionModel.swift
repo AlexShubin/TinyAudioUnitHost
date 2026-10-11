@@ -18,6 +18,8 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     var setup: SetupState { get }
     var slots: [PluginSlotContent] { get }
     var selectedIndex: Int { get }
+    var isBusy: Bool { get }
+    var canSavePreset: Bool { get }
     var activePresetName: String? { get }
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
@@ -68,6 +70,16 @@ final class SessionModel: SessionModelType {
     private(set) var activePresetName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
+
+    var isBusy: Bool {
+        setup != .met || slots.contains { slot in
+            if case .loading = slot { true } else { false }
+        }
+    }
+
+    var canSavePreset: Bool {
+        if case .loaded = slots.first { true } else { false }
+    }
 
     private static let sourceIndex = 0
     private static let presetFailureMessage = "Couldn't load this preset."

@@ -28,6 +28,8 @@ struct ChannelStripSlotView: View {
                     .foregroundStyle(.white)
             case .loaded(let component, let bypass, let isSelected):
                 loadedSlot(component, bypass: bypass, isSelected: isSelected)
+            case .failed(let component, let isSelected):
+                failedSlot(component, isSelected: isSelected)
             }
         }
         .frame(height: 36)
@@ -43,13 +45,35 @@ struct ChannelStripSlotView: View {
         isSelected: Bool
     ) -> some View {
         let isBypassed = bypass == .bypassed
-        return HStack(spacing: .zero) {
+        return interactiveSlot(component, isSelected: isSelected) {
             if bypass == .unavailable {
                 Color.clear
                     .frame(width: 22)
             } else {
                 bypassButton(isBypassed: isBypassed)
             }
+        }
+        .foregroundStyle(isBypassed ? Color.secondary : .white)
+        .background { slotFill(isBypassed ? Color.gray.opacity(0.3) : component.kind.tint) }
+    }
+
+    private func failedSlot(_ component: AudioUnitComponent, isSelected: Bool) -> some View {
+        interactiveSlot(component, isSelected: isSelected) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 9, weight: .bold))
+                .frame(width: 22)
+        }
+        .foregroundStyle(.secondary)
+        .background { slotFill(component.kind.tint.opacity(0.35)) }
+    }
+
+    private func interactiveSlot(
+        _ component: AudioUnitComponent,
+        isSelected: Bool,
+        @ViewBuilder leading: () -> some View
+    ) -> some View {
+        HStack(spacing: .zero) {
+            leading()
 
             Button {
                 onAction(.select)
@@ -73,8 +97,6 @@ struct ChannelStripSlotView: View {
             .menuIndicator(.hidden)
             .opacity(isHovered ? 1 : 0)
         }
-        .foregroundStyle(isBypassed ? Color.secondary : .white)
-        .background { slotFill(isBypassed ? Color.gray.opacity(0.3) : component.kind.tint) }
         .overlay {
             if isSelected {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -203,6 +225,7 @@ struct ChannelStripSlotViewState: Equatable, Identifiable {
         case disabled(component: AudioUnitComponent)
         case loading(component: AudioUnitComponent)
         case loaded(component: AudioUnitComponent, bypass: Bypass, isSelected: Bool)
+        case failed(component: AudioUnitComponent, isSelected: Bool)
     }
 
     enum Bypass {

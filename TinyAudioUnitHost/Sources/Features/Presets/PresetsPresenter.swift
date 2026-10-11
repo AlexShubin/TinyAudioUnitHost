@@ -18,8 +18,8 @@ final class PresetsPresenter {
         purchases.state.isPro ? session.presets : Array(session.presets.prefix(Self.freeTierPresetLimit))
     }
     var activeName: String? { session.activePresetName }
-    var isInteractionDisabled: Bool { !session.content.isOperable }
-    var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
+    var isInteractionDisabled: Bool { session.isBusy }
+    var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
     var presentedDialog: PresetNameDialogMode? {
         get {

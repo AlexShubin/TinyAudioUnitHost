@@ -10,9 +10,9 @@ import Observation
 
 @MainActor @Observable
 final class AppCommandsPresenter {
-    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.content.isLoaded }
-    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || !session.content.isOperable }
-    var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
+    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
+    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
+    var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
     private let session: SessionModelType
     private let saveAsCommand: CommandType
