@@ -13,6 +13,7 @@ import Foundation
 public final class EngineSpy: EngineType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
         case load(AudioUnitComponent, Data?)
+        case unload
         case reload
     }
 
@@ -34,6 +35,10 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
         calls.append(.load(component, state))
         await onLoad?()
         return try loadResult.get()
+    }
+
+    public func unload() async {
+        calls.append(.unload)
     }
 
     public func reload() async throws(EngineLoadError) {

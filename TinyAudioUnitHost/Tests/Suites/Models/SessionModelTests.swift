@@ -335,6 +335,39 @@ struct SessionModelTests {
         #expect(sut.sourceSlot == .empty(isEnabled: true))
     }
 
+    // MARK: - unloadComponent
+
+    @Test
+    mutating func unloadComponent_unloadsEngineAndEmptiesContentAndSourceSlot() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        createSut()
+        await sut.loadComponent(component)
+
+        await sut.unloadComponent()
+
+        #expect(engineSpy.calls == [.load(component, nil), .unload])
+        #expect(sut.content == .empty)
+        #expect(sut.sourceSlot == .empty(isEnabled: true))
+    }
+
+    @Test
+    mutating func unloadComponent_keepsActivePreset() async {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
+        createSut()
+        await sut.refreshSetup()
+
+        await sut.unloadComponent()
+
+        #expect(sut.activeName == "foo")
+        #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
+    }
+
     // MARK: - selectPreset
 
     @Test

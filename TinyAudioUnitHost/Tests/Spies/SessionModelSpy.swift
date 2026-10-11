@@ -18,6 +18,7 @@ final class SessionModelSpy: SessionModelType {
         case refreshSetup
         case acknowledgePresetEvent
         case loadComponent(AudioUnitComponent)
+        case unloadComponent
         case selectPreset(name: String)
         case saveCurrentPreset
         case restoreActivePreset
@@ -37,6 +38,7 @@ final class SessionModelSpy: SessionModelType {
     func refreshSetup() async { calls.append(.refreshSetup) }
     func acknowledgePresetEvent() { calls.append(.acknowledgePresetEvent) }
     func loadComponent(_ component: AudioUnitComponent) async { calls.append(.loadComponent(component)) }
+    func unloadComponent() async { calls.append(.unloadComponent) }
     func selectPreset(name: String) async { calls.append(.selectPreset(name: name)) }
     func saveCurrentPreset() { calls.append(.saveCurrentPreset) }
     func restoreActivePreset() async { calls.append(.restoreActivePreset) }

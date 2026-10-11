@@ -260,6 +260,56 @@ struct EngineTests {
     }
 
     @Test
+    mutating func unload_withAudioUnit_stopsDisconnectsAndDetaches() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        let loaded = try await sut.load(component: Self.effectComponent, state: nil)
+        let callsAfterLoad = avEngineSpy.calls
+
+        await sut.unload()
+
+        #expect(Array(avEngineSpy.calls.dropFirst(callsAfterLoad.count)) == [
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerSpy),
+            .disconnectHardwareInput,
+            .detach(avAudioUnit)
+        ])
+        #expect(midiManagerSpy.calls == [.teardownMIDI, .setupMIDI(loaded), .teardownMIDI])
+    }
+
+    @Test
+    mutating func unload_withoutAudioUnit_stopsAndDisconnectsWithoutDetach() async {
+        createSut()
+
+        await sut.unload()
+
+        #expect(avEngineSpy.calls == [
+            .attach(inputMixerSpy),
+            .stop,
+            .disconnectMainMixerInput,
+            .disconnectNodeOutput(inputMixerSpy),
+            .disconnectHardwareInput
+        ])
+        #expect(midiManagerSpy.calls == [.teardownMIDI])
+    }
+
+    @Test
+    mutating func unload_thenReload_leavesEngineUntouched() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        _ = try await sut.load(component: Self.effectComponent, state: nil)
+        await sut.unload()
+        let callsAfterUnload = avEngineSpy.calls
+
+        try await sut.reload()
+
+        #expect(avEngineSpy.calls == callsAfterUnload)
+    }
+
+    @Test
     mutating func reload_doesNotCallFactoryOrTouchMIDI() async {
         createSut()
 
