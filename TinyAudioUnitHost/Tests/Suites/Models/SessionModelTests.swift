@@ -273,6 +273,56 @@ struct SessionModelTests {
     }
 
     @Test
+    mutating func unload_selectedLastPlugin_selectsFirstPlugin() async {
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        createSut()
+        await sut.load(.fake(), at: 0)
+        await sut.load(.fake(), at: 1)
+        await sut.load(.fake(), at: 2)
+
+        await sut.unload(at: 2)
+
+        #expect(sut.selectedIndex == 0)
+    }
+
+    @Test
+    mutating func unload_selectedFirstPlugin_selectsNextPlugin() async {
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        createSut()
+        await sut.load(.fake(), at: 0)
+        await sut.load(.fake(), at: 1)
+        sut.select(0)
+
+        await sut.unload(at: 0)
+
+        #expect(sut.selectedIndex == 1)
+    }
+
+    @Test
+    mutating func unload_unselectedPlugin_keepsSelection() async {
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        createSut()
+        await sut.load(.fake(), at: 0)
+        await sut.load(.fake(), at: 1)
+        await sut.load(.fake(), at: 2)
+
+        await sut.unload(at: 1)
+
+        #expect(sut.selectedIndex == 2)
+    }
+
+    @Test
+    mutating func unload_onlyPlugin_keepsSelection() async {
+        engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: .fake())))
+        createSut()
+        await sut.load(.fake(), at: 0)
+
+        await sut.unload(at: 0)
+
+        #expect(sut.selectedIndex == 0)
+    }
+
+    @Test
     mutating func unload_keepsActivePreset() async {
         let component = AudioUnitComponent.fake()
         presetProviderSpy = PresetProviderSpy(
@@ -462,7 +512,31 @@ struct SessionModelTests {
     }
 
     @Test
-    mutating func selectPreset_keepsSelection() async {
+    mutating func selectPreset_selectionOnPlugin_keepsSelection() async {
+        let loaded = LoadedAudioUnit(component: .fake())
+        presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(), .fake(), .fake()])])
+        engineSpy.loadSlotsResult = [.success(loaded), .success(loaded), .success(loaded)]
+        createSut()
+        sut.select(2)
+
+        await sut.selectPreset(name: "foo")
+
+        #expect(sut.selectedIndex == 2)
+    }
+
+    @Test
+    mutating func selectPreset_selectionOnGap_selectsFirstPlugin() async {
+        presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo", pluginSlots: [nil, .fake()])])
+        engineSpy.loadSlotsResult = [nil, .success(LoadedAudioUnit(component: .fake()))]
+        createSut()
+
+        await sut.selectPreset(name: "foo")
+
+        #expect(sut.selectedIndex == 1)
+    }
+
+    @Test
+    mutating func selectPreset_shorterThanSelection_selectsFirstPlugin() async {
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
         engineSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: .fake()))]
         createSut()
@@ -470,7 +544,7 @@ struct SessionModelTests {
 
         await sut.selectPreset(name: "foo")
 
-        #expect(sut.selectedIndex == 2)
+        #expect(sut.selectedIndex == 0)
     }
 
     // MARK: - saveCurrentPreset
