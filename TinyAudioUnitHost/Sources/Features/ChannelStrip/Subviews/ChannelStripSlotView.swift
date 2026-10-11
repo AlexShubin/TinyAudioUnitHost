@@ -175,10 +175,6 @@ struct ChannelStripSlotView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(isHighlighted ? .primary : .tertiary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color(nsColor: .windowBackgroundColor))
-                }
                 .overlay {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(
@@ -186,11 +182,16 @@ struct ChannelStripSlotView: View {
                             style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                         )
                 }
+                .contentShape(Rectangle())
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .disabled(!isEnabled)
+        .background {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        }
         .help("Add Plug-in")
     }
 

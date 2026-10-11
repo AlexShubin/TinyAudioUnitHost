@@ -56,10 +56,14 @@ final class ChannelStripPresenter {
     }
 
     private func content(at index: Int) -> ChannelStripSlotViewState.Content {
+        let slot = slot(at: index)
+        guard session.setup == .met else {
+            return slot.component.map { .disabled(component: $0) } ?? .empty(isEnabled: false)
+        }
         let isSelected = session.selectedIndex == index
-        switch slot(at: index) {
+        switch slot {
         case .empty, .failed(component: nil, _):
-            return .empty(isEnabled: session.setup == .met)
+            return .empty(isEnabled: true)
         case .pending(let component):
             return .disabled(component: component)
         case .loading(let component):
