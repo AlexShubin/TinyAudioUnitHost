@@ -69,7 +69,7 @@ enum HostContent: Sendable, Equatable {
 
 enum PluginSlotContent: Sendable, Equatable {
     case empty(isEnabled: Bool)
-    case disabled(plugin: Preset.PluginSlot.Plugin)
+    case disabled(component: AudioUnitComponent)
     case loading(component: AudioUnitComponent)
     case loaded(audioUnit: LoadedAudioUnit, isBypassed: Bool)
 }
@@ -200,13 +200,12 @@ final class SessionModel: SessionModelType {
             content = .empty
             return
         }
-        switch slot.plugin {
-        case .installed(let component):
-            await load(component: component, state: slot.state, isBypassed: slot.isBypassed)
-        case .missing:
-            sourceSlot = .disabled(plugin: slot.plugin)
+        guard slot.isInstalled else {
+            sourceSlot = .disabled(component: slot.component)
             content = .failed("Couldn't load this preset.")
+            return
         }
+        await load(component: slot.component, state: slot.state, isBypassed: slot.isBypassed)
     }
 
     private func load(component: AudioUnitComponent, state: Data?, isBypassed: Bool) async {
@@ -232,7 +231,7 @@ final class SessionModel: SessionModelType {
               let state = audioUnit.fullState else { return nil }
         return Preset(
             name: name,
-            source: Preset.PluginSlot(plugin: .installed(audioUnit.component), state: state, isBypassed: isBypassed),
+            source: Preset.PluginSlot(component: audioUnit.component, state: state, isBypassed: isBypassed, isInstalled: true),
             inserts: []
         )
     }
@@ -240,8 +239,8 @@ final class SessionModel: SessionModelType {
 
 private extension PresetProviderType {
     var disabledSlot: PluginSlotContent {
-        guard let plugin = activeName.flatMap({ load(name: $0) })?.source?.plugin else { return .empty(isEnabled: false) }
-        return .disabled(plugin: plugin)
+        guard let component = activeName.flatMap({ load(name: $0) })?.source?.component else { return .empty(isEnabled: false) }
+        return .disabled(component: component)
     }
 }
 
