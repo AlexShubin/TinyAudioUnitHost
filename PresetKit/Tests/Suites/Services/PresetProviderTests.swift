@@ -47,7 +47,7 @@ struct PresetProviderTests {
     mutating func presets_returnsStoredNames() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         rawStoreSpy.presets = [
-            "MyPreset": rawPreset(matching: component, state: Data([0x01])),
+            "MyPreset": .fake(source: component.rawSlot(state: Data([0x01]))),
         ]
         librarySpy.components = [component]
         createSut()
@@ -59,8 +59,8 @@ struct PresetProviderTests {
     mutating func presets_componentNotInLibrary_stillListsName() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
         rawStoreSpy.presets = [
-            "Resolved": rawPreset(matching: component, state: Data()),
-            "Orphan": RawPreset(componentType: 99, componentSubType: 99, componentManufacturer: 99, state: Data()),
+            "Resolved": .fake(source: component.rawSlot()),
+            "Orphan": .fake(source: .fake(componentType: 99, componentSubType: 99, componentManufacturer: 99)),
         ]
         librarySpy.components = [component]
         createSut()
@@ -108,53 +108,176 @@ struct PresetProviderTests {
     // MARK: - load
 
     @Test
-    mutating func load_missing_returnsNil() {
+    mutating func load_noStoredPreset_returnsNil() {
         createSut()
 
-        #expect(sut.load(name: "missing") == nil)
+        #expect(sut.load(name: "absent") == nil)
     }
 
     @Test
-    mutating func load_present_returnsResolvedPreset() {
+    mutating func load_installedSource_resolvesFromLibraryWithStateAndBypass() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        rawStoreSpy.presets = ["MyPreset": rawPreset(matching: component, state: Data([0x01]))]
+        rawStoreSpy.presets = ["MyPreset": .fake(source: component.rawSlot(state: Data([0x01]), isBypassed: true))]
         librarySpy.components = [component]
         createSut()
 
-        #expect(sut.load(name: "MyPreset") == Preset(name: "MyPreset", component: component, state: Data([0x01])))
+        #expect(sut.load(name: "MyPreset") == Preset.fake(
+            name: "MyPreset",
+            source: .fake(plugin: .installed(component), state: Data([0x01]), isBypassed: true),
+            inserts: []
+        ))
     }
 
     @Test
-    mutating func load_componentNotInLibrary_returnsNil() {
+    mutating func load_installedSource_usesLibraryNameOverStoredName() {
+        let component = AudioUnitComponent.fake(name: "Live Name", componentDescription: .fakeEffect)
+        let stale = AudioUnitComponent.fake(name: "Stale Name", componentDescription: .fakeEffect)
+        rawStoreSpy.presets = ["MyPreset": .fake(source: stale.rawSlot())]
+        librarySpy.components = [component]
+        createSut()
+
+        guard case .installed(let resolved) = sut.load(name: "MyPreset")?.source?.plugin else {
+            Issue.record("expected an installed source")
+            return
+        }
+        #expect(resolved.name == "Live Name")
+    }
+
+    @Test
+    mutating func load_pluginNotInLibrary_returnsMissingWithStoredValues() {
         rawStoreSpy.presets = [
-            "Orphan": RawPreset(componentType: 99, componentSubType: 99, componentManufacturer: 99, state: Data()),
+            "Orphan": .fake(source: .fake(
+                componentType: 99,
+                componentSubType: 98,
+                componentManufacturer: 97,
+                name: "Gone",
+                manufacturer: "Old Co",
+                state: Data([0x02]),
+                isBypassed: true
+            )),
         ]
         createSut()
 
-        #expect(sut.load(name: "Orphan") == nil)
+        #expect(sut.load(name: "Orphan") == Preset.fake(
+            name: "Orphan",
+            source: .fake(
+                plugin: .missing(.fake(
+                    name: "Gone",
+                    manufacturer: "Old Co",
+                    componentType: 99,
+                    componentSubType: 98,
+                    componentManufacturer: 97
+                )),
+                state: Data([0x02]),
+                isBypassed: true
+            ),
+            inserts: []
+        ))
+    }
+
+    @Test
+    mutating func load_noSource_sourceIsNil() {
+        rawStoreSpy.presets = ["InputOnly": .fake(source: nil)]
+        createSut()
+
+        #expect(sut.load(name: "InputOnly") == Preset.fake(name: "InputOnly", source: nil, inserts: []))
+    }
+
+    @Test
+    mutating func load_inserts_keepPositionsAndResolveEach() {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        rawStoreSpy.presets = [
+            "Chain": .fake(
+                source: nil,
+                inserts: [nil, component.rawSlot(), .fake(componentType: 99, name: "Gone")]
+            ),
+        ]
+        librarySpy.components = [component]
+        createSut()
+
+        #expect(sut.load(name: "Chain")?.inserts == [
+            nil,
+            .fake(plugin: .installed(component)),
+            .fake(plugin: .missing(.fake(name: "Gone", componentType: 99))),
+        ])
     }
 
     // MARK: - save
 
     @Test
-    mutating func save_writesRawPresetAtName() {
+    mutating func save_installedSource_writesComponentIdentityStateAndBypass() {
         let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
-        let preset = Preset(name: "MyPreset", component: component, state: Data([0xBE, 0xEF]))
+        createSut()
+
+        sut.save(.fake(
+            name: "MyPreset",
+            source: .fake(plugin: .installed(component), state: Data([0xBE, 0xEF]), isBypassed: true)
+        ))
+
+        let expected = RawPreset.fake(source: component.rawSlot(state: Data([0xBE, 0xEF]), isBypassed: true))
+        #expect(rawStoreSpy.calls == [.save(expected, name: "MyPreset")])
+    }
+
+    @Test
+    mutating func save_missingSource_writesStoredValuesBack() {
+        createSut()
+
+        sut.save(.fake(
+            name: "Orphan",
+            source: .fake(
+                plugin: .missing(.fake(
+                    name: "Gone",
+                    manufacturer: "Old Co",
+                    componentType: 99,
+                    componentSubType: 98,
+                    componentManufacturer: 97
+                )),
+                state: Data([0x02]),
+                isBypassed: true
+            )
+        ))
+
+        let expected = RawPreset.fake(source: .fake(
+            componentType: 99,
+            componentSubType: 98,
+            componentManufacturer: 97,
+            name: "Gone",
+            manufacturer: "Old Co",
+            state: Data([0x02]),
+            isBypassed: true
+        ))
+        #expect(rawStoreSpy.calls == [.save(expected, name: "Orphan")])
+    }
+
+    @Test
+    mutating func save_inserts_keepGaps() {
+        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        createSut()
+
+        sut.save(.fake(name: "Chain", source: nil, inserts: [nil, .fake(plugin: .installed(component))]))
+
+        let expected = RawPreset.fake(source: nil, inserts: [nil, component.rawSlot()])
+        #expect(rawStoreSpy.calls == [.save(expected, name: "Chain")])
+    }
+
+    @Test
+    mutating func save_thenLoad_missingPluginRoundTrips() {
+        let preset = Preset.fake(
+            name: "Orphan",
+            source: .fake(plugin: .missing(.fake(name: "Gone", componentType: 99)), state: Data([0x03]))
+        )
         createSut()
 
         sut.save(preset)
 
-        let expected = rawPreset(matching: component, state: Data([0xBE, 0xEF]))
-        #expect(rawStoreSpy.calls == [.save(expected, name: "MyPreset")])
+        #expect(sut.load(name: "Orphan") == preset)
     }
-
-    // MARK: - saveAs
 
     // MARK: - rename
 
     @Test
     mutating func rename_movesFile() {
-        let preset = RawPreset.fake(componentType: 5)
+        let preset = RawPreset.fake(source: .fake(componentType: 5))
         rawStoreSpy.presets = ["old": preset]
         createSut()
 
@@ -219,16 +342,19 @@ struct PresetProviderTests {
 
         #expect(rawStoreSpy.currentActivePreset == RawActivePresetState(name: "keeper"))
     }
+}
 
-    // MARK: - Helpers
-
-    private func rawPreset(matching component: AudioUnitComponent, state: Data) -> RawPreset {
-        let desc = component.componentDescription
-        return RawPreset(
+private extension AudioUnitComponent {
+    func rawSlot(state: Data = Data(), isBypassed: Bool = false) -> RawPreset.PluginSlot {
+        let desc = componentDescription
+        return .fake(
             componentType: desc.componentType,
             componentSubType: desc.componentSubType,
             componentManufacturer: desc.componentManufacturer,
-            state: state
+            name: name,
+            manufacturer: manufacturer,
+            state: state,
+            isBypassed: isBypassed
         )
     }
 }
