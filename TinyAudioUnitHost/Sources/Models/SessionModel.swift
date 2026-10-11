@@ -24,6 +24,7 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     func acknowledgePresetEvent()
     func refreshSetup() async
     func loadComponent(_ component: AudioUnitComponent) async
+    func unloadComponent() async
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
@@ -106,6 +107,12 @@ final class SessionModel: SessionModelType {
 
     func loadComponent(_ component: AudioUnitComponent) async {
         await load(component: component, state: nil)
+    }
+
+    func unloadComponent() async {
+        await engine.unload()
+        sourceSlot = .empty(isEnabled: true)
+        content = .empty
     }
 
     func selectPreset(name: String) async {

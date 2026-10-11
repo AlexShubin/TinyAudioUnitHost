@@ -55,7 +55,9 @@ final class ChannelStripPresenter {
         case .load(let component):
             selectedIndex = sourceIndex
             await session.loadComponent(component)
-        case .toggleBypass, .remove:
+        case .remove:
+            await session.unloadComponent()
+        case .toggleBypass:
             break
         }
     }

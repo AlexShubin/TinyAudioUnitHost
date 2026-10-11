@@ -19,6 +19,7 @@ public enum EngineLoadError: Error, Sendable, Equatable {
 
 public protocol EngineType: Sendable {
     func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit
+    func unload() async
     func reload() async throws(EngineLoadError)
 }
 
@@ -51,9 +52,7 @@ final actor Engine: EngineType {
     }
 
     func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
-        engine.stop()
-        disconnect()
-        await midiManager.teardownMIDI()
+        await unload()
 
         let audioUnit = try await loadAudioUnit(component)
         if let state { audioUnit.fullState = state }
@@ -69,6 +68,13 @@ final actor Engine: EngineType {
         await midiManager.setupMIDI(for: audioUnit)
 
         return audioUnit
+    }
+
+    func unload() async {
+        engine.stop()
+        disconnect()
+        await midiManager.teardownMIDI()
+        unloadAudioUnit()
     }
 
     func reload() async throws(EngineLoadError) {
@@ -154,7 +160,6 @@ final actor Engine: EngineType {
     }
 
     private func loadAudioUnit(_ component: AudioUnitComponent) async throws(EngineLoadError) -> LoadedAudioUnit {
-        unloadAudioUnit()
         do {
             let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: component.componentDescription,
