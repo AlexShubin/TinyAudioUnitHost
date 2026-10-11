@@ -371,14 +371,20 @@ private extension EngineTests {
     )
 
     static var effectComponent: AudioUnitComponent {
-        AudioUnitComponent(name: "Dyn", manufacturer: "Apple", componentDescription: effectDescription)
+        AudioUnitComponent(id: effectDescription.componentID, name: "Dyn", manufacturer: "Apple")
     }
 
     static var mixerComponent: AudioUnitComponent {
-        AudioUnitComponent(name: "Mix", manufacturer: "Apple", componentDescription: mixerDescription)
+        AudioUnitComponent(id: mixerDescription.componentID, name: "Mix", manufacturer: "Apple")
     }
 
     static func makeAVAudioUnit(_ desc: AudioComponentDescription) async throws -> AVAudioUnit {
         try await AVAudioUnit.instantiate(with: desc, options: [])
+    }
+}
+
+private extension AudioComponentDescription {
+    var componentID: AudioUnitComponent.ID {
+        AudioUnitComponent.ID(type: componentType, subType: componentSubType, manufacturer: componentManufacturer)
     }
 }
