@@ -10,6 +10,8 @@ import AudioSettingsKit
 import AudioSettingsKitTestSupport
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
+import PurchasesKit
+import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -19,19 +21,22 @@ struct ChannelStripPresenterTests {
     var librarySpy: AudioUnitComponentsLibrarySpy!
     var sessionSpy: SessionModelSpy!
     var audioSettingsSpy: AudioSettingsModelSpy!
+    var purchasesSpy: PurchasesModelSpy!
     var sut: ChannelStripPresenter!
 
     init() {
         librarySpy = AudioUnitComponentsLibrarySpy()
         sessionSpy = SessionModelSpy()
         audioSettingsSpy = AudioSettingsModelSpy()
+        purchasesSpy = PurchasesModelSpy()
     }
 
     mutating func createSut() {
         sut = ChannelStripPresenter(
             library: librarySpy,
             session: sessionSpy,
-            audioSettings: audioSettingsSpy
+            audioSettings: audioSettingsSpy,
+            purchases: purchasesSpy
         )
     }
 
@@ -73,6 +78,7 @@ struct ChannelStripPresenterTests {
     @Test
     mutating func insertSlots_filledStrip_addsOneTrailingEmptyInsert() {
         audioSettingsSpy.setup = .met
+        purchasesSpy.state = .pro
         sessionSpy.slots = [.loading(component: Self.effect), .loading(component: Self.effect)]
         createSut()
 
@@ -159,6 +165,76 @@ struct ChannelStripPresenterTests {
         createSut()
 
         #expect(sut.sourceSlot.content == .disabled(component: Self.effect))
+    }
+
+    // MARK: - free tier
+
+    @Test
+    mutating func content_freeUserWithPlugin_emptySlotIsLocked() {
+        audioSettingsSpy.setup = .met
+        purchasesSpy.state = .free
+        sessionSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: Self.effect), isBypassed: false)]
+        createSut()
+
+        #expect(sut.insertSlots.last?.content == .locked)
+    }
+
+    @Test
+    mutating func content_freeUserWithPlugin_gapIsLocked() {
+        audioSettingsSpy.setup = .met
+        purchasesSpy.state = .free
+        sessionSpy.slots = [.empty, .loading(component: Self.effect)]
+        createSut()
+
+        #expect(sut.sourceSlot.content == .locked)
+    }
+
+    @Test
+    mutating func content_freeUserWithoutPlugin_emptySlotIsAddable() {
+        audioSettingsSpy.setup = .met
+        purchasesSpy.state = .free
+        createSut()
+
+        #expect(sut.sourceSlot.content == .empty(isEnabled: true))
+    }
+
+    @Test
+    mutating func content_purchasesStillLoading_emptySlotIsLocked() {
+        audioSettingsSpy.setup = .met
+        sessionSpy.slots = [.loading(component: Self.effect)]
+        createSut()
+
+        #expect(sut.insertSlots.last?.content == .locked)
+    }
+
+    @Test
+    mutating func content_freeUserSetupUnmet_emptySlotIsDisabled() {
+        audioSettingsSpy.setup = .unmet([.noOutputDevice])
+        purchasesSpy.state = .free
+        sessionSpy.slots = [.loading(component: Self.effect)]
+        createSut()
+
+        #expect(sut.insertSlots.last?.content == .empty(isEnabled: false))
+    }
+
+    @Test
+    mutating func handleSlot_unlock_requestsProWindow() async {
+        createSut()
+
+        await sut.handleSlot(.unlock, at: 1)
+
+        #expect(sut.isProWindowRequested)
+        #expect(sessionSpy.calls.isEmpty)
+    }
+
+    @Test
+    mutating func proWindowOpened_clearsRequest() async {
+        createSut()
+        await sut.handleSlot(.unlock, at: 1)
+
+        sut.proWindowOpened()
+
+        #expect(sut.isProWindowRequested == false)
     }
 
     // MARK: - catalogs
