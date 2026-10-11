@@ -70,9 +70,9 @@ struct SessionModelTests {
 
     @Test
     mutating func init_activePreset_sourceSlotDisabledWithPresetComponent() {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         createSut()
@@ -84,10 +84,10 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_idle_unmetEmpty_loadsActivePresetWhenAvailable() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data([0x01]))],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data([0x01])))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -131,10 +131,10 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_unmetClears_loadsActivePreset() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -152,10 +152,10 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_unmet_overridesLoadedContent() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -171,10 +171,10 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_whileLoading_doesNotStartSecondLoad() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -193,9 +193,9 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_whileLoading_unmetWinsOverLoadResult() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
@@ -233,16 +233,16 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_unmet_sourceSlotDisabledWithActivePresetComponent() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
         await sut.refreshSetup()
-        #expect(sut.sourceSlot == .loaded(audioUnit: loaded))
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded, isBypassed: false))
 
         setupCheckerSpy.checkResult = [.noOutputDevice]
         await sut.refreshSetup()
@@ -252,9 +252,9 @@ struct SessionModelTests {
 
     @Test
     mutating func refreshSetup_whileLoading_unmetWinsOverLoadResultInSourceSlot() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
@@ -275,7 +275,7 @@ struct SessionModelTests {
 
     @Test
     mutating func loadComponent_success_setsLoadedContent() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
@@ -288,7 +288,7 @@ struct SessionModelTests {
 
     @Test
     mutating func loadComponent_failure_setsFailedContent() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         engineSpy = EngineSpy(loadResult: .failure(.deviceUnavailable))
         createSut()
 
@@ -301,7 +301,7 @@ struct SessionModelTests {
 
     @Test
     mutating func loadComponent_whileLoading_sourceSlotLoading() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
         createSut()
         let session = sut!
@@ -314,19 +314,19 @@ struct SessionModelTests {
 
     @Test
     mutating func loadComponent_success_sourceSlotLoaded() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
 
         await sut.loadComponent(component)
 
-        #expect(sut.sourceSlot == .loaded(audioUnit: loaded))
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded, isBypassed: false))
     }
 
     @Test
     mutating func loadComponent_failure_sourceSlotEmptyAndEnabled() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         engineSpy = EngineSpy(loadResult: .failure(.deviceUnavailable))
         createSut()
 
@@ -339,7 +339,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unloadComponent_unloadsEngineAndEmptiesContentAndSourceSlot() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
         createSut()
         await sut.loadComponent(component)
@@ -353,9 +353,9 @@ struct SessionModelTests {
 
     @Test
     mutating func unloadComponent_keepsActivePreset() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(LoadedAudioUnit(component: component)))
@@ -368,14 +368,39 @@ struct SessionModelTests {
         #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
     }
 
+    // MARK: - setSourceBypassed
+
+    @Test
+    mutating func setSourceBypassed_loaded_appliesToAudioUnitAndSourceSlot() async {
+        let component = AudioUnitComponent.fake()
+        let loaded = LoadedAudioUnit(component: component)
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+        await sut.loadComponent(component)
+
+        sut.setSourceBypassed(true)
+
+        #expect(loaded.isBypassed)
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded, isBypassed: true))
+    }
+
+    @Test
+    mutating func setSourceBypassed_notLoaded_isNoOp() {
+        createSut()
+
+        sut.setSourceBypassed(true)
+
+        #expect(sut.sourceSlot == .empty(isEnabled: false))
+    }
+
     // MARK: - selectPreset
 
     @Test
     mutating func selectPreset_existing_setsActiveAndLoads() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data([0x07]))]
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data([0x07])))]
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
@@ -399,6 +424,49 @@ struct SessionModelTests {
         #expect(engineSpy.calls == [])
     }
 
+    @Test
+    mutating func selectPreset_bypassedSource_loadsAndAppliesBypass() async {
+        let component = AudioUnitComponent.fake()
+        let loaded = LoadedAudioUnit(component: component)
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, isBypassed: true))]
+        )
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+
+        await sut.selectPreset(name: "foo")
+
+        #expect(loaded.isBypassed)
+        #expect(sut.sourceSlot == .loaded(audioUnit: loaded, isBypassed: true))
+    }
+
+    @Test
+    mutating func selectPreset_notInstalledSource_disablesSlotWithoutLoading() async {
+        let component = AudioUnitComponent.fake()
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, isInstalled: false))]
+        )
+        createSut()
+
+        await sut.selectPreset(name: "foo")
+
+        #expect(sut.sourceSlot == .disabled(component: component))
+        #expect(sut.content == .failed("Couldn't load this preset."))
+        #expect(engineSpy.calls == [])
+    }
+
+    @Test
+    mutating func selectPreset_noSource_emptiesContentAndSourceSlot() async {
+        presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo", source: nil)])
+        createSut()
+
+        await sut.selectPreset(name: "foo")
+
+        #expect(sut.sourceSlot == .empty(isEnabled: true))
+        #expect(sut.content == .empty)
+        #expect(engineSpy.calls == [])
+    }
+
     // MARK: - saveCurrentPreset
 
     @Test
@@ -413,10 +481,10 @@ struct SessionModelTests {
 
     @Test
     mutating func saveCurrentPreset_happyPath_savesAndNotifiesDelegate() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component, fullState: Data([0xBE, 0xEF]))
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -426,9 +494,28 @@ struct SessionModelTests {
 
         sut.saveCurrentPreset()
 
-        let saved = Preset(name: "foo", component: component, state: Data([0xBE, 0xEF]))
+        let saved = Preset.fake(name: "foo", source: .fake(component: component, state: Data([0xBE, 0xEF])))
         #expect(presetProviderSpy.calls.contains(.save(saved)))
         #expect(sut.presetEvent?.kind == .saved)
+    }
+
+    @Test
+    mutating func saveCurrentPreset_bypassedSource_savesBypass() async {
+        let component = AudioUnitComponent.fake()
+        let loaded = LoadedAudioUnit(component: component, fullState: Data([0x01]))
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component))],
+            activeName: "foo"
+        )
+        engineSpy = EngineSpy(loadResult: .success(loaded))
+        createSut()
+        await sut.refreshSetup()
+        sut.setSourceBypassed(true)
+
+        sut.saveCurrentPreset()
+
+        let saved = Preset.fake(name: "foo", source: .fake(component: component, state: Data([0x01]), isBypassed: true))
+        #expect(presetProviderSpy.calls.contains(.save(saved)))
     }
 
     // MARK: - restoreActivePreset
@@ -445,10 +532,10 @@ struct SessionModelTests {
 
     @Test
     mutating func restoreActivePreset_happyPath_notifiesDelegate() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data([0x09]))],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data([0x09])))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
@@ -476,7 +563,7 @@ struct SessionModelTests {
 
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndNotifiesDelegate() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component, fullState: Data([0xAA]))
         engineSpy = EngineSpy(loadResult: .success(loaded))
         createSut()
@@ -495,10 +582,10 @@ struct SessionModelTests {
 
     @Test
     mutating func acknowledgePresetEvent_clearsEvent() async {
-        let component = AudioUnitComponent.fake(componentDescription: .fakeEffect)
+        let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component, fullState: Data([0x01]))
         presetProviderSpy = PresetProviderSpy(
-            presets: ["foo": Preset(name: "foo", component: component, state: Data())],
+            presets: ["foo": Preset.fake(name: "foo", source: .fake(component: component, state: Data()))],
             activeName: "foo"
         )
         engineSpy = EngineSpy(loadResult: .success(loaded))
