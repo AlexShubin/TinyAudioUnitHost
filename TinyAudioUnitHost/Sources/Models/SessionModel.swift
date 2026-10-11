@@ -229,7 +229,7 @@ private extension PluginSlotContent {
 }
 
 private extension Preset.PluginSlot {
-    static let notInstalledMessage = "Couldn't load this preset."
+    static let notInstalledMessage = "This plug-in isn't installed."
 
     var initialContent: PluginSlotContent {
         isInstalled ? .loading(component: component) : failed(message: Self.notInstalledMessage)
