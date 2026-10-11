@@ -91,4 +91,13 @@ struct RawPresetTests {
 
         #expect(decoded == preset)
     }
+
+    @Test
+    func encodeThenDecode_slotWithoutState_roundTrips() throws {
+        let preset = RawPreset.fake(pluginSlots: [.fake(name: "AUDelay", state: nil)])
+
+        let decoded = try JSONDecoder().decode(RawPreset.self, from: JSONEncoder().encode(preset))
+
+        #expect(decoded == preset)
+    }
 }

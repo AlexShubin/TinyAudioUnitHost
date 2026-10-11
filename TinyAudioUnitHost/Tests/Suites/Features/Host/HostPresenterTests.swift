@@ -229,7 +229,7 @@ struct HostPresenterTests {
     @Test
     mutating func content_selectedSlotFailed_projectsMessage() async {
         audioSettingsSpy.setup = .met
-        sessionSpy.slots = [.failed(component: .fake(), message: "oops")]
+        sessionSpy.slots = [.failed(component: .fake(), state: nil, isBypassed: false, message: "oops")]
         createSut()
 
         #expect(sut.content == .failed("oops"))

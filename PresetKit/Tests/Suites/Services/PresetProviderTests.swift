@@ -255,6 +255,17 @@ struct PresetProviderTests {
         #expect(slot.component.name == "Gone")
     }
 
+    @Test
+    mutating func save_pluginWithoutState_writesNilState() {
+        let component = AudioUnitComponent.fake()
+        createSut()
+
+        sut.save(.fake(name: "Fresh", pluginSlots: [.fake(component: component, state: nil)]))
+
+        let expected = RawPreset.fake(pluginSlots: [component.rawSlot(state: nil)])
+        #expect(rawStoreSpy.calls == [.save(expected, name: "Fresh")])
+    }
+
     // MARK: - rename
 
     @Test
@@ -327,7 +338,7 @@ struct PresetProviderTests {
 }
 
 private extension AudioUnitComponent {
-    func rawSlot(state: Data = Data(), isBypassed: Bool = false) -> RawPreset.PluginSlot {
+    func rawSlot(state: Data? = Data(), isBypassed: Bool = false) -> RawPreset.PluginSlot {
         .fake(
             componentType: id.type,
             componentSubType: id.subType,
