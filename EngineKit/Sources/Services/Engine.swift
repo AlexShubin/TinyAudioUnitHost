@@ -14,13 +14,12 @@ import OSLog
 
 public enum EngineLoadError: Error, Sendable, Equatable {
     case audioUnitInstantiationFailed
-    case deviceUnavailable
 }
 
 public protocol EngineType: Sendable {
     func load(component: AudioUnitComponent, state: Data?, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
     func unload(at position: Int) async
-    func reload() async throws(EngineLoadError)
+    func reload() async
 }
 
 final actor Engine: EngineType {
@@ -64,33 +63,27 @@ final actor Engine: EngineType {
         do {
             node = try await instantiate(component)
         } catch {
-            try? await rebuild()
+            await rebuild()
             throw error
         }
         if let state { node.audioUnit.fullState = state }
         detachNode(at: position)
         chain[position] = node
-
-        do {
-            try await rebuild()
-        } catch {
-            detachNode(at: position)
-            throw error
-        }
+        await rebuild()
         return node.audioUnit
     }
 
     func unload(at position: Int) async {
         await tearDown()
         detachNode(at: position)
-        try? await rebuild()
+        await rebuild()
     }
 
-    func reload() async throws(EngineLoadError) {
+    func reload() async {
         guard !chain.isEmpty else { return }
         engine.stop()
         disconnect()
-        try await connectAndStart()
+        await connectAndStart()
     }
 
     private var orderedNodes: [Node] {
@@ -103,24 +96,28 @@ final actor Engine: EngineType {
         await midiManager.teardownMIDI()
     }
 
-    private func rebuild() async throws(EngineLoadError) {
+    private func rebuild() async {
         await tearDown()
         guard let first = orderedNodes.first else { return }
-        try await connectAndStart()
+        await connectAndStart()
         await midiManager.setupMIDI(for: first.audioUnit)
     }
 
-    private func connectAndStart() async throws(EngineLoadError) {
-        try await applyConnections()
+    private func connectAndStart() async {
+        guard await audioSettings.setup == .met,
+              let device = await audioSettings.targetDevice else { return }
+        let settings = await audioSettings.settings
+        do {
+            try bindDevice(device, settings: settings)
+        } catch {
+            logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
+            return
+        }
+        applyConnections(settings: settings)
         logging { try engine.start() }
     }
 
-    private func applyConnections() async throws(EngineLoadError) {
-        guard let device = await audioSettings.targetDevice else { return }
-        let settings = await audioSettings.settings
-
-        try bindDevice(device, settings: settings)
-
+    private func applyConnections(settings: AudioSettings) {
         let nodes = orderedNodes.map(\.avAudioUnit)
         guard let first = nodes.first, let last = nodes.last else { return }
 
@@ -135,16 +132,11 @@ final actor Engine: EngineType {
         }
     }
 
-    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(EngineLoadError) {
+    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(AudioUnitGatewayError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
         logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: audioUnit) }
         logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: audioUnit) }
-        do {
-            try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
-        } catch {
-            logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
-            throw EngineLoadError.deviceUnavailable
-        }
+        try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
     }
 
     private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel) {
