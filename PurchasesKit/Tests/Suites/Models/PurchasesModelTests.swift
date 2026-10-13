@@ -58,6 +58,13 @@ struct PurchasesModelTests {
     }
 
     @Test
+    mutating func loadResolvesEntitlementsBeforeFetchingProduct() async {
+        createSut()
+        await sut.load()
+        #expect(gatewaySpy.calls == [.observeTransactionUpdates, .currentEntitlements, .products([PurchasesModel.proProductID])])
+    }
+
+    @Test
     mutating func loadLeavesProductInfoNilWhenNoProduct() async {
         gatewaySpy.productsResult = .success([])
         createSut()

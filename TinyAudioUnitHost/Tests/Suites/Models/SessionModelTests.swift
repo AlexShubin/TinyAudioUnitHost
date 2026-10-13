@@ -339,6 +339,47 @@ struct SessionModelTests {
         #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
     }
 
+    @Test
+    mutating func unload_presetSelectedWhileUnloading_showsPresetSlots() async {
+        let loaded = LoadedAudioUnit(component: .fake())
+        presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
+        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        engineSpy.loadSlotsResult = [.success(loaded)]
+        createSut()
+        await sut.load(.fake(), at: 0)
+        await sut.load(.fake(), at: 1)
+        await sut.load(.fake(), at: 2)
+        let session = sut!
+        engineSpy.onUnload = {
+            await session.selectPreset(name: "foo")
+        }
+
+        await sut.unload(at: 2)
+
+        #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
+    }
+
+    @Test
+    mutating func unload_presetRestoredWhileUnloading_showsRestoredSlots() async {
+        let first = LoadedAudioUnit(component: .fake())
+        let second = LoadedAudioUnit(component: .fake())
+        presetProviderSpy = PresetProviderSpy(
+            presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(), .fake()])],
+            activeName: "foo"
+        )
+        engineSpy.loadSlotsResult = [.success(first), .success(second)]
+        createSut()
+        await sut.load()
+        let session = sut!
+        engineSpy.onUnload = {
+            await session.restoreActivePreset()
+        }
+
+        await sut.unload(at: 1)
+
+        #expect(sut.slots == [.loaded(audioUnit: first, isBypassed: false), .loaded(audioUnit: second, isBypassed: false)])
+    }
+
     // MARK: - setBypassed
 
     @Test

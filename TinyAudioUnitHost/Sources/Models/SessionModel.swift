@@ -105,8 +105,8 @@ final class SessionModel: SessionModelType {
     }
 
     func unload(at index: Int) async {
-        await engine.unload(at: index)
         replaceSlot(at: index, with: .empty)
+        await engine.unload(at: index)
     }
 
     func setBypassed(_ isBypassed: Bool, at index: Int) {
@@ -183,6 +183,7 @@ final class SessionModel: SessionModelType {
     }
 
     private func replaceSlot(at index: Int, with content: PluginSlotContent) {
+        guard index <= slots.count else { return }
         var updated = slots
         if index == updated.count {
             updated.append(content)

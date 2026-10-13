@@ -37,8 +37,11 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
         return loadSlotsResult
     }
 
+    /// Runs while the unload is in flight.
+    public var onUnload: (@Sendable () async -> Void)?
     public func unload(at position: Int) async {
         calls.append(.unload(position))
+        await onUnload?()
     }
 
     public func reload() async {

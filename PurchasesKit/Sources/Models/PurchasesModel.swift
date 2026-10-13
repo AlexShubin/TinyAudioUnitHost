@@ -39,8 +39,8 @@ final class PurchasesModel: PurchasesModelType {
     }
 
     func load() async {
-        _ = await fetchProduct()
         await updateState()
+        _ = await fetchProduct()
     }
 
     func purchase() async {
