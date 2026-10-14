@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
-import EngineKitTestSupport
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 

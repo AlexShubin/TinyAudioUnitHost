@@ -8,16 +8,16 @@
 
 import AudioSettingsKit
 import AudioUnitsKit
-import EngineKit
 import PresetKit
 import PurchasesKit
+import SessionKit
 import SwiftUI
 
 @MainActor
 struct Dependencies: Sendable {
     let audioSettings: AudioSettingsKit.Dependencies
     let audioUnits: AudioUnitsKit.Dependencies
-    let engine: EngineKit.Dependencies
+    let engine: SessionKit.Dependencies
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionModelType
@@ -26,7 +26,7 @@ struct Dependencies: Sendable {
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
-        let engine = EngineKit.Dependencies.live
+        let engine = SessionKit.Dependencies.live
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
         let session = SessionModel(

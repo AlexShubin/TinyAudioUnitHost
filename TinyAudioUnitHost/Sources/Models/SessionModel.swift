@@ -7,10 +7,10 @@
 //
 
 import AudioUnitsKit
-import EngineKit
 import Foundation
 import Observation
 import PresetKit
+import SessionKit
 
 @MainActor
 protocol SessionModelType: AnyObject, Observable, Sendable {
