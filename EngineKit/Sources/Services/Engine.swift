@@ -32,7 +32,6 @@ final actor Engine: EngineType {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Engine")
 
     private let engine: AVAudioEngineType
-    private let inputMixer: AVAudioMixerNode
     private let avAudioUnitFactory: AVAudioUnitFactoryType
     private let audioUnitGateway: AudioUnitGatewayType
     private let midiManager: MidiManagerType
@@ -41,19 +40,16 @@ final actor Engine: EngineType {
 
     init(
         engine: AVAudioEngineType,
-        inputMixer: AVAudioMixerNode,
         avAudioUnitFactory: AVAudioUnitFactoryType,
         audioUnitGateway: AudioUnitGatewayType,
         midiManager: MidiManagerType,
         audioSettings: AudioSettingsModelType
     ) {
         self.engine = engine
-        self.inputMixer = inputMixer
         self.avAudioUnitFactory = avAudioUnitFactory
         self.audioUnitGateway = audioUnitGateway
         self.midiManager = midiManager
         self.audioSettings = audioSettings
-        engine.attach(inputMixer)
     }
 
     func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
@@ -151,14 +147,9 @@ final actor Engine: EngineType {
     }
 
     private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel) {
-        let hardwareFormat = engine.hardwareOutputFormat
         let userFormat = AVAudioFormat(
-            standardFormatWithSampleRate: hardwareFormat.sampleRate,
+            standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
             channels: UInt32(channels.channels.count)
-        )
-        let auInputFormat = AVAudioFormat(
-            standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: avAudioUnit.auAudioUnit.inputBusses[0].format.channelCount
         )
 
         if let inputAudioUnit = engine.inputAudioUnit {
@@ -166,8 +157,7 @@ final actor Engine: EngineType {
             logging { try audioUnitGateway.setChannelMap(map, bus: .input, on: inputAudioUnit) }
         }
 
-        engine.connectHardwareInput(to: inputMixer, format: userFormat)
-        engine.connect(inputMixer, to: avAudioUnit, format: auInputFormat)
+        engine.connectHardwareInput(to: avAudioUnit, format: userFormat)
     }
 
     private func connectOutputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
@@ -192,7 +182,6 @@ final actor Engine: EngineType {
 
     private func disconnect() {
         engine.disconnectMainMixerInput()
-        engine.disconnectNodeOutput(inputMixer)
         engine.disconnectHardwareInput()
     }
 

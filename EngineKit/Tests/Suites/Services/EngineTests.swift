@@ -20,7 +20,6 @@ import Testing
 @Suite @MainActor
 struct EngineTests {
     var avEngineSpy: AVAudioEngineSpy!
-    nonisolated(unsafe) var inputMixerSpy: AVAudioMixerNode!
     var avAudioUnitFactorySpy: AVAudioUnitFactorySpy!
     var audioUnitGatewaySpy: AudioUnitGatewaySpy!
     var midiManagerSpy: MidiManagerSpy!
@@ -29,7 +28,6 @@ struct EngineTests {
 
     init() {
         avEngineSpy = AVAudioEngineSpy()
-        inputMixerSpy = AVAudioMixerNode()
         avAudioUnitFactorySpy = AVAudioUnitFactorySpy()
         audioUnitGatewaySpy = AudioUnitGatewaySpy()
         midiManagerSpy = MidiManagerSpy()
@@ -39,19 +37,11 @@ struct EngineTests {
     mutating func createSut() {
         sut = Engine(
             engine: avEngineSpy,
-            inputMixer: inputMixerSpy,
             avAudioUnitFactory: avAudioUnitFactorySpy,
             audioUnitGateway: audioUnitGatewaySpy,
             midiManager: midiManagerSpy,
             audioSettings: audioSettingsSpy
         )
-    }
-
-    @Test
-    mutating func init_attachesInputMixer() async {
-        createSut()
-
-        #expect(avEngineSpy.calls == [.attach(inputMixerSpy)])
     }
 
     @Test
@@ -83,8 +73,7 @@ struct EngineTests {
         let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
         #expect(result.component == Self.effectComponent)
-        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
-        expected += tearDownCalls + [.attach(avAudioUnit)]
+        var expected = tearDownCalls + [.attach(avAudioUnit)]
         expected += tearDownCalls + [.start]
         #expect(avEngineSpy.calls == expected)
         #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI, .setupMIDI(result)])
@@ -124,8 +113,7 @@ struct EngineTests {
 
         let secondResult = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
-        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
-        expected += tearDownCalls + [.attach(firstAU)]
+        var expected = tearDownCalls + [.attach(firstAU)]
         expected += tearDownCalls + [.start]
         expected += tearDownCalls + [.detach(firstAU), .attach(secondAU)]
         expected += tearDownCalls + [.start]
@@ -188,8 +176,7 @@ struct EngineTests {
 
         let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
-        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
-        expected += tearDownCalls + [.attach(avAudioUnit)]
+        var expected = tearDownCalls + [.attach(avAudioUnit)]
         expected += tearDownCalls
         #expect(avEngineSpy.calls == expected)
         #expect(audioUnitGatewaySpy.calls.isEmpty)
@@ -209,8 +196,7 @@ struct EngineTests {
 
         let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
-        var expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)]
-        expected += tearDownCalls + [.attach(avAudioUnit)]
+        var expected = tearDownCalls + [.attach(avAudioUnit)]
         expected += tearDownCalls
         #expect(avEngineSpy.calls == expected)
         #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI, .setupMIDI(result)])
@@ -233,7 +219,7 @@ struct EngineTests {
 
         let userFormat = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)
         #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], .input, inputAU)])
-        #expect(avEngineSpy.calls.contains(.connectHardwareInput(inputMixerSpy, userFormat)))
+        #expect(avEngineSpy.calls.contains(.connectHardwareInput(avAudioUnit, userFormat)))
     }
 
     @Test
@@ -595,7 +581,7 @@ struct EngineTests {
 
         await sut.unload(at: 0)
 
-        let expected: [AVAudioEngineSpy.Calls] = [.attach(inputMixerSpy)] + tearDownCalls + tearDownCalls
+        let expected = tearDownCalls + tearDownCalls
         #expect(avEngineSpy.calls == expected)
         #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI])
     }
@@ -630,7 +616,7 @@ struct EngineTests {
 
         await sut.reload()
 
-        #expect(avEngineSpy.calls == [.attach(inputMixerSpy)])
+        #expect(avEngineSpy.calls.isEmpty)
     }
 
     @Test
@@ -648,7 +634,6 @@ struct EngineTests {
         #expect(Array(avEngineSpy.calls.dropFirst(callsAfterLoad.count)) == [
             .stop,
             .disconnectMainMixerInput,
-            .disconnectNodeOutput(inputMixerSpy),
             .disconnectHardwareInput,
             .start
         ])
@@ -741,7 +726,7 @@ private extension EngineTests {
     }
 
     var tearDownCalls: [AVAudioEngineSpy.Calls] {
-        [.stop, .disconnectMainMixerInput, .disconnectNodeOutput(inputMixerSpy), .disconnectHardwareInput]
+        [.stop, .disconnectMainMixerInput, .disconnectHardwareInput]
     }
 
     static func makeAVAudioUnit(_ desc: AudioComponentDescription) async throws -> AVAudioUnit {
