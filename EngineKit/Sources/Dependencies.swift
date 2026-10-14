@@ -28,9 +28,11 @@ public struct Dependencies: Sendable {
         let engine = Engine(
             engine: AVAudioEngine(),
             avAudioUnitFactory: AVAudioUnitFactory(),
-            audioUnitGateway: AudioToolboxGatewayKit.Dependencies.live.audioUnitGateway,
-            midiManager: midiManager,
-            audioSettings: audioSettings
+            hardwareConnector: HardwareConnector(
+                audioUnitGateway: AudioToolboxGatewayKit.Dependencies.live.audioUnitGateway,
+                audioSettings: audioSettings
+            ),
+            midiManager: midiManager
         )
         return Dependencies(
             engine: engine,

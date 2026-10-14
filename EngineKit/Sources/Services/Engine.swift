@@ -6,8 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
-import AudioToolboxGatewayKit
 import AudioUnitsKit
 import AVFoundation
 import OSLog
@@ -33,37 +31,34 @@ final actor Engine: EngineType {
 
     private let engine: AVAudioEngineType
     private let avAudioUnitFactory: AVAudioUnitFactoryType
-    private let audioUnitGateway: AudioUnitGatewayType
+    private let hardwareConnector: HardwareConnectorType
     private let midiManager: MidiManagerType
-    private let audioSettings: AudioSettingsModelType
     private var chain: [Int: Node] = [:]
 
     init(
         engine: AVAudioEngineType,
         avAudioUnitFactory: AVAudioUnitFactoryType,
-        audioUnitGateway: AudioUnitGatewayType,
-        midiManager: MidiManagerType,
-        audioSettings: AudioSettingsModelType
+        hardwareConnector: HardwareConnectorType,
+        midiManager: MidiManagerType
     ) {
         self.engine = engine
         self.avAudioUnitFactory = avAudioUnitFactory
-        self.audioUnitGateway = audioUnitGateway
+        self.hardwareConnector = hardwareConnector
         self.midiManager = midiManager
-        self.audioSettings = audioSettings
     }
 
     func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
-        await tearDown()
-        detachNode(at: position)
+        await stop()
+        remove(at: position)
         let result = await insert(slot, at: position)
-        await rebuild()
+        await start()
         return try result.get()
     }
 
     func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
-        await tearDown()
+        await stop()
         for position in chain.keys {
-            detachNode(at: position)
+            remove(at: position)
         }
         let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, EngineLoadError>).self) { group in
             for (position, slot) in slots.enumerated() {
@@ -76,160 +71,68 @@ final actor Engine: EngineType {
             }
             return results
         }
-        await rebuild()
+        await start()
         return results
     }
 
     func unload(at position: Int) async {
-        await tearDown()
-        detachNode(at: position)
-        await rebuild()
+        await stop()
+        remove(at: position)
+        await start()
     }
 
     func reload() async {
         guard !chain.isEmpty else { return }
-        engine.stop()
-        disconnect()
-        await connectAndStart()
+        await start()
     }
 
-    private var orderedNodes: [Node] {
-        chain.sorted { $0.key < $1.key }.map(\.value)
-    }
-
-    private func tearDown() async {
+    private func stop() async {
         engine.stop()
-        disconnect()
+        hardwareConnector.disconnect(in: engine)
         await midiManager.teardownMIDI()
     }
 
-    private func rebuild() async {
-        await tearDown()
-        guard let first = orderedNodes.first else { return }
-        await connectAndStart()
+    private func start() async {
+        // Another operation may have started the engine while this one was suspended.
+        await stop()
+        let nodes = chain.orderedValues
+        guard let first = nodes.first, let last = nodes.last,
+              await hardwareConnector.connect(first: first.avAudioUnit, last: last.avAudioUnit, in: engine) else { return }
+        for (source, destination) in zip(nodes, nodes.dropFirst()) {
+            let format = AVAudioFormat(
+                standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
+                channels: source.avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
+            )
+            engine.connect(source.avAudioUnit, to: destination.avAudioUnit, format: format)
+        }
+        do {
+            try engine.start()
+        } catch {
+            logger.warning("Engine start failed: \(String(describing: error), privacy: .public)")
+        }
         await midiManager.setupMIDI(for: first.audioUnit)
     }
 
-    private func connectAndStart() async {
-        guard await audioSettings.setup == .met,
-              let device = await audioSettings.targetDevice else { return }
-        let settings = await audioSettings.settings
-        do {
-            try bindDevice(device, settings: settings)
-        } catch {
-            logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
-            return
-        }
-        applyConnections(settings: settings)
-        logging { try engine.start() }
-    }
-
-    private func applyConnections(settings: AudioSettings) {
-        let nodes = orderedNodes.map(\.avAudioUnit)
-        guard let first = nodes.first, let last = nodes.last else { return }
-
-        if let input = settings.inputChannel, first.acceptsAudioInput {
-            connectInputs(avAudioUnit: first, channels: input)
-        }
-        for (source, destination) in zip(nodes, nodes.dropFirst()) {
-            connect(source, to: destination)
-        }
-        if let output = settings.outputChannel {
-            connectOutputs(avAudioUnit: last, channels: output, hardwareOffset: settings.outputOffset)
-        }
-    }
-
-    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(AudioUnitGatewayError) {
-        guard let audioUnit = engine.outputAudioUnit else { return }
-        logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: audioUnit) }
-        logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: audioUnit) }
-        try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
-    }
-
-    private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel) {
-        let userFormat = AVAudioFormat(
-            standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
-            channels: UInt32(channels.channels.count)
-        )
-
-        if let inputAudioUnit = engine.inputAudioUnit {
-            let map: [Int32] = channels.channels.map { Int32($0.id) - 1 }
-            logging { try audioUnitGateway.setChannelMap(map, bus: .input, on: inputAudioUnit) }
-        }
-
-        engine.connectHardwareInput(to: avAudioUnit, format: userFormat)
-    }
-
-    private func connectOutputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel, hardwareOffset: Int) {
-        let hardwareFormat = engine.hardwareOutputFormat
-        let outputFormat = AVAudioFormat(
-            standardFormatWithSampleRate: hardwareFormat.sampleRate,
-            channels: avAudioUnit.auAudioUnit.outputBusses[0].format.channelCount
-        )
-
-        engine.connectToMainMixer(avAudioUnit, format: outputFormat)
-
-        if let outputAudioUnit = engine.outputAudioUnit, let physicalCount = audioUnitGateway.physicalChannelCount(of: outputAudioUnit) {
-            var map = [Int32](repeating: -1, count: physicalCount)
-            for (virtualIdx, channel) in channels.channels.enumerated() {
-                let physicalIdx = hardwareOffset + Int(channel.id) - 1
-                guard physicalIdx >= 0, physicalIdx < physicalCount else { continue }
-                map[physicalIdx] = Int32(virtualIdx)
-            }
-            logging { try audioUnitGateway.setChannelMap(map, bus: .output, on: outputAudioUnit) }
-        }
-    }
-
-    private func disconnect() {
-        engine.disconnectMainMixerInput()
-        engine.disconnectHardwareInput()
-    }
-
-    private func connect(_ source: AVAudioUnit, to destination: AVAudioUnit) {
-        let format = AVAudioFormat(
-            standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
-            channels: source.auAudioUnit.outputBusses[0].format.channelCount
-        )
-        engine.connect(source, to: destination, format: format)
-    }
-
     private func insert(_ slot: EnginePluginSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
-        do {
-            let node = try await instantiate(slot.component)
-            if let state = slot.state { node.audioUnit.fullState = state }
-            detachNode(at: position)
-            chain[position] = node
-            return .success(node.audioUnit)
-        } catch {
-            return .failure(error)
+        guard let avAudioUnit = try? await avAudioUnitFactory.instantiate(
+            with: slot.component.componentDescription,
+            options: .loadOutOfProcess
+        ) else {
+            return .failure(.audioUnitInstantiationFailed)
         }
+        engine.attach(avAudioUnit)
+        let audioUnit = LoadedAudioUnit(avAudioUnit.auAudioUnit)
+        if let state = slot.state {
+            audioUnit.fullState = state
+        }
+        remove(at: position)
+        chain[position] = Node(avAudioUnit: avAudioUnit, audioUnit: audioUnit)
+        return .success(audioUnit)
     }
 
-    private func instantiate(_ component: AudioUnitComponent) async throws(EngineLoadError) -> Node {
-        do {
-            let avAudioUnit = try await avAudioUnitFactory.instantiate(
-                with: component.componentDescription,
-                options: .loadOutOfProcess
-            )
-            engine.attach(avAudioUnit)
-            return Node(avAudioUnit: avAudioUnit, audioUnit: LoadedAudioUnit(avAudioUnit.auAudioUnit))
-        } catch {
-            logger.warning("AU instantiation failed: \(String(describing: error), privacy: .public)")
-            throw EngineLoadError.audioUnitInstantiationFailed
-        }
-    }
-
-    private func detachNode(at position: Int) {
+    private func remove(at position: Int) {
         guard let node = chain.removeValue(forKey: position) else { return }
         engine.detach(node.avAudioUnit)
-    }
-
-    private func logging(_ work: () throws -> Void) {
-        do {
-            try work()
-        } catch {
-            logger.warning("\(String(describing: error), privacy: .public)")
-        }
     }
 }
 
@@ -245,21 +148,8 @@ private extension AudioUnitComponent {
     }
 }
 
-fileprivate extension AVAudioUnit {
-    var acceptsAudioInput: Bool {
-        let type = audioComponentDescription.componentType
-        return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
-    }
-}
-
-private extension AudioSettings {
-    /// Output position in the aggregate's physical channel layout.
-    /// Sub-devices are listed [input, output], so output's channels start
-    /// after the input device's output channels in the combined layout.
-    var outputOffset: Int {
-        guard let input = inputDevice,
-              let output = outputDevice,
-              input.id != output.id else { return 0 }
-        return input.outputChannels.count
+private extension Dictionary where Key: Comparable {
+    var orderedValues: [Value] {
+        sorted { $0.key < $1.key }.map(\.value)
     }
 }
