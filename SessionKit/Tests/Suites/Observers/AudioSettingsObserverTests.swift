@@ -1,6 +1,6 @@
 //
 //  AudioSettingsObserverTests.swift
-//  TinyAudioUnitHostTests
+//  SessionKitTests
 //
 //  Created by Alex Shubin on 08.10.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -8,9 +8,8 @@
 
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
-import SessionKitTestSupport
 import Testing
-@testable import TinyAudioUnitHost
+@testable import SessionKit
 
 @MainActor
 @Suite

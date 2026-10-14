@@ -17,41 +17,23 @@ import SwiftUI
 struct Dependencies: Sendable {
     let audioSettings: AudioSettingsKit.Dependencies
     let audioUnits: AudioUnitsKit.Dependencies
-    let engine: SessionKit.Dependencies
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
-    let session: SessionModelType
-    let audioSettingsObserver: AudioSettingsObserverType
+    let session: SessionKit.Dependencies
     let presetsNavigation: PresetsNavigationModelType
 
-    static let live: Dependencies = {
-        let audioSettings = AudioSettingsKit.Dependencies.live
-        let engine = SessionKit.Dependencies.live
-        let presets = PresetKit.Dependencies.live
-        let purchases = PurchasesKit.Dependencies.live
-        let session = SessionModel(
-            pluginChain: engine.pluginChain,
-            presetProvider: presets.presetProvider
-        )
-        return Dependencies(
-            audioSettings: audioSettings,
-            audioUnits: .live,
-            engine: engine,
-            presets: presets,
-            purchases: purchases,
-            session: session,
-            audioSettingsObserver: AudioSettingsObserver(
-                audioSettings: audioSettings.audioSettingsModel,
-                pluginChain: engine.pluginChain,
-                midiManager: engine.midiManager
-            ),
-            presetsNavigation: PresetsNavigationModel()
-        )
-    }()
+    static let live = Dependencies(
+        audioSettings: .live,
+        audioUnits: .live,
+        presets: .live,
+        purchases: .live,
+        session: .live,
+        presetsNavigation: PresetsNavigationModel()
+    )
 
     func makeHostPresenter() -> HostPresenter {
         HostPresenter(
-            session: session,
+            session: session.sessionModel,
             audioSettings: audioSettings.audioSettingsModel,
             purchases: purchases.purchasesModel
         )
@@ -60,7 +42,7 @@ struct Dependencies: Sendable {
     func makeChannelStripPresenter() -> ChannelStripPresenter {
         ChannelStripPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
-            session: session,
+            session: session.sessionModel,
             audioSettings: audioSettings.audioSettingsModel,
             purchases: purchases.purchasesModel
         )
@@ -68,14 +50,14 @@ struct Dependencies: Sendable {
 
     func makePresetsPresenter() -> PresetsPresenter {
         PresetsPresenter(
-            session: session,
+            session: session.sessionModel,
             presetsNavigation: presetsNavigation
         )
     }
 
     func makeAppCommandsPresenter() -> AppCommandsPresenter {
         AppCommandsPresenter(
-            session: session,
+            session: session.sessionModel,
             presetsNavigation: presetsNavigation
         )
     }
@@ -83,7 +65,7 @@ struct Dependencies: Sendable {
     func makePresetNameDialogPresenter(mode: PresetNameDialogMode) -> PresetNameDialogPresenter {
         PresetNameDialogPresenter(
             mode: mode,
-            session: session,
+            session: session.sessionModel,
             validator: presets.presetNameValidator
         )
     }

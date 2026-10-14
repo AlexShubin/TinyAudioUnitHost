@@ -182,7 +182,7 @@ struct FooView: View {
   - `Sources/Helpers/` — internal extensions and FFI helpers, e.g. `<Framework>Helpers.swift`.
 
   `Sources/Dependencies.swift` sits at the top level. Small modules can omit a subfolder if it would be empty.
-- Inside `Tests/`, two top-level folders: `Tests/Suites/` for `@Suite` test files and `Tests/Spies/` for spies. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Foo.swift` → `Tests/Suites/Services/FooTests.swift`). `Tests/Spies/` stays flat.
+- Inside `Tests/`, up to three top-level folders: `Tests/Suites/` for `@Suite` test files, `Tests/Spies/` for spies of internal protocols, and `Tests/Fakes/` for fakes of internal value types. Under `Suites/`, mirror `Sources/`'s subfolder layout — a test for `Sources/<SubFolder>/<File>.swift` lives at `Tests/Suites/<SubFolder>/<File>Tests.swift` (e.g. `Sources/Services/Foo.swift` → `Tests/Suites/Services/FooTests.swift`). `Tests/Spies/` and `Tests/Fakes/` stay flat.
 - Inside `TestSupport/`, two flat folders: `TestSupport/Spies/` (spies for `public` protocols, see [Spy pattern](#spy-pattern)) and `TestSupport/Fakes/` (`Type+Fake.swift` for public value types, see [Fake pattern](#fake-pattern)).
 
 ## Dependencies pattern
@@ -264,7 +264,7 @@ final class FooGatewaySpy: FooGatewayType, @unchecked Sendable {
 
 ## Fake pattern
 
-Fakes are zero-arg-friendly factory methods on value types, kept in `<Feature>/TestSupport/Fakes/<Type>+Fake.swift` (target `<Feature>TestSupport`, `public`). The file is an extension on the type; the method is `static func fake(...) -> Self`.
+Fakes are zero-arg-friendly factory methods on value types, kept in `<Feature>/TestSupport/Fakes/<Type>+Fake.swift` (target `<Feature>TestSupport`, `public`) for a public type, or `<Feature>/Tests/Fakes/<Type>+Fake.swift` (target `<Feature>Tests`, internal, `@testable import <Feature>`) for an internal one — visibility follows location, as for spies. The file is an extension on the type; the method is `static func fake(...) -> Self`.
 
 ```swift
 public extension Foo {
@@ -281,7 +281,7 @@ public extension Foo {
 - **Add the fake at the same time you add the type.** Whenever you introduce or extend a public value type that tests will construct (any `public struct` in `Sources/`, any new field on one), add or update its `Type+Fake.swift` in the same module's `TestSupport/Fakes/` in the same change. Don't wait for the first test that needs it — by then call sites have already accumulated inline `Type(...)` constructions that will need cleanup.
 - Every parameter is defaulted. `Type.fake()` must work with no arguments — that's the whole point. Overrides happen at the call site.
 - Compose fakes by defaulting one to another (`foo: Foo = .fake()`). Tests can override at any layer (e.g. `Bar.fake(foo: .fake(name: "x"))`).
-- A type's fake lives in the same module's `TestSupport` as the type (a type in `FooKit` → `FooKitTestSupport`). Cross-module composition flows through `import FooKitTestSupport` etc.
+- A type's fake lives in the same module as the type: `FooKitTestSupport` for a public type in `FooKit`, `FooKitTests` for an internal one. Cross-module composition flows through `import FooKitTestSupport` etc.
 - Fakes are for value types (data shapes); spies are for protocols. Different folders (`Fakes/` vs `Spies/`), different naming. Don't conflate.
 - Don't put `make<Type>(...)` helpers in test files. If a test needs a fixture, the type's `fake(...)` is the only home — discoverable via autocomplete on the type itself.
 - Keep fakes dumb: just construction with defaults, no logic, no pattern-matching factories. If you need shaped data, override at the call site.

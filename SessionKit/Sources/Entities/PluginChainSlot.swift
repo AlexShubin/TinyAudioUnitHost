@@ -9,12 +9,7 @@
 import AudioUnitsKit
 import Foundation
 
-public struct PluginChainSlot: Sendable, Equatable {
-    public let component: AudioUnitComponent
-    public let state: Data?
-
-    public init(component: AudioUnitComponent, state: Data?) {
-        self.component = component
-        self.state = state
-    }
+struct PluginChainSlot: Equatable {
+    let component: AudioUnitComponent
+    let state: Data?
 }

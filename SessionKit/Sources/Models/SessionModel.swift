@@ -1,6 +1,6 @@
 //
 //  SessionModel.swift
-//  TinyAudioUnitHost
+//  SessionKit
 //
 //  Created by Alex Shubin on 20.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -10,10 +10,9 @@ import AudioUnitsKit
 import Foundation
 import Observation
 import PresetKit
-import SessionKit
 
 @MainActor
-protocol SessionModelType: AnyObject, Observable, Sendable {
+public protocol SessionModelType: AnyObject, Observable, Sendable {
     var slots: [PluginSlotContent] { get }
     var selectedIndex: Int { get }
     var isBusy: Bool { get }
@@ -36,17 +35,17 @@ protocol SessionModelType: AnyObject, Observable, Sendable {
     func deletePreset(name: String)
 }
 
-struct PresetEvent: Sendable, Equatable {
-    enum Kind: Sendable, Equatable {
+public struct PresetEvent: Sendable, Equatable {
+    public enum Kind: Sendable, Equatable {
         case saved
         case restored
     }
 
-    let id: UUID
-    let kind: Kind
+    public let id: UUID
+    public let kind: Kind
 }
 
-enum PluginSlotContent: Equatable {
+public enum PluginSlotContent: Sendable, Equatable {
     case empty
     case loading(component: AudioUnitComponent)
     case loaded(audioUnit: LoadedAudioUnit, isBypassed: Bool)

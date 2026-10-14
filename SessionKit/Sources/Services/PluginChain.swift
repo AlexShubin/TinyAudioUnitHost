@@ -10,11 +10,11 @@ import AudioUnitsKit
 import AVFoundation
 import OSLog
 
-public enum PluginChainLoadError: Error, Sendable, Equatable {
+enum PluginChainLoadError: Error, Equatable {
     case audioUnitInstantiationFailed
 }
 
-public protocol PluginChainType: Sendable {
+protocol PluginChainType: Sendable {
     func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit
     func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?]
     func unload(at position: Int) async

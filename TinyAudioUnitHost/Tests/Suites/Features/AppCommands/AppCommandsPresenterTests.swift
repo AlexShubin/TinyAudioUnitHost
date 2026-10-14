@@ -9,6 +9,8 @@
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 

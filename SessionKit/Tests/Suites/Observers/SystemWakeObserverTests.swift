@@ -8,7 +8,6 @@
 
 import AppKit
 import CommonTestSupport
-import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 

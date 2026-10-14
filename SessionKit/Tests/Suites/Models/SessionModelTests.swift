@@ -1,6 +1,6 @@
 //
 //  SessionModelTests.swift
-//  TinyAudioUnitHostTests
+//  SessionKitTests
 //
 //  Created by Alex Shubin on 21.05.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
@@ -11,10 +11,8 @@ import AudioUnitsKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport
-import SessionKit
-import SessionKitTestSupport
 import Testing
-@testable import TinyAudioUnitHost
+@testable import SessionKit
 
 @MainActor
 @Suite

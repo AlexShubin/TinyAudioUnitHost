@@ -1,16 +1,15 @@
 //
 //  AudioSettingsObserver.swift
-//  TinyAudioUnitHost
+//  SessionKit
 //
 //  Created by Alex Shubin on 08.10.26.
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
 import AudioSettingsKit
-import SessionKit
 
 @MainActor
-protocol AudioSettingsObserverType: AnyObject {
+public protocol AudioSettingsObserverType: AnyObject {
     func start()
 }
 

@@ -9,7 +9,6 @@
 import AudioToolbox
 import AudioUnitsKit
 import AVFoundation
-import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 

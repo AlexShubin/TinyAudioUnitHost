@@ -11,7 +11,7 @@ import AudioUnitsKit
 import CoreMidiGatewayKit
 
 @MainActor
-public protocol MidiManagerType: Sendable {
+protocol MidiManagerType: Sendable {
     func setupMIDI(for audioUnit: LoadedAudioUnit) async
     func teardownMIDI() async
     func reconnectMIDISources() async

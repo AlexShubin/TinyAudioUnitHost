@@ -12,11 +12,12 @@ import AudioToolboxGatewayKit
 import AVFoundation
 import Common
 import CoreMidiGatewayKit
+import PresetKit
 
 @MainActor
 public struct Dependencies: Sendable {
-    public let pluginChain: PluginChainType
-    public let midiManager: MidiManagerType
+    public let sessionModel: SessionModelType
+    public let audioSettingsObserver: AudioSettingsObserverType
     public let systemWakeObserver: SystemWakeObserverType
 
     public static let live: Dependencies = {
@@ -35,8 +36,15 @@ public struct Dependencies: Sendable {
             midiManager: midiManager
         )
         return Dependencies(
-            pluginChain: pluginChain,
-            midiManager: midiManager,
+            sessionModel: SessionModel(
+                pluginChain: pluginChain,
+                presetProvider: PresetKit.Dependencies.live.presetProvider
+            ),
+            audioSettingsObserver: AudioSettingsObserver(
+                audioSettings: audioSettings,
+                pluginChain: pluginChain,
+                midiManager: midiManager
+            ),
             systemWakeObserver: SystemWakeObserver(
                 pluginChain: pluginChain,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter

@@ -12,6 +12,8 @@ import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import PurchasesKit
 import PurchasesKitTestSupport
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
