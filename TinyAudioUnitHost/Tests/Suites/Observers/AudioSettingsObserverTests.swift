@@ -18,22 +18,19 @@ struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
     var engineSpy: EngineSpy!
     var midiManagerSpy: MidiManagerSpy!
-    var sessionSpy: SessionModelSpy!
     var sut: AudioSettingsObserverType!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
         engineSpy = EngineSpy()
         midiManagerSpy = MidiManagerSpy()
-        sessionSpy = SessionModelSpy()
     }
 
     mutating func createSut() {
         sut = AudioSettingsObserver(
             audioSettings: audioSettingsSpy,
             engine: engineSpy,
-            midiManager: midiManagerSpy,
-            session: sessionSpy
+            midiManager: midiManagerSpy
         )
     }
 
@@ -51,7 +48,7 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_reloadsEngineReconnectsMidiAndRefreshesSessionSetup() async {
+    mutating func change_reloadsEngineAndReconnectsMidi() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
@@ -60,7 +57,6 @@ struct AudioSettingsObserverTests {
 
         #expect(engineSpy.calls == [.reload])
         #expect(midiManagerSpy.calls == [.reconnectMIDISources])
-        #expect(sessionSpy.calls == [.refreshSetup])
     }
 
     @Test
@@ -97,6 +93,19 @@ struct AudioSettingsObserverTests {
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
         audioSettingsSpy.targetDevice = .fake(id: 7)
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(engineSpy.calls == [.reload, .reload])
+    }
+
+    @Test
+    mutating func change_setupOnly_reloadsEngine() async {
+        audioSettingsSpy.setup = .unmet([.microphonePermission])
+        createSut()
+        sut.start()
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        audioSettingsSpy.setup = .met
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
         #expect(engineSpy.calls == [.reload, .reload])

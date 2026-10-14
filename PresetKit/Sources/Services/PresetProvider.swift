@@ -49,11 +49,11 @@ struct PresetProvider: PresetProviderType {
     }
 
     func load(name: String) -> Preset? {
-        rawStore.load(name: name).flatMap { domainPreset(from: $0, name: name) }
+        rawStore.load(name: name).map { domainPreset(from: $0, name: name) }
     }
 
     func save(_ preset: Preset) {
-        rawStore.save(rawPreset(from: preset), name: preset.name)
+        rawStore.save(preset.raw, name: preset.name)
     }
 
     func rename(from oldName: String, to newName: String) {
@@ -72,27 +72,43 @@ struct PresetProvider: PresetProviderType {
         }
     }
 
-    private func domainPreset(from raw: RawPreset, name: String) -> Preset? {
-        guard let component = resolve(raw) else { return nil }
-        return Preset(name: name, component: component, state: raw.state)
+    private func domainPreset(from raw: RawPreset, name: String) -> Preset {
+        Preset(name: name, pluginSlots: raw.pluginSlots.map { $0.map(domainSlot(from:)) })
     }
 
-    private func resolve(_ raw: RawPreset) -> AudioUnitComponent? {
-        library.components.first { component in
-            let desc = component.componentDescription
-            return desc.componentType == raw.componentType
-                && desc.componentSubType == raw.componentSubType
-                && desc.componentManufacturer == raw.componentManufacturer
-        }
-    }
-
-    private func rawPreset(from preset: Preset) -> RawPreset {
-        let desc = preset.component.componentDescription
-        return RawPreset(
-            componentType: desc.componentType,
-            componentSubType: desc.componentSubType,
-            componentManufacturer: desc.componentManufacturer,
-            state: preset.state
+    private func domainSlot(from raw: RawPreset.PluginSlot) -> Preset.PluginSlot {
+        let installed = library.components.first { $0.id == raw.componentID }
+        return Preset.PluginSlot(
+            component: installed ?? AudioUnitComponent(id: raw.componentID, name: raw.name, manufacturer: raw.manufacturer),
+            state: raw.state,
+            isBypassed: raw.isBypassed,
+            isInstalled: installed != nil
         )
+    }
+}
+
+private extension Preset {
+    var raw: RawPreset {
+        RawPreset(pluginSlots: pluginSlots.map { $0.map(\.raw) })
+    }
+}
+
+private extension Preset.PluginSlot {
+    var raw: RawPreset.PluginSlot {
+        RawPreset.PluginSlot(
+            componentType: component.id.type,
+            componentSubType: component.id.subType,
+            componentManufacturer: component.id.manufacturer,
+            name: component.name,
+            manufacturer: component.manufacturer,
+            state: state,
+            isBypassed: isBypassed
+        )
+    }
+}
+
+private extension RawPreset.PluginSlot {
+    var componentID: AudioUnitComponent.ID {
+        AudioUnitComponent.ID(type: componentType, subType: componentSubType, manufacturer: componentManufacturer)
     }
 }

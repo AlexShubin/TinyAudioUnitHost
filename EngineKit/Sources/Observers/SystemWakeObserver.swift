@@ -28,7 +28,7 @@ final class SystemWakeObserver: SystemWakeObserverType {
     func start() {
         guard observation == nil else { return }
         observation = workspaceNotificationCenter.observe(NSWorkspace.didWakeNotification) { [engine] in
-            try? await engine.reload()
+            await engine.reload()
         }
     }
 }

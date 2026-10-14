@@ -11,24 +11,24 @@ import AudioUnitsKit
 
 public extension AudioUnitComponent {
     static func fake(
+        id: ID = .fakeEffect,
         name: String = "Fake AU",
-        manufacturer: String = "FakeCo",
-        componentDescription: AudioComponentDescription = .fakeEffect
+        manufacturer: String = "FakeCo"
     ) -> AudioUnitComponent {
-        AudioUnitComponent(
-            name: name,
-            manufacturer: manufacturer,
-            componentDescription: componentDescription
-        )
+        AudioUnitComponent(id: id, name: name, manufacturer: manufacturer)
     }
 }
 
-public extension AudioComponentDescription {
-    static let fakeEffect = AudioComponentDescription(
-        componentType: kAudioUnitType_Effect,
-        componentSubType: kAudioUnitSubType_DynamicsProcessor,
-        componentManufacturer: kAudioUnitManufacturer_Apple,
-        componentFlags: 0,
-        componentFlagsMask: 0
+public extension AudioUnitComponent.ID {
+    static let fakeEffect = AudioUnitComponent.ID(
+        type: kAudioUnitType_Effect,
+        subType: kAudioUnitSubType_DynamicsProcessor,
+        manufacturer: kAudioUnitManufacturer_Apple
+    )
+
+    static let fakeInstrument = AudioUnitComponent.ID(
+        type: kAudioUnitType_MusicDevice,
+        subType: kAudioUnitSubType_DLSSynth,
+        manufacturer: kAudioUnitManufacturer_Apple
     )
 }

@@ -6,7 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioUnitsKit
 import EngineKit
 import Foundation
@@ -15,14 +14,20 @@ import PresetKit
 
 @MainActor
 protocol SessionModelType: AnyObject, Observable, Sendable {
-    var content: HostContent { get }
-    var activeName: String? { get }
+    var slots: [PluginSlotContent] { get }
+    var selectedIndex: Int { get }
+    var isBusy: Bool { get }
+    var canSavePreset: Bool { get }
+    var activePresetName: String? { get }
     var presets: [String] { get }
     var presetEvent: PresetEvent? { get }
 
+    func load() async
     func acknowledgePresetEvent()
-    func refreshSetup() async
-    func loadComponent(_ component: AudioUnitComponent) async
+    func load(_ component: AudioUnitComponent, at index: Int) async
+    func unload(at index: Int) async
+    func setBypassed(_ isBypassed: Bool, at index: Int)
+    func select(_ index: Int)
     func selectPreset(name: String) async
     func saveCurrentPreset()
     func restoreActivePreset() async
@@ -41,95 +46,105 @@ struct PresetEvent: Sendable, Equatable {
     let kind: Kind
 }
 
-enum HostContent: Sendable, Equatable {
-    case idle
-    case unmet(Set<SetupRequirement>)
+enum PluginSlotContent: Equatable {
     case empty
-    case loading
-    case loaded(LoadedAudioUnit)
-    case failed(String)
-
-    var isLoaded: Bool {
-        if case .loaded = self { return true }
-        return false
-    }
-
-    /// True for states the user can act on from the UI. False before setup
-    /// is checked (.idle), while loading, and when blocked (.unmet).
-    var isOperable: Bool {
-        switch self {
-        case .empty, .loaded, .failed: return true
-        case .idle, .loading, .unmet: return false
-        }
-    }
+    case loading(component: AudioUnitComponent)
+    case loaded(audioUnit: LoadedAudioUnit, isBypassed: Bool)
+    case failed(component: AudioUnitComponent, state: Data?, isBypassed: Bool, message: String)
 }
 
 @MainActor @Observable
 final class SessionModel: SessionModelType {
-    private(set) var content: HostContent = .idle
-    private(set) var activeName: String?
+    private(set) var slots: [PluginSlotContent] = []
+    private(set) var selectedIndex = 0
+    private(set) var activePresetName: String?
     private(set) var presets: [String] = []
     private(set) var presetEvent: PresetEvent?
 
+    var isBusy: Bool {
+        slots.contains { slot in
+            if case .loading = slot { true } else { false }
+        }
+    }
+
+    var canSavePreset: Bool {
+        !isBusy && slots.contains { slot in
+            if case .loaded = slot { true } else { false }
+        }
+    }
+
     @ObservationIgnored private let engine: EngineType
     @ObservationIgnored private let presetProvider: PresetProviderType
-    @ObservationIgnored private let setupChecker: SetupCheckerType
-
     init(
         engine: EngineType,
-        presetProvider: PresetProviderType,
-        setupChecker: SetupCheckerType
+        presetProvider: PresetProviderType
     ) {
         self.engine = engine
         self.presetProvider = presetProvider
-        self.setupChecker = setupChecker
         presets = presetProvider.presets
+        activePresetName = presetProvider.activeName
     }
 
-    func refreshSetup() async {
-        await applyUnmet(setupChecker.check())
+    func load() async {
+        await loadActivePreset()
     }
 
     func acknowledgePresetEvent() {
         presetEvent = nil
     }
 
-    func loadComponent(_ component: AudioUnitComponent) async {
-        await load(component: component, state: nil)
+    func load(_ component: AudioUnitComponent, at index: Int) async {
+        selectedIndex = index
+        replaceSlot(at: index, with: .loading(component: component))
+        do {
+            let audioUnit = try await engine.load(EnginePluginSlot(component: component, state: nil), at: index)
+            finishLoadingSlot(at: index, with: .loaded(audioUnit: audioUnit, isBypassed: false))
+        } catch {
+            finishLoadingSlot(at: index, with: .failed(component: component, state: nil, isBypassed: false, message: error.message))
+        }
+    }
+
+    func unload(at index: Int) async {
+        replaceSlot(at: index, with: .empty)
+        await engine.unload(at: index)
+    }
+
+    func setBypassed(_ isBypassed: Bool, at index: Int) {
+        guard slots.indices.contains(index) else { return }
+        slots[index] = slots[index].applyingBypass(isBypassed)
+    }
+
+    func select(_ index: Int) {
+        selectedIndex = index
     }
 
     func selectPreset(name: String) async {
         presetProvider.setActive(name)
-        activeName = name
+        activePresetName = name
         await loadActivePreset()
     }
 
     func saveCurrentPreset() {
-        guard case .loaded(let audioUnit) = content,
-              let activeName,
-              let state = audioUnit.fullState else { return }
-        let preset = Preset(name: activeName, component: audioUnit.component, state: state)
+        guard let activePresetName, let preset = preset(named: activePresetName) else { return }
         presetProvider.save(preset)
         presets = presetProvider.presets
         presetEvent = PresetEvent(id: UUID(), kind: .saved)
     }
 
     func restoreActivePreset() async {
-        guard let activeName,
-              let saved = presetProvider.load(name: activeName) else { return }
-        await load(component: saved.component, state: saved.state)
-        if case .loaded = content {
+        guard let activePresetName,
+              let saved = presetProvider.load(name: activePresetName) else { return }
+        await loadPreset(saved)
+        if !slots.contains(where: \.isFailed) {
             presetEvent = PresetEvent(id: UUID(), kind: .restored)
         }
     }
 
     func saveAsNewPreset(name: String) {
-        guard case .loaded(let audioUnit) = content,
-              let state = audioUnit.fullState else { return }
-        let preset = Preset(name: name, component: audioUnit.component, state: state)
+        guard let preset = preset(named: name) else { return }
         presetProvider.save(preset)
         presetProvider.setActive(preset.name)
-        activeName = preset.name
+        activePresetName = preset.name
         presets = presetProvider.presets
         presetEvent = PresetEvent(id: UUID(), kind: .saved)
     }
@@ -137,52 +152,113 @@ final class SessionModel: SessionModelType {
     func renamePreset(from: String, to: String) {
         presetProvider.rename(from: from, to: to)
         presets = presetProvider.presets
-        activeName = presetProvider.activeName
+        activePresetName = presetProvider.activeName
     }
 
     func deletePreset(name: String) {
         presetProvider.delete(name: name)
         presets = presetProvider.presets
-        activeName = presetProvider.activeName
-    }
-
-    private func applyUnmet(_ next: Set<SetupRequirement>) async {
-        if !next.isEmpty {
-            content = .unmet(next)
-            return
-        }
-        switch content {
-        case .idle, .unmet:
-            activeName = presetProvider.activeName
-            await loadActivePreset()
-        case .loading, .empty, .loaded, .failed:
-            break
-        }
+        activePresetName = presetProvider.activeName
     }
 
     private func loadActivePreset() async {
-        guard let active = activeName else {
-            content = .empty
-            return
-        }
-        if let preset = presetProvider.load(name: active) {
-            await load(component: preset.component, state: preset.state)
-        } else {
-            content = .failed("Couldn't load this preset.")
+        guard let activePresetName else { return }
+        let preset = presetProvider.load(name: activePresetName) ?? Preset(name: activePresetName, pluginSlots: [])
+        await loadPreset(preset)
+    }
+
+    private func loadPreset(_ preset: Preset) async {
+        replaceSlots(with: preset.pluginSlots.map { $0?.initialContent ?? .empty })
+        let engineSlots = preset.pluginSlots.map { $0?.engineSlot }
+        let results = await engine.load(engineSlots)
+        for (index, (pluginSlot, result)) in zip(preset.pluginSlots, results).enumerated() {
+            guard let pluginSlot, let result else { continue }
+            finishLoadingSlot(at: index, with: pluginSlot.content(for: result))
         }
     }
 
-    private func load(component: AudioUnitComponent, state: Data?) async {
-        content = .loading
-        let result: HostContent
-        do {
-            result = .loaded(try await engine.load(component: component, state: state))
-        } catch {
-            result = .failed(error.message)
+    private func finishLoadingSlot(at index: Int, with content: PluginSlotContent) {
+        guard slots.indices.contains(index), case .loading = slots[index] else { return }
+        replaceSlot(at: index, with: content)
+    }
+
+    private func replaceSlot(at index: Int, with content: PluginSlotContent) {
+        guard index <= slots.count else { return }
+        var updated = slots
+        if index == updated.count {
+            updated.append(content)
+        } else {
+            updated[index] = content
         }
-        if case .loading = content {
-            content = result
+        replaceSlots(with: updated)
+    }
+
+    private func replaceSlots(with contents: [PluginSlotContent]) {
+        var trimmed = contents
+        while trimmed.last == .empty {
+            trimmed.removeLast()
         }
+        slots = trimmed
+        selectFilledSlotIfNeeded()
+    }
+
+    private func selectFilledSlotIfNeeded() {
+        let selected = slots.indices.contains(selectedIndex) ? slots[selectedIndex] : .empty
+        guard selected == .empty, let firstFilled = slots.firstIndex(where: { $0 != .empty }) else { return }
+        selectedIndex = firstFilled
+    }
+
+    private func preset(named name: String) -> Preset? {
+        guard canSavePreset else { return nil }
+        let pluginSlots = slots.map { slot -> Preset.PluginSlot? in
+            switch slot {
+            case .empty, .loading:
+                nil
+            case .loaded(let audioUnit, let isBypassed):
+                Preset.PluginSlot(component: audioUnit.component, state: audioUnit.fullState, isBypassed: isBypassed, isInstalled: true)
+            case .failed(let component, let state, let isBypassed, _):
+                Preset.PluginSlot(component: component, state: state, isBypassed: isBypassed, isInstalled: true)
+            }
+        }
+        return Preset(name: name, pluginSlots: pluginSlots)
+    }
+}
+
+private extension PluginSlotContent {
+    func applyingBypass(_ isBypassed: Bool) -> PluginSlotContent {
+        guard case .loaded(let audioUnit, _) = self else { return self }
+        audioUnit.isBypassed = isBypassed
+        return .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
+    }
+
+    var isFailed: Bool {
+        if case .failed = self { true } else { false }
+    }
+}
+
+private extension Preset.PluginSlot {
+    static let notInstalledMessage = "This plug-in isn't installed."
+
+    var initialContent: PluginSlotContent {
+        isInstalled ? .loading(component: component) : failed(message: Self.notInstalledMessage)
+    }
+
+    var engineSlot: EnginePluginSlot? {
+        isInstalled ? EnginePluginSlot(component: component, state: state) : nil
+    }
+
+    func content(for result: Result<LoadedAudioUnit, EngineLoadError>) -> PluginSlotContent {
+        switch result {
+        case .success(let audioUnit):
+            audioUnit.isBypassed = isBypassed
+            return .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
+        case .failure(let error):
+            return failed(message: error.message)
+        }
+    }
+
+    func failed(message: String) -> PluginSlotContent {
+        .failed(component: component, state: state, isBypassed: isBypassed, message: message)
     }
 }
 
@@ -190,7 +266,6 @@ private extension EngineLoadError {
     var message: String {
         switch self {
         case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."
-        case .deviceUnavailable: return "Audio device is unavailable. Check Settings."
         }
     }
 }

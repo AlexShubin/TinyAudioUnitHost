@@ -9,18 +9,35 @@
 import AudioToolbox
 
 public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
-    public let name: String
-    public let manufacturer: String
-    public let componentDescription: AudioComponentDescription
-
-    public init(name: String, manufacturer: String, componentDescription: AudioComponentDescription) {
-        self.name = name
-        self.manufacturer = manufacturer
-        self.componentDescription = componentDescription
+    public enum Kind: Sendable {
+        case instrument
+        case effect
     }
 
-    public var id: String {
-        "\(componentDescription.componentType)-\(componentDescription.componentSubType)-\(componentDescription.componentManufacturer)"
+    public struct ID: Sendable, Hashable {
+        public let type: UInt32
+        public let subType: UInt32
+        public let manufacturer: UInt32
+
+        public init(type: UInt32, subType: UInt32, manufacturer: UInt32) {
+            self.type = type
+            self.subType = subType
+            self.manufacturer = manufacturer
+        }
+    }
+
+    public let id: ID
+    public let name: String
+    public let manufacturer: String
+
+    public init(id: ID, name: String, manufacturer: String) {
+        self.id = id
+        self.name = name
+        self.manufacturer = manufacturer
+    }
+
+    public var kind: Kind {
+        id.type == kAudioUnitType_MusicDevice ? .instrument : .effect
     }
 
     public static func == (lhs: AudioUnitComponent, rhs: AudioUnitComponent) -> Bool {
@@ -29,5 +46,15 @@ public struct AudioUnitComponent: Sendable, Identifiable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+extension AudioUnitComponent.ID {
+    init(_ description: AudioComponentDescription) {
+        self.init(
+            type: description.componentType,
+            subType: description.componentSubType,
+            manufacturer: description.componentManufacturer
+        )
     }
 }

@@ -19,6 +19,7 @@ public final class AudioSettingsModelSpy: AudioSettingsModelType {
     public private(set) var calls: [Calls] = []
 
     public var settings: AudioSettings = .empty
+    public var setup: SetupState = .checking
     public var targetDevice: AudioDevice?
     public var inputDevices: [AudioDevice] = []
     public var outputDevices: [AudioDevice] = []

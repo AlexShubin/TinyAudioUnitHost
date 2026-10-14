@@ -10,13 +10,25 @@ import AudioUnitsKit
 import Foundation
 
 public struct Preset: Sendable, Equatable {
-    public let name: String
-    public let component: AudioUnitComponent
-    public let state: Data
+    public struct PluginSlot: Sendable, Equatable {
+        public let component: AudioUnitComponent
+        public let state: Data?
+        public let isBypassed: Bool
+        public let isInstalled: Bool
 
-    public init(name: String, component: AudioUnitComponent, state: Data) {
+        public init(component: AudioUnitComponent, state: Data?, isBypassed: Bool, isInstalled: Bool) {
+            self.component = component
+            self.state = state
+            self.isBypassed = isBypassed
+            self.isInstalled = isInstalled
+        }
+    }
+
+    public let name: String
+    public let pluginSlots: [PluginSlot?]
+
+    public init(name: String, pluginSlots: [PluginSlot?]) {
         self.name = name
-        self.component = component
-        self.state = state
+        self.pluginSlots = pluginSlots
     }
 }

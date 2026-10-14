@@ -16,7 +16,6 @@ public struct Dependencies: Sendable {
     public let audioSettingsModel: AudioSettingsModelType
     public let devicesProvider: AudioDevicesProviderType
     public let midiDevicesProvider: MidiDevicesProviderType
-    public let setupChecker: SetupCheckerType
 
     public static let live: Dependencies = {
         let coreAudioGateway = CoreAudioGatewayKit.Dependencies.live.coreAudioGateway
@@ -32,14 +31,14 @@ public struct Dependencies: Sendable {
                 factory: AggregateDeviceFactory(gateway: coreAudioGateway)
             ),
             deviceConfigurator: AudioDeviceConfigurator(gateway: coreAudioGateway),
+            setupChecker: SetupChecker(captureDevice: AVCaptureDeviceGateway()),
             coreAudioGateway: coreAudioGateway,
             coreMidiGateway: coreMidiGateway
         )
         return Dependencies(
             audioSettingsModel: audioSettingsModel,
             devicesProvider: devicesProvider,
-            midiDevicesProvider: midiDevicesProvider,
-            setupChecker: SetupChecker(audioSettings: audioSettingsModel, captureDevice: AVCaptureDeviceGateway())
+            midiDevicesProvider: midiDevicesProvider
         )
     }()
 }

@@ -12,32 +12,39 @@ import Foundation
 
 public final class EngineSpy: EngineType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
-        case load(AudioUnitComponent, Data?)
+        case load(EnginePluginSlot, at: Int)
+        case load([EnginePluginSlot?])
+        case unload(Int)
         case reload
     }
 
     public private(set) var calls: [Calls] = []
-    public var loadResult: Result<LoadedAudioUnit, EngineLoadError>
-    public var reloadError: EngineLoadError?
 
-    public init(
-        loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed),
-        reloadError: EngineLoadError? = nil
-    ) {
-        self.loadResult = loadResult
-        self.reloadError = reloadError
-    }
+    public init() {}
 
     /// Runs while the load is in flight, before the result is returned.
     public var onLoad: (@Sendable () async -> Void)?
-    public func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
-        calls.append(.load(component, state))
+    public var loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed)
+    public func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+        calls.append(.load(slot, at: position))
         await onLoad?()
         return try loadResult.get()
     }
 
-    public func reload() async throws(EngineLoadError) {
+    public var loadSlotsResult: [Result<LoadedAudioUnit, EngineLoadError>?] = []
+    public func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+        calls.append(.load(slots))
+        return loadSlotsResult
+    }
+
+    /// Runs while the unload is in flight.
+    public var onUnload: (@Sendable () async -> Void)?
+    public func unload(at position: Int) async {
+        calls.append(.unload(position))
+        await onUnload?()
+    }
+
+    public func reload() async {
         calls.append(.reload)
-        if let reloadError { throw reloadError }
     }
 }

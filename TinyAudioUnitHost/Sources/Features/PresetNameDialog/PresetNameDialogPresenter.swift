@@ -9,13 +9,6 @@
 import Observation
 import PresetKit
 
-enum PresetNameDialogMode: Sendable, Equatable, Hashable, Identifiable {
-    case saveAs
-    case rename(currentName: String)
-
-    var id: Self { self }
-}
-
 @MainActor @Observable
 final class PresetNameDialogPresenter {
     var name: String

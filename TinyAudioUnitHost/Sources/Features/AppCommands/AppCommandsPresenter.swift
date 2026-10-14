@@ -10,16 +10,16 @@ import Observation
 
 @MainActor @Observable
 final class AppCommandsPresenter {
-    var isSaveButtonDisabled: Bool { session.activeName == nil || !session.content.isLoaded }
-    var isRestoreButtonDisabled: Bool { session.activeName == nil || !session.content.isOperable }
-    var isSaveAsButtonDisabled: Bool { !session.content.isLoaded }
+    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
+    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
+    var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
     private let session: SessionModelType
-    private let saveAsCommand: CommandType
+    private let presetsNavigation: PresetsNavigationModelType
 
-    init(session: SessionModelType, saveAsCommand: CommandType) {
+    init(session: SessionModelType, presetsNavigation: PresetsNavigationModelType) {
         self.session = session
-        self.saveAsCommand = saveAsCommand
+        self.presetsNavigation = presetsNavigation
     }
 
     func savePreset() {
@@ -31,6 +31,6 @@ final class AppCommandsPresenter {
     }
 
     func saveAsPreset() {
-        saveAsCommand.execute()
+        presetsNavigation.presentedNameDialogMode = .saveAs
     }
 }

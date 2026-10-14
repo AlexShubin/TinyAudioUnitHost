@@ -9,26 +9,18 @@
 import AVFoundation
 import Foundation
 
-public enum SetupRequirement: Sendable, Equatable, Hashable {
-    case microphonePermission
-    case noOutputDevice
-    case savedOutputDeviceUnavailable(name: String)
-}
-
-public protocol SetupCheckerType: Sendable {
-    func check() async -> Set<SetupRequirement>
+protocol SetupCheckerType: Sendable {
+    func check(_ settings: AudioSettings) async -> Set<SetupRequirement>
 }
 
 struct SetupChecker: SetupCheckerType {
-    private let audioSettings: AudioSettingsModelType
     private let captureDevice: AVCaptureDeviceGatewayType
 
-    init(audioSettings: AudioSettingsModelType, captureDevice: AVCaptureDeviceGatewayType) {
-        self.audioSettings = audioSettings
+    init(captureDevice: AVCaptureDeviceGatewayType) {
         self.captureDevice = captureDevice
     }
 
-    func check() async -> Set<SetupRequirement> {
+    func check(_ settings: AudioSettings) async -> Set<SetupRequirement> {
         if captureDevice.authorizationStatus(for: .audio) == .notDetermined {
             _ = await captureDevice.requestAccess(for: .audio)
         }
@@ -36,7 +28,6 @@ struct SetupChecker: SetupCheckerType {
         if captureDevice.authorizationStatus(for: .audio) != .authorized {
             unmet.insert(.microphonePermission)
         }
-        let settings = await audioSettings.settings
         if settings.outputChannel == nil {
             // Treat "saved without channels" the same as "never configured" —
             // the user still needs to finish picking, not turn on a device.

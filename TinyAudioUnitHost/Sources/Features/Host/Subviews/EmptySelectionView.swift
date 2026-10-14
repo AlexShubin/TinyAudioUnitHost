@@ -11,13 +11,13 @@ import SwiftUI
 struct EmptySelectionView: View {
     var body: some View {
         PlaceholderView {
-            Text("Select an audio unit")
+            Text("Add a plug-in or pick a preset")
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundStyle(.secondary)
             Text(
-                "The first time you load an audio unit, macOS will ask you to “lower security settings”. " +
-                "This grants this app permission to host plugins — it doesn’t affect other apps or your system."
+                "The first time you load a plug-in, macOS might ask you to “lower security settings”. " +
+                "This grants this app permission to host plug-ins — it doesn’t affect other apps or your system."
             )
             .font(.caption)
             .foregroundStyle(.secondary)

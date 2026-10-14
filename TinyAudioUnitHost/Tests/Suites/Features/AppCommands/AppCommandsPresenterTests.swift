@@ -16,16 +16,16 @@ import Testing
 @Suite
 struct AppCommandsPresenterTests {
     var sessionSpy: SessionModelSpy!
-    var saveAsCommandSpy: BindableCommandSpy!
+    var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: AppCommandsPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()
-        saveAsCommandSpy = BindableCommandSpy()
+        presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 
     mutating func createSut() {
-        sut = AppCommandsPresenter(session: sessionSpy, saveAsCommand: saveAsCommandSpy)
+        sut = AppCommandsPresenter(session: sessionSpy, presetsNavigation: presetsNavigationSpy)
     }
 
     // MARK: - actions
@@ -49,12 +49,12 @@ struct AppCommandsPresenterTests {
     }
 
     @Test
-    mutating func saveAsPreset_executesSaveAsCommand() {
+    mutating func saveAsPreset_presentsSaveAsDialog() {
         createSut()
 
         sut.saveAsPreset()
 
-        #expect(saveAsCommandSpy.calls == [.execute])
+        #expect(presetsNavigationSpy.presentedNameDialogMode == .saveAs)
         #expect(sessionSpy.calls.isEmpty)
     }
 
@@ -62,26 +62,24 @@ struct AppCommandsPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_noActive() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
-        sessionSpy.activeName = nil
+        sessionSpy.canSavePreset = true
         createSut()
 
         #expect(sut.isSaveButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveButtonDisabled_activeButContentNotLoaded() async {
-        sessionSpy.content = .empty
-        sessionSpy.activeName = "foo"
+    mutating func isSaveButtonDisabled_activeButCannotSave() async {
+        sessionSpy.activePresetName = "foo"
         createSut()
 
         #expect(sut.isSaveButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveButtonDisabled_activeAndLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
-        sessionSpy.activeName = "foo"
+    mutating func isSaveButtonDisabled_activeAndCanSave_isFalse() async {
+        sessionSpy.activePresetName = "foo"
+        sessionSpy.canSavePreset = true
         createSut()
 
         #expect(sut.isSaveButtonDisabled == false)
@@ -91,25 +89,23 @@ struct AppCommandsPresenterTests {
 
     @Test
     mutating func isRestoreButtonDisabled_noActive() async {
-        sessionSpy.activeName = nil
         createSut()
 
         #expect(sut.isRestoreButtonDisabled == true)
     }
 
     @Test
-    mutating func isRestoreButtonDisabled_activeButContentLoading() async {
-        sessionSpy.activeName = "foo"
-        sessionSpy.content = .loading
+    mutating func isRestoreButtonDisabled_activeButBusy() async {
+        sessionSpy.activePresetName = "foo"
+        sessionSpy.isBusy = true
         createSut()
 
         #expect(sut.isRestoreButtonDisabled == true)
     }
 
     @Test
-    mutating func isRestoreButtonDisabled_activeAndContentEmpty_isFalse() async {
-        sessionSpy.activeName = "foo"
-        sessionSpy.content = .empty
+    mutating func isRestoreButtonDisabled_activeAndNotBusy_isFalse() async {
+        sessionSpy.activePresetName = "foo"
         createSut()
 
         #expect(sut.isRestoreButtonDisabled == false)
@@ -118,16 +114,15 @@ struct AppCommandsPresenterTests {
     // MARK: - isSaveAsButtonDisabled
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentNotLoaded_isTrue() async {
-        sessionSpy.content = .empty
+    mutating func isSaveAsButtonDisabled_cannotSave_isTrue() async {
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
+    mutating func isSaveAsButtonDisabled_canSave_isFalse() async {
+        sessionSpy.canSavePreset = true
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)

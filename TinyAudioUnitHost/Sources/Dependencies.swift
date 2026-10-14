@@ -22,7 +22,7 @@ struct Dependencies: Sendable {
     let purchases: PurchasesKit.Dependencies
     let session: SessionModelType
     let audioSettingsObserver: AudioSettingsObserverType
-    let saveAsCommand: BindableCommand
+    let presetsNavigation: PresetsNavigationModelType
 
     static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live
@@ -31,8 +31,7 @@ struct Dependencies: Sendable {
         let purchases = PurchasesKit.Dependencies.live
         let session = SessionModel(
             engine: engine.engine,
-            presetProvider: presets.presetProvider,
-            setupChecker: audioSettings.setupChecker
+            presetProvider: presets.presetProvider
         )
         return Dependencies(
             audioSettings: audioSettings,
@@ -44,17 +43,25 @@ struct Dependencies: Sendable {
             audioSettingsObserver: AudioSettingsObserver(
                 audioSettings: audioSettings.audioSettingsModel,
                 engine: engine.engine,
-                midiManager: engine.midiManager,
-                session: session
+                midiManager: engine.midiManager
             ),
-            saveAsCommand: BindableCommand()
+            presetsNavigation: PresetsNavigationModel()
         )
     }()
 
     func makeHostPresenter() -> HostPresenter {
         HostPresenter(
+            session: session,
+            audioSettings: audioSettings.audioSettingsModel,
+            purchases: purchases.purchasesModel
+        )
+    }
+
+    func makeChannelStripPresenter() -> ChannelStripPresenter {
+        ChannelStripPresenter(
             library: audioUnits.audioUnitComponentsLibrary,
             session: session,
+            audioSettings: audioSettings.audioSettingsModel,
             purchases: purchases.purchasesModel
         )
     }
@@ -62,15 +69,14 @@ struct Dependencies: Sendable {
     func makePresetsPresenter() -> PresetsPresenter {
         PresetsPresenter(
             session: session,
-            purchases: purchases.purchasesModel,
-            saveAsCommandBinder: saveAsCommand
+            presetsNavigation: presetsNavigation
         )
     }
 
     func makeAppCommandsPresenter() -> AppCommandsPresenter {
         AppCommandsPresenter(
             session: session,
-            saveAsCommand: saveAsCommand
+            presetsNavigation: presetsNavigation
         )
     }
 

@@ -14,9 +14,19 @@ import PresetKit
 public extension Preset {
     static func fake(
         name: String = "test",
-        component: AudioUnitComponent = .fake(),
-        state: Data = Data()
+        pluginSlots: [PluginSlot?] = [.fake()]
     ) -> Preset {
-        Preset(name: name, component: component, state: state)
+        Preset(name: name, pluginSlots: pluginSlots)
+    }
+}
+
+public extension Preset.PluginSlot {
+    static func fake(
+        component: AudioUnitComponent = .fake(),
+        state: Data? = Data(),
+        isBypassed: Bool = false,
+        isInstalled: Bool = true
+    ) -> Preset.PluginSlot {
+        Preset.PluginSlot(component: component, state: state, isBypassed: isBypassed, isInstalled: isInstalled)
     }
 }

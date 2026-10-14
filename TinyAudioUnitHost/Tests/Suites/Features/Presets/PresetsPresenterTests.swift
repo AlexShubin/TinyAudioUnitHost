@@ -6,13 +6,6 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioUnitsKit
-import AudioUnitsKitTestSupport
-import Foundation
-import PresetKit
-import PresetKitTestSupport
-import PurchasesKit
-import PurchasesKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -20,94 +13,72 @@ import Testing
 @Suite
 struct PresetsPresenterTests {
     var sessionSpy: SessionModelSpy!
-    var purchasesSpy: PurchasesModelSpy!
-    var saveAsCommandSpy: BindableCommandSpy!
+    var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: PresetsPresenter!
 
     init() {
         sessionSpy = SessionModelSpy()
-        purchasesSpy = PurchasesModelSpy()
-        saveAsCommandSpy = BindableCommandSpy()
+        presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 
     mutating func createSut() {
         sut = PresetsPresenter(
             session: sessionSpy,
-            purchases: purchasesSpy,
-            saveAsCommandBinder: saveAsCommandSpy
+            presetsNavigation: presetsNavigationSpy
         )
     }
 
     // MARK: - forwarded state
 
     @Test
-    mutating func activeName_forwardsSessionActiveName() async {
-        sessionSpy.activeName = "foo"
+    mutating func activeName_forwardsSessionActivePresetName() async {
+        sessionSpy.activePresetName = "foo"
         createSut()
 
         #expect(sut.activeName == "foo")
     }
 
     @Test
-    mutating func isInteractionDisabled_contentLoading_isTrue() async {
-        sessionSpy.content = .loading
+    mutating func isInteractionDisabled_sessionBusy_isTrue() async {
+        sessionSpy.isBusy = true
         createSut()
 
         #expect(sut.isInteractionDisabled == true)
     }
 
     @Test
-    mutating func isInteractionDisabled_contentUnmet_isTrue() async {
-        sessionSpy.content = .unmet([.noOutputDevice])
-        createSut()
-
-        #expect(sut.isInteractionDisabled == true)
-    }
-
-    @Test
-    mutating func isInteractionDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
+    mutating func isInteractionDisabled_sessionNotBusy_isFalse() async {
         createSut()
 
         #expect(sut.isInteractionDisabled == false)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentNotLoaded_isTrue() async {
-        sessionSpy.content = .empty
+    mutating func isSaveAsButtonDisabled_cannotSave_isTrue() async {
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_contentLoaded_isFalse() async {
-        sessionSpy.content = .loaded(LoadedAudioUnit(component: .fake()))
+    mutating func isSaveAsButtonDisabled_canSave_isFalse() async {
+        sessionSpy.canSavePreset = true
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)
     }
 
-    // MARK: - presets (free-tier cap)
+    // MARK: - presets
 
     @Test
-    mutating func presets_freeUser_slicesToFirstTwo() async {
-        sessionSpy.presets = ["a", "b", "c"]
-        createSut()
-
-        #expect(sut.presets == ["a", "b"])
-    }
-
-    @Test
-    mutating func presets_proUser_returnsAll() async {
-        purchasesSpy.state = .pro
+    mutating func presets_forwardsEverySessionPreset() async {
         sessionSpy.presets = ["a", "b", "c"]
         createSut()
 
         #expect(sut.presets == ["a", "b", "c"])
     }
 
-    // MARK: - selected / deleteTapped (forwarding)
+    // MARK: - select / delete (forwarding)
 
     @Test
     mutating func select_forwardsToSession() async {
@@ -127,43 +98,16 @@ struct PresetsPresenterTests {
         #expect(sessionSpy.calls == [.deletePreset(name: "foo")])
     }
 
-    // MARK: - saveAsTapped: cap-and-decide
+    // MARK: - name dialog
 
     @Test
-    mutating func saveAs_pro_presentsSaveAsDialog() {
-        purchasesSpy.state = .pro
-        sessionSpy.presets = ["a", "b", "c"]
+    mutating func saveAs_presentsSaveAsDialog() {
         createSut()
 
         sut.saveAs()
 
-        #expect(sut.presentedDialog == .saveAs)
-        #expect(sut.isProWindowRequested == false)
+        #expect(presetsNavigationSpy.presentedNameDialogMode == .saveAs)
     }
-
-    @Test
-    mutating func saveAs_freeBelowCap_presentsSaveAsDialog() {
-        sessionSpy.presets = ["a"]
-        createSut()
-
-        sut.saveAs()
-
-        #expect(sut.presentedDialog == .saveAs)
-        #expect(sut.isProWindowRequested == false)
-    }
-
-    @Test
-    mutating func saveAs_freeAtCap_requestsProWindow() {
-        sessionSpy.presets = ["a", "b"]
-        createSut()
-
-        sut.saveAs()
-
-        #expect(sut.presentedDialog == nil)
-        #expect(sut.isProWindowRequested == true)
-    }
-
-    // MARK: - rename / dismiss dialog state
 
     @Test
     mutating func rename_presentsRenameDialog() {
@@ -171,69 +115,24 @@ struct PresetsPresenterTests {
 
         sut.rename(name: "foo")
 
-        #expect(sut.presentedDialog == .rename(currentName: "foo"))
+        #expect(presetsNavigationSpy.presentedNameDialogMode == .rename(currentName: "foo"))
     }
 
     @Test
-    mutating func presentedDialog_setNil_dismissesDialog() {
+    mutating func presentedNameDialogMode_readsNavigation() {
+        presetsNavigationSpy.presentedNameDialogMode = .saveAs
         createSut()
-        sut.rename(name: "foo")
 
-        sut.presentedDialog = nil
-
-        #expect(sut.presentedDialog == nil)
+        #expect(sut.presentedNameDialogMode == .saveAs)
     }
 
     @Test
-    mutating func proWindowOpened_clearsRequest() {
-        sessionSpy.presets = ["a", "b"]
-        createSut()
-        sut.saveAs()
-
-        sut.proWindowOpened()
-
-        #expect(sut.isProWindowRequested == false)
-        #expect(sut.presentedDialog == nil)
-    }
-
-    // MARK: - save-as command
-
-    @Test
-    mutating func init_doesNotBindSaveAsCommand() async {
+    mutating func presentedNameDialogMode_setNil_dismissesThroughNavigation() {
+        presetsNavigationSpy.presentedNameDialogMode = .rename(currentName: "foo")
         createSut()
 
-        #expect(saveAsCommandSpy.calls.isEmpty)
-    }
+        sut.presentedNameDialogMode = nil
 
-    @Test
-    mutating func task_bindsSaveAsCommand() async {
-        createSut()
-
-        sut.task()
-
-        #expect(saveAsCommandSpy.calls == [.bind])
-    }
-
-    @Test
-    mutating func saveAsCommand_freeBelowCap_presentsSaveAsDialog() async {
-        sessionSpy.presets = ["a"]
-        createSut()
-        sut.task()
-
-        saveAsCommandSpy.action?()
-
-        #expect(sut.presentedDialog == .saveAs)
-        #expect(sut.isProWindowRequested == false)
-    }
-
-    @Test
-    mutating func saveAsCommand_freeAtCap_requestsProWindow() async {
-        sessionSpy.presets = ["a", "b"]
-        createSut()
-        sut.task()
-
-        saveAsCommandSpy.action?()
-
-        #expect(sut.isProWindowRequested == true)
+        #expect(presetsNavigationSpy.presentedNameDialogMode == nil)
     }
 }

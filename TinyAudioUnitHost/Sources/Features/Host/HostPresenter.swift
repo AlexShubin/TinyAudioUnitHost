@@ -6,61 +6,54 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 import PurchasesKit
 
-struct ManufacturerGroup: Identifiable, Hashable {
-    let manufacturer: String
-    let components: [AudioUnitComponent]
-
-    var id: String { manufacturer }
+enum HostContent: Sendable, Equatable {
+    case unmet(Set<SetupRequirement>)
+    case empty
+    case loading
+    case loaded(LoadedAudioUnit)
+    case failed(String)
 }
 
 @MainActor @Observable
 final class HostPresenter {
-    var groups: [ManufacturerGroup] {
-        Dictionary(grouping: library.components, by: \.manufacturer)
-            .map { ManufacturerGroup(manufacturer: $0.key, components: $0.value) }
-            .sorted { $0.manufacturer.localizedCaseInsensitiveCompare($1.manufacturer) == .orderedAscending }
+    var content: HostContent {
+        switch audioSettings.setup {
+        case .checking:
+            .loading
+        case .unmet(let requirements):
+            .unmet(requirements)
+        case .met:
+            session.slots.indices.contains(session.selectedIndex) ? session.slots[session.selectedIndex].hostContent : .empty
+        }
     }
-
-    var content: HostContent { session.content }
 
     var feedback: FeedbackToastViewState? {
         session.presetEvent.map { FeedbackToastViewState(id: $0.id, kind: $0.kind.feedbackKind) }
     }
 
-    var presetLabel: String { "Preset: \(session.activeName ?? "—")" }
+    var presetLabel: String { "Preset: \(session.activePresetName ?? "—")" }
 
-    var audioUnitTitle: String {
-        if case .loaded(let audioUnit) = session.content {
-            return audioUnit.component.name
-        }
-        return "Choose Audio Unit"
-    }
-
-    var isAudioUnitPickerDisabled: Bool { !session.content.isOperable }
-    var isSaveButtonDisabled: Bool { session.activeName == nil || !session.content.isLoaded }
-    var isRestoreButtonDisabled: Bool { session.activeName == nil || !session.content.isOperable }
+    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
+    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
     var isStarFilled: Bool { purchases.state.isPro }
 
-    private let library: AudioUnitComponentsLibraryType
     private let session: SessionModelType
+    private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
-        library: AudioUnitComponentsLibraryType,
         session: SessionModelType,
+        audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {
-        self.library = library
         self.session = session
+        self.audioSettings = audioSettings
         self.purchases = purchases
-    }
-
-    func select(_ component: AudioUnitComponent) async {
-        await session.loadComponent(component)
     }
 
     func savePreset() {
@@ -81,6 +74,17 @@ private extension PresetEvent.Kind {
         switch self {
         case .saved: .saved
         case .restored: .restored
+        }
+    }
+}
+
+private extension PluginSlotContent {
+    var hostContent: HostContent {
+        switch self {
+        case .empty: .empty
+        case .loading: .loading
+        case .loaded(let audioUnit, _): .loaded(audioUnit)
+        case .failed(_, _, _, let message): .failed(message)
         }
     }
 }

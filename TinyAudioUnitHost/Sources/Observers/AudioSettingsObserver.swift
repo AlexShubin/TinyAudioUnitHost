@@ -19,19 +19,16 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
     private let audioSettings: AudioSettingsModelType
     private let engine: EngineType
     private let midiManager: MidiManagerType
-    private let session: SessionModelType
     private var appliedBinding: AudioBinding?
 
     init(
         audioSettings: AudioSettingsModelType,
         engine: EngineType,
-        midiManager: MidiManagerType,
-        session: SessionModelType
+        midiManager: MidiManagerType
     ) {
         self.audioSettings = audioSettings
         self.engine = engine
         self.midiManager = midiManager
-        self.session = session
     }
 
     func start() {
@@ -39,13 +36,16 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
     }
 
     func audioSettingsDidChange() async {
-        let binding = AudioBinding(settings: audioSettings.settings, targetDevice: audioSettings.targetDevice)
+        let binding = AudioBinding(
+            settings: audioSettings.settings,
+            targetDevice: audioSettings.targetDevice,
+            setup: audioSettings.setup
+        )
         if binding != appliedBinding {
             appliedBinding = binding
-            try? await engine.reload()
+            await engine.reload()
         }
         await midiManager.reconnectMIDISources()
-        await session.refreshSetup()
     }
 }
 
@@ -57,8 +57,9 @@ private struct AudioBinding: Equatable {
     let bufferSize: UInt32?
     let sampleRate: Float64?
     let targetDevice: AudioDevice?
+    let setup: SetupState
 
-    init(settings: AudioSettings, targetDevice: AudioDevice?) {
+    init(settings: AudioSettings, targetDevice: AudioDevice?, setup: SetupState) {
         inputDevice = settings.inputDevice
         outputDevice = settings.outputDevice
         inputChannel = settings.inputChannel
@@ -66,5 +67,6 @@ private struct AudioBinding: Equatable {
         bufferSize = settings.bufferSize
         sampleRate = settings.sampleRate
         self.targetDevice = targetDevice
+        self.setup = setup
     }
 }

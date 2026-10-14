@@ -9,6 +9,7 @@
 import AppKit
 @preconcurrency import CoreAudioKit
 import CoreMIDI
+import Synchronization
 
 /// Concrete model wrapping `AUAudioUnit` for the rest of the app to pass around.
 ///
@@ -29,6 +30,7 @@ public final class LoadedAudioUnit: Equatable, Sendable {
     #if DEBUG
     private let testComponent: AudioUnitComponent?
     private let testState: Data?
+    private let testIsBypassed = Mutex(false)
     #endif
 
     public init(_ au: AUAudioUnit) {
@@ -40,7 +42,7 @@ public final class LoadedAudioUnit: Equatable, Sendable {
     }
 
     #if DEBUG
-    /// Headless stand-in with no live audio unit, for tests that only need its identity and `fullState`.
+    /// Headless stand-in with no live audio unit, for tests that only need its identity, `fullState`, and `isBypassed`.
     public init(component: AudioUnitComponent, fullState: Data? = nil) {
         self.au = nil
         self.testComponent = component
@@ -53,9 +55,9 @@ public final class LoadedAudioUnit: Equatable, Sendable {
         if let testComponent { return testComponent }
         #endif
         return AudioUnitComponent(
+            id: AudioUnitComponent.ID(au?.componentDescription ?? AudioComponentDescription()),
             name: au?.audioUnitName ?? "",
-            manufacturer: au?.manufacturerName ?? "",
-            componentDescription: au?.componentDescription ?? AudioComponentDescription()
+            manufacturer: au?.manufacturerName ?? ""
         )
     }
 
@@ -68,6 +70,22 @@ public final class LoadedAudioUnit: Equatable, Sendable {
             #endif
         }
         set { au?.fullState = newValue?.asStringAnyDictionary }
+    }
+
+    public var isBypassed: Bool {
+        get {
+            #if DEBUG
+            au?.shouldBypassEffect ?? testIsBypassed.withLock { $0 }
+            #else
+            au?.shouldBypassEffect ?? false
+            #endif
+        }
+        set {
+            au?.shouldBypassEffect = newValue
+            #if DEBUG
+            testIsBypassed.withLock { $0 = newValue }
+            #endif
+        }
     }
 
     public func scheduleMIDIEventList(_ eventList: UnsafePointer<MIDIEventList>) {

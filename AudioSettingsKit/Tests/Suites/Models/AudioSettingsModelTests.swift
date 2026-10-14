@@ -23,6 +23,7 @@ struct AudioSettingsModelTests {
     var deviceConfiguratorSpy: AudioDeviceConfiguratorSpy!
     var coreAudioGatewaySpy: CoreAudioGatewaySpy!
     var coreMidiGatewaySpy: CoreMidiGatewaySpy!
+    var setupCheckerSpy: SetupCheckerSpy!
     var delegateSpy: AudioSettingsModelDelegateSpy!
     var sut: AudioSettingsModelType!
 
@@ -34,6 +35,7 @@ struct AudioSettingsModelTests {
         deviceConfiguratorSpy = AudioDeviceConfiguratorSpy()
         coreAudioGatewaySpy = CoreAudioGatewaySpy()
         coreMidiGatewaySpy = CoreMidiGatewaySpy()
+        setupCheckerSpy = SetupCheckerSpy()
         delegateSpy = AudioSettingsModelDelegateSpy()
     }
 
@@ -44,6 +46,7 @@ struct AudioSettingsModelTests {
             midiDevicesProvider: midiDevicesProviderSpy,
             targetResolver: targetResolverSpy,
             deviceConfigurator: deviceConfiguratorSpy,
+            setupChecker: setupCheckerSpy,
             coreAudioGateway: coreAudioGatewaySpy,
             coreMidiGateway: coreMidiGatewaySpy
         )
@@ -339,6 +342,68 @@ struct AudioSettingsModelTests {
         await sut.save(.fake(outputDevice: output))
 
         #expect(deviceConfiguratorSpy.calls == [.apply(sut.settings, output)])
+    }
+
+    // MARK: - setup
+
+    @Test
+    mutating func init_setupIsChecking() {
+        createSut()
+
+        #expect(sut.setup == .checking)
+    }
+
+    @Test
+    mutating func load_checksLoadedSettings() async {
+        rawStoreSpy.settings = .fake(bufferSize: 256, sampleRate: 48_000)
+        createSut()
+
+        await sut.load()
+
+        #expect(setupCheckerSpy.calls == [.check(.fake(bufferSize: 256, sampleRate: 48_000))])
+    }
+
+    @Test
+    mutating func load_noRequirements_setupMet() async {
+        createSut()
+
+        await sut.load()
+
+        #expect(sut.setup == .met)
+    }
+
+    @Test
+    mutating func load_requirements_setupUnmet() async {
+        setupCheckerSpy.checkResult = [.microphonePermission, .noOutputDevice]
+        createSut()
+
+        await sut.load()
+
+        #expect(sut.setup == .unmet([.microphonePermission, .noOutputDevice]))
+    }
+
+    @Test
+    mutating func load_updatesSetupBeforeNotifyingDelegate() async {
+        createSut()
+        delegateSpy.onAudioSettingsDidChange = { [sut] in
+            #expect(sut?.setup == .met)
+        }
+
+        await sut.load()
+
+        #expect(delegateSpy.calls == [.audioSettingsDidChange])
+    }
+
+    @Test
+    mutating func save_changedSettings_rechecksSetup() async {
+        createSut()
+        await sut.load()
+        setupCheckerSpy.checkResult = [.noOutputDevice]
+
+        await sut.save(.fake(bufferSize: 512))
+
+        #expect(setupCheckerSpy.calls == [.check(.empty), .check(.fake(bufferSize: 512))])
+        #expect(sut.setup == .unmet([.noOutputDevice]))
     }
 
     // MARK: - device lists

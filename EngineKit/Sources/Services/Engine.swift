@@ -14,15 +14,21 @@ import OSLog
 
 public enum EngineLoadError: Error, Sendable, Equatable {
     case audioUnitInstantiationFailed
-    case deviceUnavailable
 }
 
 public protocol EngineType: Sendable {
-    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit
-    func reload() async throws(EngineLoadError)
+    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
+    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?]
+    func unload(at position: Int) async
+    func reload() async
 }
 
 final actor Engine: EngineType {
+    private struct Node {
+        let avAudioUnit: AVAudioUnit
+        let audioUnit: LoadedAudioUnit
+    }
+
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Engine")
 
     private let engine: AVAudioEngineType
@@ -31,7 +37,7 @@ final actor Engine: EngineType {
     private let audioUnitGateway: AudioUnitGatewayType
     private let midiManager: MidiManagerType
     private let audioSettings: AudioSettingsModelType
-    private var currentAVAudioUnit: AVAudioUnit?
+    private var chain: [Int: Node] = [:]
 
     init(
         engine: AVAudioEngineType,
@@ -50,61 +56,98 @@ final actor Engine: EngineType {
         engine.attach(inputMixer)
     }
 
-    func load(component: AudioUnitComponent, state: Data?) async throws(EngineLoadError) -> LoadedAudioUnit {
+    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+        await tearDown()
+        detachNode(at: position)
+        let result = await insert(slot, at: position)
+        await rebuild()
+        return try result.get()
+    }
+
+    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+        await tearDown()
+        for position in chain.keys {
+            detachNode(at: position)
+        }
+        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, EngineLoadError>).self) { group in
+            for (position, slot) in slots.enumerated() {
+                guard let slot else { continue }
+                group.addTask { (position, await self.insert(slot, at: position)) }
+            }
+            var results = [Result<LoadedAudioUnit, EngineLoadError>?](repeating: nil, count: slots.count)
+            for await (position, result) in group {
+                results[position] = result
+            }
+            return results
+        }
+        await rebuild()
+        return results
+    }
+
+    func unload(at position: Int) async {
+        await tearDown()
+        detachNode(at: position)
+        await rebuild()
+    }
+
+    func reload() async {
+        guard !chain.isEmpty else { return }
+        engine.stop()
+        disconnect()
+        await connectAndStart()
+    }
+
+    private var orderedNodes: [Node] {
+        chain.sorted { $0.key < $1.key }.map(\.value)
+    }
+
+    private func tearDown() async {
         engine.stop()
         disconnect()
         await midiManager.teardownMIDI()
-
-        let audioUnit = try await loadAudioUnit(component)
-        if let state { audioUnit.fullState = state }
-
-        do {
-            try await applyConnections()
-        } catch {
-            unloadAudioUnit()
-            throw error
-        }
-        logging { try engine.start() }
-
-        await midiManager.setupMIDI(for: audioUnit)
-
-        return audioUnit
     }
 
-    func reload() async throws(EngineLoadError) {
-        guard currentAVAudioUnit != nil else { return }
-        engine.stop()
-        disconnect()
-        try await applyConnections()
-        logging { try engine.start() }
+    private func rebuild() async {
+        await tearDown()
+        guard let first = orderedNodes.first else { return }
+        await connectAndStart()
+        await midiManager.setupMIDI(for: first.audioUnit)
     }
 
-    private func applyConnections() async throws(EngineLoadError) {
-        guard let device = await audioSettings.targetDevice else { return }
+    private func connectAndStart() async {
+        guard await audioSettings.setup == .met,
+              let device = await audioSettings.targetDevice else { return }
         let settings = await audioSettings.settings
+        do {
+            try bindDevice(device, settings: settings)
+        } catch {
+            logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
+            return
+        }
+        applyConnections(settings: settings)
+        logging { try engine.start() }
+    }
 
-        try bindDevice(device, settings: settings)
+    private func applyConnections(settings: AudioSettings) {
+        let nodes = orderedNodes.map(\.avAudioUnit)
+        guard let first = nodes.first, let last = nodes.last else { return }
 
-        guard let avAudioUnit = currentAVAudioUnit else { return }
-
-        if let input = settings.inputChannel, avAudioUnit.acceptsAudioInput {
-            connectInputs(avAudioUnit: avAudioUnit, channels: input)
+        if let input = settings.inputChannel, first.acceptsAudioInput {
+            connectInputs(avAudioUnit: first, channels: input)
+        }
+        for (source, destination) in zip(nodes, nodes.dropFirst()) {
+            connect(source, to: destination)
         }
         if let output = settings.outputChannel {
-            connectOutputs(avAudioUnit: avAudioUnit, channels: output, hardwareOffset: settings.outputOffset)
+            connectOutputs(avAudioUnit: last, channels: output, hardwareOffset: settings.outputOffset)
         }
     }
 
-    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(EngineLoadError) {
+    private func bindDevice(_ device: AudioDevice, settings: AudioSettings) throws(AudioUnitGatewayError) {
         guard let audioUnit = engine.outputAudioUnit else { return }
         logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: audioUnit) }
         logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: audioUnit) }
-        do {
-            try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
-        } catch {
-            logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
-            throw EngineLoadError.deviceUnavailable
-        }
+        try audioUnitGateway.setCurrentDevice(device.id, on: audioUnit)
     }
 
     private func connectInputs(avAudioUnit: AVAudioUnit, channels: SelectedChannel) {
@@ -153,28 +196,43 @@ final actor Engine: EngineType {
         engine.disconnectHardwareInput()
     }
 
-    private func loadAudioUnit(_ component: AudioUnitComponent) async throws(EngineLoadError) -> LoadedAudioUnit {
-        unloadAudioUnit()
+    private func connect(_ source: AVAudioUnit, to destination: AVAudioUnit) {
+        let format = AVAudioFormat(
+            standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
+            channels: source.auAudioUnit.outputBusses[0].format.channelCount
+        )
+        engine.connect(source, to: destination, format: format)
+    }
+
+    private func insert(_ slot: EnginePluginSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
+        do {
+            let node = try await instantiate(slot.component)
+            if let state = slot.state { node.audioUnit.fullState = state }
+            detachNode(at: position)
+            chain[position] = node
+            return .success(node.audioUnit)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func instantiate(_ component: AudioUnitComponent) async throws(EngineLoadError) -> Node {
         do {
             let avAudioUnit = try await avAudioUnitFactory.instantiate(
                 with: component.componentDescription,
                 options: .loadOutOfProcess
             )
-
-            currentAVAudioUnit = avAudioUnit
             engine.attach(avAudioUnit)
-
-            return LoadedAudioUnit(avAudioUnit.auAudioUnit)
+            return Node(avAudioUnit: avAudioUnit, audioUnit: LoadedAudioUnit(avAudioUnit.auAudioUnit))
         } catch {
             logger.warning("AU instantiation failed: \(String(describing: error), privacy: .public)")
             throw EngineLoadError.audioUnitInstantiationFailed
         }
     }
 
-    private func unloadAudioUnit() {
-        guard let node = currentAVAudioUnit else { return }
-        engine.detach(node)
-        currentAVAudioUnit = nil
+    private func detachNode(at position: Int) {
+        guard let node = chain.removeValue(forKey: position) else { return }
+        engine.detach(node.avAudioUnit)
     }
 
     private func logging(_ work: () throws -> Void) {
@@ -183,6 +241,18 @@ final actor Engine: EngineType {
         } catch {
             logger.warning("\(String(describing: error), privacy: .public)")
         }
+    }
+}
+
+private extension AudioUnitComponent {
+    var componentDescription: AudioComponentDescription {
+        AudioComponentDescription(
+            componentType: id.type,
+            componentSubType: id.subType,
+            componentManufacturer: id.manufacturer,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
     }
 }
 

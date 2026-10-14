@@ -63,11 +63,7 @@ public final class PresetProviderSpy: PresetProviderType, @unchecked Sendable {
     public func rename(from oldName: String, to newName: String) {
         calls.append(.rename(from: oldName, to: newName))
         if let existing = storedPresets.removeValue(forKey: oldName) {
-            storedPresets[newName] = Preset(
-                name: newName,
-                component: existing.component,
-                state: existing.state
-            )
+            storedPresets[newName] = Preset(name: newName, pluginSlots: existing.pluginSlots)
         }
         if currentActiveName == oldName {
             currentActiveName = newName

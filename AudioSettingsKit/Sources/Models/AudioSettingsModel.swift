@@ -15,6 +15,7 @@ import StorageKit
 @MainActor
 public protocol AudioSettingsModelType: AnyObject, Observable, Sendable {
     var settings: AudioSettings { get }
+    var setup: SetupState { get }
     var targetDevice: AudioDevice? { get }
     var inputDevices: [AudioDevice] { get }
     var outputDevices: [AudioDevice] { get }
@@ -32,6 +33,7 @@ public protocol AudioSettingsModelDelegate: AnyObject {
 @MainActor @Observable
 final class AudioSettingsModel: AudioSettingsModelType {
     private(set) var settings: AudioSettings = .empty
+    private(set) var setup: SetupState = .checking
     private(set) var targetDevice: AudioDevice?
     private(set) var inputDevices: [AudioDevice] = []
     private(set) var outputDevices: [AudioDevice] = []
@@ -44,6 +46,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
     @ObservationIgnored private let midiDevicesProvider: MidiDevicesProviderType
     @ObservationIgnored private let targetResolver: TargetDeviceResolverType
     @ObservationIgnored private let deviceConfigurator: AudioDeviceConfiguratorType
+    @ObservationIgnored private let setupChecker: SetupCheckerType
     @ObservationIgnored private var deviceListObservation: Cancellation?
     @ObservationIgnored private var midiSetupObservation: Cancellation?
     @ObservationIgnored private var devices: [AudioDevice] = []
@@ -54,6 +57,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         midiDevicesProvider: MidiDevicesProviderType,
         targetResolver: TargetDeviceResolverType,
         deviceConfigurator: AudioDeviceConfiguratorType,
+        setupChecker: SetupCheckerType,
         coreAudioGateway: CoreAudioGatewayType,
         coreMidiGateway: CoreMidiGatewayType
     ) {
@@ -62,6 +66,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
         self.midiDevicesProvider = midiDevicesProvider
         self.targetResolver = targetResolver
         self.deviceConfigurator = deviceConfigurator
+        self.setupChecker = setupChecker
         deviceListObservation = coreAudioGateway.observeDeviceListChanges { [weak self] in
             await self?.rescanDevices()
         }
@@ -75,8 +80,7 @@ final class AudioSettingsModel: AudioSettingsModelType {
     func load() async {
         await scanDevices()
         resolve(rawStore.current)
-        configureTargetDevice()
-        await delegate?.audioSettingsDidChange()
+        await publishChange()
     }
 
     func save(_ settings: AudioSettings) async {
@@ -104,7 +108,13 @@ final class AudioSettingsModel: AudioSettingsModelType {
         let previous = (settings, targetDevice)
         resolve(raw)
         guard previous != (settings, targetDevice) else { return }
+        await publishChange()
+    }
+
+    private func publishChange() async {
         configureTargetDevice()
+        let unmet = await setupChecker.check(settings)
+        setup = unmet.isEmpty ? .met : .unmet(unmet)
         await delegate?.audioSettingsDidChange()
     }
 
