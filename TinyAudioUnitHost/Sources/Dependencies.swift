@@ -30,7 +30,7 @@ struct Dependencies: Sendable {
         let presets = PresetKit.Dependencies.live
         let purchases = PurchasesKit.Dependencies.live
         let session = SessionModel(
-            engine: engine.engine,
+            pluginChain: engine.pluginChain,
             presetProvider: presets.presetProvider
         )
         return Dependencies(
@@ -42,7 +42,7 @@ struct Dependencies: Sendable {
             session: session,
             audioSettingsObserver: AudioSettingsObserver(
                 audioSettings: audioSettings.audioSettingsModel,
-                engine: engine.engine,
+                pluginChain: engine.pluginChain,
                 midiManager: engine.midiManager
             ),
             presetsNavigation: PresetsNavigationModel()

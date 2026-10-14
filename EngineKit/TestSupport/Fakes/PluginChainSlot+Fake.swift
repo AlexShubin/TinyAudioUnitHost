@@ -1,5 +1,5 @@
 //
-//  EnginePluginSlot+Fake.swift
+//  PluginChainSlot+Fake.swift
 //  EngineKitTestSupport
 //
 //  Created by Alex Shubin on 11.10.26.
@@ -11,11 +11,11 @@ import AudioUnitsKitTestSupport
 import EngineKit
 import Foundation
 
-public extension EnginePluginSlot {
+public extension PluginChainSlot {
     static func fake(
         component: AudioUnitComponent = .fake(),
         state: Data? = nil
-    ) -> EnginePluginSlot {
-        EnginePluginSlot(component: component, state: state)
+    ) -> PluginChainSlot {
+        PluginChainSlot(component: component, state: state)
     }
 }

@@ -16,20 +16,20 @@ import Testing
 @Suite
 struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var engineSpy: EngineSpy!
+    var pluginChainSpy: PluginChainSpy!
     var midiManagerSpy: MidiManagerSpy!
     var sut: AudioSettingsObserverType!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
-        engineSpy = EngineSpy()
+        pluginChainSpy = PluginChainSpy()
         midiManagerSpy = MidiManagerSpy()
     }
 
     mutating func createSut() {
         sut = AudioSettingsObserver(
             audioSettings: audioSettingsSpy,
-            engine: engineSpy,
+            pluginChain: pluginChainSpy,
             midiManager: midiManagerSpy
         )
     }
@@ -48,19 +48,19 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_reloadsEngineAndReconnectsMidi() async {
+    mutating func change_reconnectsPluginChainAndMidi() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
 
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload])
+        #expect(pluginChainSpy.calls == [.reconnect])
         #expect(midiManagerSpy.calls == [.reconnectMIDISources])
     }
 
     @Test
-    mutating func change_sameAudioBindingTwice_reloadsEngineOnce() async {
+    mutating func change_sameAudioBindingTwice_reconnectsPluginChainOnce() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
@@ -68,12 +68,12 @@ struct AudioSettingsObserverTests {
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload])
+        #expect(pluginChainSpy.calls == [.reconnect])
         #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
     }
 
     @Test
-    mutating func change_midiOnly_skipsEngineReload() async {
+    mutating func change_midiOnly_skipsPluginChainReconnect() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
@@ -82,12 +82,12 @@ struct AudioSettingsObserverTests {
         audioSettingsSpy.settings = .fake(sampleRate: 48_000, selectedMidiDevices: [.fake()])
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload])
+        #expect(pluginChainSpy.calls == [.reconnect])
         #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
     }
 
     @Test
-    mutating func change_targetDeviceOnly_reloadsEngine() async {
+    mutating func change_targetDeviceOnly_reconnectsPluginChain() async {
         createSut()
         sut.start()
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
@@ -95,11 +95,11 @@ struct AudioSettingsObserverTests {
         audioSettingsSpy.targetDevice = .fake(id: 7)
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload, .reload])
+        #expect(pluginChainSpy.calls == [.reconnect, .reconnect])
     }
 
     @Test
-    mutating func change_setupOnly_reloadsEngine() async {
+    mutating func change_setupOnly_reconnectsPluginChain() async {
         audioSettingsSpy.setup = .unmet([.microphonePermission])
         createSut()
         sut.start()
@@ -108,6 +108,6 @@ struct AudioSettingsObserverTests {
         audioSettingsSpy.setup = .met
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload, .reload])
+        #expect(pluginChainSpy.calls == [.reconnect, .reconnect])
     }
 }

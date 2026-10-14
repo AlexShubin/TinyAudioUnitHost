@@ -1,5 +1,5 @@
 //
-//  EngineSpy.swift
+//  PluginChainSpy.swift
 //  EngineKitTestSupport
 //
 //  Created by Alex Shubin on 04.05.26.
@@ -10,12 +10,12 @@ import AudioUnitsKit
 import EngineKit
 import Foundation
 
-public final class EngineSpy: EngineType, @unchecked Sendable {
+public final class PluginChainSpy: PluginChainType, @unchecked Sendable {
     public enum Calls: Equatable, Sendable {
-        case load(EnginePluginSlot, at: Int)
-        case load([EnginePluginSlot?])
+        case load(PluginChainSlot, at: Int)
+        case load([PluginChainSlot?])
         case unload(Int)
-        case reload
+        case reconnect
     }
 
     public private(set) var calls: [Calls] = []
@@ -24,15 +24,15 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
 
     /// Runs while the load is in flight, before the result is returned.
     public var onLoad: (@Sendable () async -> Void)?
-    public var loadResult: Result<LoadedAudioUnit, EngineLoadError> = .failure(.audioUnitInstantiationFailed)
-    public func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+    public var loadResult: Result<LoadedAudioUnit, PluginChainLoadError> = .failure(.audioUnitInstantiationFailed)
+    public func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit {
         calls.append(.load(slot, at: position))
         await onLoad?()
         return try loadResult.get()
     }
 
-    public var loadSlotsResult: [Result<LoadedAudioUnit, EngineLoadError>?] = []
-    public func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+    public var loadSlotsResult: [Result<LoadedAudioUnit, PluginChainLoadError>?] = []
+    public func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?] {
         calls.append(.load(slots))
         return loadSlotsResult
     }
@@ -44,7 +44,7 @@ public final class EngineSpy: EngineType, @unchecked Sendable {
         await onUnload?()
     }
 
-    public func reload() async {
-        calls.append(.reload)
+    public func reconnect() async {
+        calls.append(.reconnect)
     }
 }

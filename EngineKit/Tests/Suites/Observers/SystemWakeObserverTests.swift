@@ -15,18 +15,18 @@ import Testing
 @MainActor
 @Suite
 struct SystemWakeObserverTests {
-    var engineSpy: EngineSpy!
+    var pluginChainSpy: PluginChainSpy!
     var workspaceNotificationCenterSpy: NotificationCenterSpy!
     var sut: SystemWakeObserverType!
 
     init() {
-        engineSpy = EngineSpy()
+        pluginChainSpy = PluginChainSpy()
         workspaceNotificationCenterSpy = NotificationCenterSpy()
     }
 
     mutating func createSut() {
         sut = SystemWakeObserver(
-            engine: engineSpy,
+            pluginChain: pluginChainSpy,
             workspaceNotificationCenter: workspaceNotificationCenterSpy
         )
     }
@@ -51,12 +51,12 @@ struct SystemWakeObserverTests {
     }
 
     @Test
-    mutating func didWake_reloadsEngine() async {
+    mutating func didWake_reconnectsPluginChain() async {
         createSut()
         sut.start()
 
         await workspaceNotificationCenterSpy.handlers[NSWorkspace.didWakeNotification]?()
 
-        #expect(engineSpy.calls == [.reload])
+        #expect(pluginChainSpy.calls == [.reconnect])
     }
 }

@@ -15,7 +15,7 @@ import CoreMidiGatewayKit
 
 @MainActor
 public struct Dependencies: Sendable {
-    public let engine: EngineType
+    public let pluginChain: PluginChainType
     public let midiManager: MidiManagerType
     public let systemWakeObserver: SystemWakeObserverType
 
@@ -25,7 +25,7 @@ public struct Dependencies: Sendable {
             coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway,
             audioSettings: audioSettings
         )
-        let engine = Engine(
+        let pluginChain = PluginChain(
             engine: AVAudioEngine(),
             avAudioUnitFactory: AVAudioUnitFactory(),
             hardwareConnector: HardwareConnector(
@@ -35,10 +35,10 @@ public struct Dependencies: Sendable {
             midiManager: midiManager
         )
         return Dependencies(
-            engine: engine,
+            pluginChain: pluginChain,
             midiManager: midiManager,
             systemWakeObserver: SystemWakeObserver(
-                engine: engine,
+                pluginChain: pluginChain,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
             )
         )

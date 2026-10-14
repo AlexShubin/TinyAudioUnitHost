@@ -1,5 +1,5 @@
 //
-//  Engine.swift
+//  PluginChain.swift
 //  EngineKit
 //
 //  Created by Alex Shubin on 19.04.26.
@@ -10,24 +10,24 @@ import AudioUnitsKit
 import AVFoundation
 import OSLog
 
-public enum EngineLoadError: Error, Sendable, Equatable {
+public enum PluginChainLoadError: Error, Sendable, Equatable {
     case audioUnitInstantiationFailed
 }
 
-public protocol EngineType: Sendable {
-    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit
-    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?]
+public protocol PluginChainType: Sendable {
+    func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit
+    func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?]
     func unload(at position: Int) async
-    func reload() async
+    func reconnect() async
 }
 
-final actor Engine: EngineType {
+final actor PluginChain: PluginChainType {
     private struct Node {
         let avAudioUnit: AVAudioUnit
         let audioUnit: LoadedAudioUnit
     }
 
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Engine")
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PluginChain")
 
     private let engine: AVAudioEngineType
     private let avAudioUnitFactory: AVAudioUnitFactoryType
@@ -47,7 +47,7 @@ final actor Engine: EngineType {
         self.midiManager = midiManager
     }
 
-    func load(_ slot: EnginePluginSlot, at position: Int) async throws(EngineLoadError) -> LoadedAudioUnit {
+    func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit {
         await stop()
         remove(at: position)
         let result = await insert(slot, at: position)
@@ -55,17 +55,17 @@ final actor Engine: EngineType {
         return try result.get()
     }
 
-    func load(_ slots: [EnginePluginSlot?]) async -> [Result<LoadedAudioUnit, EngineLoadError>?] {
+    func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?] {
         await stop()
         for position in chain.keys {
             remove(at: position)
         }
-        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, EngineLoadError>).self) { group in
+        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, PluginChainLoadError>).self) { group in
             for (position, slot) in slots.enumerated() {
                 guard let slot else { continue }
                 group.addTask { (position, await self.insert(slot, at: position)) }
             }
-            var results = [Result<LoadedAudioUnit, EngineLoadError>?](repeating: nil, count: slots.count)
+            var results = [Result<LoadedAudioUnit, PluginChainLoadError>?](repeating: nil, count: slots.count)
             for await (position, result) in group {
                 results[position] = result
             }
@@ -81,7 +81,7 @@ final actor Engine: EngineType {
         await start()
     }
 
-    func reload() async {
+    func reconnect() async {
         guard !chain.isEmpty else { return }
         await start()
     }
@@ -113,7 +113,7 @@ final actor Engine: EngineType {
         await midiManager.setupMIDI(for: first.audioUnit)
     }
 
-    private func insert(_ slot: EnginePluginSlot, at position: Int) async -> Result<LoadedAudioUnit, EngineLoadError> {
+    private func insert(_ slot: PluginChainSlot, at position: Int) async -> Result<LoadedAudioUnit, PluginChainLoadError> {
         guard let avAudioUnit = try? await avAudioUnitFactory.instantiate(
             with: slot.component.componentDescription,
             options: .loadOutOfProcess

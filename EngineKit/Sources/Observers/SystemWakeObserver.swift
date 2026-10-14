@@ -16,19 +16,19 @@ public protocol SystemWakeObserverType: Sendable {
 
 @MainActor
 final class SystemWakeObserver: SystemWakeObserverType {
-    private let engine: EngineType
+    private let pluginChain: PluginChainType
     private let workspaceNotificationCenter: NotificationCenterType
     private var observation: Cancellation?
 
-    init(engine: EngineType, workspaceNotificationCenter: NotificationCenterType) {
-        self.engine = engine
+    init(pluginChain: PluginChainType, workspaceNotificationCenter: NotificationCenterType) {
+        self.pluginChain = pluginChain
         self.workspaceNotificationCenter = workspaceNotificationCenter
     }
 
     func start() {
         guard observation == nil else { return }
-        observation = workspaceNotificationCenter.observe(NSWorkspace.didWakeNotification) { [engine] in
-            await engine.reload()
+        observation = workspaceNotificationCenter.observe(NSWorkspace.didWakeNotification) { [pluginChain] in
+            await pluginChain.reconnect()
         }
     }
 }

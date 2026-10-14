@@ -1,5 +1,5 @@
 //
-//  EngineTests.swift
+//  PluginChainTests.swift
 //  EngineKitTests
 //
 //  Created by Alex Shubin on 30.04.26.
@@ -14,12 +14,12 @@ import Testing
 @testable import EngineKit
 
 @Suite @MainActor
-struct EngineTests {
+struct PluginChainTests {
     var avEngineSpy: AVAudioEngineSpy!
     var avAudioUnitFactorySpy: AVAudioUnitFactorySpy!
     var hardwareConnectorSpy: HardwareConnectorSpy!
     var midiManagerSpy: MidiManagerSpy!
-    var sut: EngineType!
+    var sut: PluginChainType!
 
     init() {
         avEngineSpy = AVAudioEngineSpy()
@@ -29,7 +29,7 @@ struct EngineTests {
     }
 
     mutating func createSut() {
-        sut = Engine(
+        sut = PluginChain(
             engine: avEngineSpy,
             avAudioUnitFactory: avAudioUnitFactorySpy,
             hardwareConnector: hardwareConnectorSpy,
@@ -51,7 +51,7 @@ struct EngineTests {
             thrown = error
         }
 
-        #expect(thrown as? EngineLoadError == .audioUnitInstantiationFailed)
+        #expect(thrown as? PluginChainLoadError == .audioUnitInstantiationFailed)
         #expect(avAudioUnitFactorySpy.calls == [.instantiate(Self.effectDescription, .loadOutOfProcess)])
         #expect(hardwareConnectorSpy.calls == [.disconnect, .disconnect])
         #expect(midiManagerSpy.calls == [.teardownMIDI, .teardownMIDI])
@@ -322,7 +322,7 @@ struct EngineTests {
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         let callsBefore = avEngineSpy.calls.count
 
-        var thrown: EngineLoadError?
+        var thrown: PluginChainLoadError?
         do {
             _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
         } catch {
@@ -356,12 +356,12 @@ struct EngineTests {
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
         createSut()
-        let engine = sut!
+        let pluginChain = sut!
         let factory = avAudioUnitFactorySpy!
         factory.onInstantiate = {
             factory.onInstantiate = nil
             factory.instantiateResult = .success(second)
-            _ = try? await engine.load(.fake(component: Self.effectComponent), at: 1)
+            _ = try? await pluginChain.load(.fake(component: Self.effectComponent), at: 1)
             factory.instantiateResult = .success(first)
         }
 
@@ -421,7 +421,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func unload_thenReload_leavesEngineUntouched() async throws {
+    mutating func unload_thenReconnect_leavesEngineUntouched() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
@@ -429,18 +429,18 @@ struct EngineTests {
         await sut.unload(at: 0)
         let callsAfterUnload = avEngineSpy.calls
 
-        await sut.reload()
+        await sut.reconnect()
 
         #expect(avEngineSpy.calls == callsAfterUnload)
     }
 
-    // MARK: - reload
+    // MARK: - reconnect
 
     @Test
-    mutating func reload_withoutAudioUnit_leavesEverythingUntouched() async {
+    mutating func reconnect_withoutAudioUnit_leavesEverythingUntouched() async {
         createSut()
 
-        await sut.reload()
+        await sut.reconnect()
 
         #expect(avEngineSpy.calls.isEmpty)
         #expect(hardwareConnectorSpy.calls.isEmpty)
@@ -449,7 +449,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func reload_withAudioUnit_reconnectsRestartsAndSetsUpMIDI() async throws {
+    mutating func reconnect_withAudioUnit_reconnectsRestartsAndSetsUpMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
@@ -458,7 +458,7 @@ struct EngineTests {
         let connectorCallsAfterLoad = hardwareConnectorSpy.calls.count
         let midiCallsAfterLoad = midiManagerSpy.calls.count
 
-        await sut.reload()
+        await sut.reconnect()
 
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
         #expect(Array(hardwareConnectorSpy.calls.dropFirst(connectorCallsAfterLoad)) == [
@@ -470,7 +470,7 @@ struct EngineTests {
     }
 
     @Test
-    mutating func reload_hardwareConnectsAfterLoadingDisconnected_startsChain() async throws {
+    mutating func reconnect_hardwareConnectsAfterLoadingDisconnected_startsChain() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         hardwareConnectorSpy.connectResult = false
@@ -480,14 +480,14 @@ struct EngineTests {
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let midiCallsAfterLoad = midiManagerSpy.calls.count
 
-        await sut.reload()
+        await sut.reconnect()
 
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
         #expect(Array(midiManagerSpy.calls.dropFirst(midiCallsAfterLoad)) == [.teardownMIDI, .setupMIDI(loaded)])
     }
 
     @Test
-    mutating func reload_hardwareNoLongerConnects_stopsWithoutStartingOrMIDI() async throws {
+    mutating func reconnect_hardwareNoLongerConnects_stopsWithoutStartingOrMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
@@ -496,7 +496,7 @@ struct EngineTests {
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let midiCallsAfterLoad = midiManagerSpy.calls.count
 
-        await sut.reload()
+        await sut.reconnect()
 
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop])
         #expect(Array(midiManagerSpy.calls.dropFirst(midiCallsAfterLoad)) == [.teardownMIDI])
@@ -505,7 +505,7 @@ struct EngineTests {
 
 // MARK: - Test fixtures
 
-private extension EngineTests {
+private extension PluginChainTests {
     enum TestError: Error { case factoryFailed }
 
     static let effectDescription = AudioComponentDescription(
@@ -544,7 +544,7 @@ private extension EngineTests {
     }
 }
 
-private extension Result<LoadedAudioUnit, EngineLoadError> {
+private extension Result<LoadedAudioUnit, PluginChainLoadError> {
     var component: AudioUnitComponent? {
         try? get().component
     }

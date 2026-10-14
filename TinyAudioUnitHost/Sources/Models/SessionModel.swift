@@ -73,13 +73,13 @@ final class SessionModel: SessionModelType {
         }
     }
 
-    @ObservationIgnored private let engine: EngineType
+    @ObservationIgnored private let pluginChain: PluginChainType
     @ObservationIgnored private let presetProvider: PresetProviderType
     init(
-        engine: EngineType,
+        pluginChain: PluginChainType,
         presetProvider: PresetProviderType
     ) {
-        self.engine = engine
+        self.pluginChain = pluginChain
         self.presetProvider = presetProvider
         presets = presetProvider.presets
         activePresetName = presetProvider.activeName
@@ -97,7 +97,7 @@ final class SessionModel: SessionModelType {
         selectedIndex = index
         replaceSlot(at: index, with: .loading(component: component))
         do {
-            let audioUnit = try await engine.load(EnginePluginSlot(component: component, state: nil), at: index)
+            let audioUnit = try await pluginChain.load(PluginChainSlot(component: component, state: nil), at: index)
             finishLoadingSlot(at: index, with: .loaded(audioUnit: audioUnit, isBypassed: false))
         } catch {
             finishLoadingSlot(at: index, with: .failed(component: component, state: nil, isBypassed: false, message: error.message))
@@ -106,7 +106,7 @@ final class SessionModel: SessionModelType {
 
     func unload(at index: Int) async {
         replaceSlot(at: index, with: .empty)
-        await engine.unload(at: index)
+        await pluginChain.unload(at: index)
     }
 
     func setBypassed(_ isBypassed: Bool, at index: Int) {
@@ -169,8 +169,8 @@ final class SessionModel: SessionModelType {
 
     private func loadPreset(_ preset: Preset) async {
         replaceSlots(with: preset.pluginSlots.map { $0?.initialContent ?? .empty })
-        let engineSlots = preset.pluginSlots.map { $0?.engineSlot }
-        let results = await engine.load(engineSlots)
+        let chainSlots = preset.pluginSlots.map { $0?.chainSlot }
+        let results = await pluginChain.load(chainSlots)
         for (index, (pluginSlot, result)) in zip(preset.pluginSlots, results).enumerated() {
             guard let pluginSlot, let result else { continue }
             finishLoadingSlot(at: index, with: pluginSlot.content(for: result))
@@ -243,11 +243,11 @@ private extension Preset.PluginSlot {
         isInstalled ? .loading(component: component) : failed(message: Self.notInstalledMessage)
     }
 
-    var engineSlot: EnginePluginSlot? {
-        isInstalled ? EnginePluginSlot(component: component, state: state) : nil
+    var chainSlot: PluginChainSlot? {
+        isInstalled ? PluginChainSlot(component: component, state: state) : nil
     }
 
-    func content(for result: Result<LoadedAudioUnit, EngineLoadError>) -> PluginSlotContent {
+    func content(for result: Result<LoadedAudioUnit, PluginChainLoadError>) -> PluginSlotContent {
         switch result {
         case .success(let audioUnit):
             audioUnit.isBypassed = isBypassed
@@ -262,7 +262,7 @@ private extension Preset.PluginSlot {
     }
 }
 
-private extension EngineLoadError {
+private extension PluginChainLoadError {
     var message: String {
         switch self {
         case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."

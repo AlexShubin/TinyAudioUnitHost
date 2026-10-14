@@ -19,18 +19,18 @@ import Testing
 @MainActor
 @Suite
 struct SessionModelTests {
-    var engineSpy: EngineSpy!
+    var pluginChainSpy: PluginChainSpy!
     var presetProviderSpy: PresetProviderSpy!
     var sut: SessionModelType!
 
     init() {
-        engineSpy = EngineSpy()
+        pluginChainSpy = PluginChainSpy()
         presetProviderSpy = PresetProviderSpy()
     }
 
     mutating func createSut() {
         sut = SessionModel(
-            engine: engineSpy,
+            pluginChain: pluginChainSpy,
             presetProvider: presetProviderSpy
         )
     }
@@ -68,7 +68,7 @@ struct SessionModelTests {
 
         #expect(sut.activePresetName == "foo")
         #expect(sut.slots == [])
-        #expect(engineSpy.calls == [])
+        #expect(pluginChainSpy.calls == [])
     }
 
     // MARK: - load
@@ -87,7 +87,7 @@ struct SessionModelTests {
             ])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(firstLoaded), nil, .success(thirdLoaded)]
+        pluginChainSpy.loadSlotsResult = [.success(firstLoaded), nil, .success(thirdLoaded)]
         createSut()
 
         await sut.load()
@@ -97,7 +97,7 @@ struct SessionModelTests {
             .empty,
             .loaded(audioUnit: thirdLoaded, isBypassed: false),
         ])
-        #expect(engineSpy.calls == [.load([
+        #expect(pluginChainSpy.calls == [.load([
             .fake(component: first, state: Data([0x01])),
             nil,
             .fake(component: third, state: Data([0x03])),
@@ -111,7 +111,7 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component, state: Data([0x05]), isBypassed: true)])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.failure(.audioUnitInstantiationFailed)]
+        pluginChainSpy.loadSlotsResult = [.failure(.audioUnitInstantiationFailed)]
         createSut()
 
         await sut.load()
@@ -128,7 +128,7 @@ struct SessionModelTests {
         await sut.load()
 
         #expect(sut.slots == [])
-        #expect(engineSpy.calls == [])
+        #expect(pluginChainSpy.calls == [])
     }
 
     @Test
@@ -139,7 +139,7 @@ struct SessionModelTests {
         await sut.load()
 
         #expect(sut.slots == [])
-        #expect(engineSpy.calls == [.load([])])
+        #expect(pluginChainSpy.calls == [.load([])])
         #expect(sut.activePresetName == "ghost")
         #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
     }
@@ -149,10 +149,10 @@ struct SessionModelTests {
     @Test
     mutating func load_whileLoading_slotLoadingAndBusy() async {
         let component = AudioUnitComponent.fake()
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: component))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: component))
         createSut()
         let session = sut!
-        engineSpy.onLoad = {
+        pluginChainSpy.onLoad = {
             #expect(await session.slots == [.loading(component: component)])
             #expect(await session.isBusy)
         }
@@ -164,20 +164,20 @@ struct SessionModelTests {
     mutating func load_success_slotLoadedAndNotBusy() async {
         let component = AudioUnitComponent.fake()
         let loaded = LoadedAudioUnit(component: component)
-        engineSpy.loadResult = .success(loaded)
+        pluginChainSpy.loadResult = .success(loaded)
         createSut()
 
         await sut.load(component, at: 0)
 
         #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
-        #expect(engineSpy.calls == [.load(.fake(component: component), at: 0)])
+        #expect(pluginChainSpy.calls == [.load(.fake(component: component), at: 0)])
         #expect(sut.isBusy == false)
     }
 
     @Test
     mutating func load_failure_slotFailedWithMessage() async {
         let component = AudioUnitComponent.fake()
-        engineSpy.loadResult = .failure(.audioUnitInstantiationFailed)
+        pluginChainSpy.loadResult = .failure(.audioUnitInstantiationFailed)
         createSut()
 
         await sut.load(component, at: 0)
@@ -187,10 +187,10 @@ struct SessionModelTests {
 
     @Test
     mutating func load_unloadedWhileLoading_dropsLoadResult() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         let session = sut!
-        engineSpy.onLoad = {
+        pluginChainSpy.onLoad = {
             await session.unload(at: 0)
         }
 
@@ -200,22 +200,22 @@ struct SessionModelTests {
     }
 
     @Test
-    mutating func load_nextIndex_appendsAtThatEnginePosition() async {
+    mutating func load_nextIndex_appendsAtThatChainPosition() async {
         let first = AudioUnitComponent.fake(name: "First")
         let second = AudioUnitComponent.fake(id: .init(type: 1, subType: 2, manufacturer: 3), name: "Second")
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: first))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: first))
         createSut()
         await sut.load(first, at: 0)
 
         await sut.load(second, at: 1)
 
-        #expect(engineSpy.calls == [.load(.fake(component: first), at: 0), .load(.fake(component: second), at: 1)])
+        #expect(pluginChainSpy.calls == [.load(.fake(component: first), at: 0), .load(.fake(component: second), at: 1)])
         #expect(sut.slots.count == 2)
     }
 
     @Test
     mutating func load_selectsTheSlot() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -227,22 +227,22 @@ struct SessionModelTests {
     // MARK: - unload
 
     @Test
-    mutating func unload_unloadsEngineAndRemovesLastSlot() async {
+    mutating func unload_unloadsFromChainAndRemovesLastSlot() async {
         let component = AudioUnitComponent.fake()
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: component))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: component))
         createSut()
         await sut.load(component, at: 0)
 
         await sut.unload(at: 0)
 
-        #expect(engineSpy.calls == [.load(.fake(component: component), at: 0), .unload(0)])
+        #expect(pluginChainSpy.calls == [.load(.fake(component: component), at: 0), .unload(0)])
         #expect(sut.slots == [])
     }
 
     @Test
     mutating func unload_middleSlot_leavesGap() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy.loadResult = .success(loaded)
+        pluginChainSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -260,7 +260,7 @@ struct SessionModelTests {
     @Test
     mutating func unload_lastSlotAfterGap_trimsTrailingEmpties() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy.loadResult = .success(loaded)
+        pluginChainSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -274,7 +274,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_selectedLastPlugin_selectsFirstPlugin() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -287,7 +287,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_selectedFirstPlugin_selectsNextPlugin() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -300,7 +300,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_unselectedPlugin_keepsSelection() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -313,7 +313,7 @@ struct SessionModelTests {
 
     @Test
     mutating func unload_onlyPlugin_keepsSelection() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -329,7 +329,7 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component)])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: component))]
+        pluginChainSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: component))]
         createSut()
         await sut.load()
 
@@ -343,14 +343,14 @@ struct SessionModelTests {
     mutating func unload_presetSelectedWhileUnloading_showsPresetSlots() async {
         let loaded = LoadedAudioUnit(component: .fake())
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
         await sut.load(.fake(), at: 2)
         let session = sut!
-        engineSpy.onUnload = {
+        pluginChainSpy.onUnload = {
             await session.selectPreset(name: "foo")
         }
 
@@ -367,11 +367,11 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(), .fake()])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(first), .success(second)]
+        pluginChainSpy.loadSlotsResult = [.success(first), .success(second)]
         createSut()
         await sut.load()
         let session = sut!
-        engineSpy.onUnload = {
+        pluginChainSpy.onUnload = {
             await session.restoreActivePreset()
         }
 
@@ -385,7 +385,7 @@ struct SessionModelTests {
     @Test
     mutating func setBypassed_loaded_appliesToAudioUnitAndSlot() async {
         let loaded = LoadedAudioUnit(component: .fake())
-        engineSpy.loadResult = .success(loaded)
+        pluginChainSpy.loadResult = .success(loaded)
         createSut()
         await sut.load(.fake(), at: 0)
 
@@ -419,7 +419,7 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_slotLoaded_isTrue() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
 
         await sut.load(.fake(), at: 0)
@@ -429,7 +429,7 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_onlyLaterSlotLoaded_isTrue() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -450,11 +450,11 @@ struct SessionModelTests {
 
     @Test
     mutating func canSavePreset_slotLoading_isFalse() async {
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
         createSut()
         await sut.load(.fake(), at: 0)
         let session = sut!
-        engineSpy.onLoad = {
+        pluginChainSpy.onLoad = {
             #expect(await session.canSavePreset == false)
         }
 
@@ -470,7 +470,7 @@ struct SessionModelTests {
         presetProviderSpy = PresetProviderSpy(
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component, state: Data([0x07]))])]
         )
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
 
         await sut.selectPreset(name: "foo")
@@ -478,15 +478,15 @@ struct SessionModelTests {
         #expect(sut.activePresetName == "foo")
         #expect(sut.slots == [.loaded(audioUnit: loaded, isBypassed: false)])
         #expect(presetProviderSpy.calls.contains(.setActive("foo")))
-        #expect(engineSpy.calls == [.load([.fake(component: component, state: Data([0x07]))])])
+        #expect(pluginChainSpy.calls == [.load([.fake(component: component, state: Data([0x07]))])])
     }
 
     @Test
     mutating func selectPreset_replacesEveryExistingSlot() async {
         let loaded = LoadedAudioUnit(component: .fake())
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: .fake()))
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load(.fake(), at: 0)
         await sut.load(.fake(), at: 1)
@@ -505,7 +505,7 @@ struct SessionModelTests {
 
         #expect(sut.activePresetName == "ghost")
         #expect(sut.slots == [])
-        #expect(engineSpy.calls == [.load([])])
+        #expect(pluginChainSpy.calls == [.load([])])
     }
 
     @Test
@@ -515,7 +515,7 @@ struct SessionModelTests {
         presetProviderSpy = PresetProviderSpy(
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component, isBypassed: true)])]
         )
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
 
         await sut.selectPreset(name: "foo")
@@ -530,7 +530,7 @@ struct SessionModelTests {
         presetProviderSpy = PresetProviderSpy(
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component, state: Data([0x02]), isInstalled: false)])]
         )
-        engineSpy.loadSlotsResult = [nil]
+        pluginChainSpy.loadSlotsResult = [nil]
         createSut()
 
         await sut.selectPreset(name: "foo")
@@ -538,7 +538,7 @@ struct SessionModelTests {
         #expect(sut.slots == [
             .failed(component: component, state: Data([0x02]), isBypassed: false, message: "This plug-in isn't installed."),
         ])
-        #expect(engineSpy.calls == [.load([nil])])
+        #expect(pluginChainSpy.calls == [.load([nil])])
     }
 
     @Test
@@ -549,14 +549,14 @@ struct SessionModelTests {
         await sut.selectPreset(name: "foo")
 
         #expect(sut.slots == [])
-        #expect(engineSpy.calls == [.load([])])
+        #expect(pluginChainSpy.calls == [.load([])])
     }
 
     @Test
     mutating func selectPreset_selectionOnPlugin_keepsSelection() async {
         let loaded = LoadedAudioUnit(component: .fake())
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(), .fake(), .fake()])])
-        engineSpy.loadSlotsResult = [.success(loaded), .success(loaded), .success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded), .success(loaded), .success(loaded)]
         createSut()
         sut.select(2)
 
@@ -568,7 +568,7 @@ struct SessionModelTests {
     @Test
     mutating func selectPreset_selectionOnGap_selectsFirstPlugin() async {
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo", pluginSlots: [nil, .fake()])])
-        engineSpy.loadSlotsResult = [nil, .success(LoadedAudioUnit(component: .fake()))]
+        pluginChainSpy.loadSlotsResult = [nil, .success(LoadedAudioUnit(component: .fake()))]
         createSut()
 
         await sut.selectPreset(name: "foo")
@@ -579,7 +579,7 @@ struct SessionModelTests {
     @Test
     mutating func selectPreset_shorterThanSelection_selectsFirstPlugin() async {
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")])
-        engineSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: .fake()))]
+        pluginChainSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: .fake()))]
         createSut()
         sut.select(2)
 
@@ -608,7 +608,7 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component)])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load()
 
@@ -631,7 +631,7 @@ struct SessionModelTests {
             ])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: first, fullState: Data([0xAA]))), nil, nil]
+        pluginChainSpy.loadSlotsResult = [.success(LoadedAudioUnit(component: first, fullState: Data([0xAA]))), nil, nil]
         createSut()
         await sut.load()
 
@@ -652,7 +652,7 @@ struct SessionModelTests {
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")], activeName: "foo")
         createSut()
         await sut.load(failed, at: 0)
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: loaded, fullState: Data([0x01])))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: loaded, fullState: Data([0x01])))
         await sut.load(loaded, at: 1)
 
         sut.saveCurrentPreset()
@@ -672,7 +672,7 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component)])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load()
         sut.setBypassed(true, at: 0)
@@ -691,7 +691,7 @@ struct SessionModelTests {
 
         await sut.restoreActivePreset()
 
-        #expect(engineSpy.calls == [])
+        #expect(pluginChainSpy.calls == [])
         #expect(sut.presetEvent == nil)
     }
 
@@ -703,7 +703,7 @@ struct SessionModelTests {
             presets: ["foo": Preset.fake(name: "foo", pluginSlots: [.fake(component: component, state: Data([0x09]))])],
             activeName: "foo"
         )
-        engineSpy.loadSlotsResult = [.success(loaded)]
+        pluginChainSpy.loadSlotsResult = [.success(loaded)]
         createSut()
         await sut.load()
 
@@ -716,7 +716,7 @@ struct SessionModelTests {
     @Test
     mutating func restoreActivePreset_pluginFails_doesNotNotify() async {
         presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")], activeName: "foo")
-        engineSpy.loadSlotsResult = [.failure(.audioUnitInstantiationFailed)]
+        pluginChainSpy.loadSlotsResult = [.failure(.audioUnitInstantiationFailed)]
         createSut()
 
         await sut.restoreActivePreset()
@@ -739,7 +739,7 @@ struct SessionModelTests {
     @Test
     mutating func saveAsNewPreset_happyPath_savesSetsActiveAndNotifies() async {
         let component = AudioUnitComponent.fake()
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0xAA])))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0xAA])))
         createSut()
         await sut.load(component, at: 0)
 
@@ -755,7 +755,7 @@ struct SessionModelTests {
     @Test
     mutating func acknowledgePresetEvent_clearsEvent() async {
         let component = AudioUnitComponent.fake()
-        engineSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0x01])))
+        pluginChainSpy.loadResult = .success(LoadedAudioUnit(component: component, fullState: Data([0x01])))
         createSut()
         await sut.load(component, at: 0)
         sut.saveAsNewPreset(name: "foo")
