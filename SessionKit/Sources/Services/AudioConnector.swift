@@ -1,5 +1,5 @@
 //
-//  HardwareConnector.swift
+//  AudioConnector.swift
 //  SessionKit
 //
 //  Created by Alex Shubin on 14.10.26.
@@ -11,21 +11,18 @@ import AudioToolboxGatewayKit
 import AVFoundation
 import OSLog
 
-protocol HardwareConnectorType: Sendable {
-    func connect(first: AVAudioUnit, last: AVAudioUnit, in engine: AVAudioEngineType) async -> Bool
+/// Connects the plug-in chain's ends to the audio device: device binding, I/O, channel maps, input and output.
+protocol AudioConnectorType: Sendable {
+    func connect(first: AVAudioUnit, last: AVAudioUnit, to device: AudioDevice, settings: AudioSettings, in engine: AVAudioEngineType) -> Bool
     func disconnect(in engine: AVAudioEngineType)
 }
 
-struct HardwareConnector: HardwareConnectorType {
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "HardwareConnector")
+struct AudioConnector: AudioConnectorType {
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "AudioConnector")
 
     let audioUnitGateway: AudioUnitGatewayType
-    let audioSettings: AudioSettingsModelType
 
-    func connect(first: AVAudioUnit, last: AVAudioUnit, in engine: AVAudioEngineType) async -> Bool {
-        guard await audioSettings.setup == .met,
-              let device = await audioSettings.targetDevice else { return false }
-        let settings = await audioSettings.settings
+    func connect(first: AVAudioUnit, last: AVAudioUnit, to device: AudioDevice, settings: AudioSettings, in engine: AVAudioEngineType) -> Bool {
         do {
             try bind(device, settings: settings, in: engine)
         } catch {

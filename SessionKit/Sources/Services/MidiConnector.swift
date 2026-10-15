@@ -1,5 +1,5 @@
 //
-//  MidiManager.swift
+//  MidiConnector.swift
 //  SessionKit
 //
 //  Created by Alex Shubin on 19.04.26.
@@ -11,30 +11,25 @@ import AudioUnitsKit
 import CoreMidiGatewayKit
 
 @MainActor
-protocol MidiManagerType: Sendable {
-    func setupMIDI(for audioUnit: LoadedAudioUnit) async
-    func teardownMIDI() async
-    func reconnectMIDISources() async
+protocol MidiConnectorType: Sendable {
+    func connect(_ audioUnit: LoadedAudioUnit, sources: Set<MidiDevice>) async
+    func disconnect() async
+    func reconnect(sources: Set<MidiDevice>) async
 }
 
 @MainActor
-final class MidiManager: MidiManagerType {
+final class MidiConnector: MidiConnectorType {
     private let coreMidiGateway: CoreMidiGatewayType
-    private let audioSettings: AudioSettingsModelType
     private var midiClient: UInt32 = 0
     private var midiInputPort: UInt32 = 0
     private var connectedSources: Set<UInt32> = []
 
-    init(
-        coreMidiGateway: CoreMidiGatewayType,
-        audioSettings: AudioSettingsModelType
-    ) {
+    init(coreMidiGateway: CoreMidiGatewayType) {
         self.coreMidiGateway = coreMidiGateway
-        self.audioSettings = audioSettings
     }
 
-    func setupMIDI(for audioUnit: LoadedAudioUnit) async {
-        teardownMIDI()
+    func connect(_ audioUnit: LoadedAudioUnit, sources: Set<MidiDevice>) async {
+        disconnect()
         guard startClient() else { return }
 
         guard let port = coreMidiGateway.createInputPort(
@@ -44,19 +39,19 @@ final class MidiManager: MidiManagerType {
         ) else { return }
         midiInputPort = port
 
-        await reconnectMIDISources()
+        await reconnect(sources: sources)
     }
 
-    func teardownMIDI() {
+    func disconnect() {
         guard midiInputPort != 0 else { return }
         coreMidiGateway.disposePort(midiInputPort)
         midiInputPort = 0
         connectedSources = []
     }
 
-    func reconnectMIDISources() async {
+    func reconnect(sources: Set<MidiDevice>) async {
         guard midiInputPort != 0 else { return }
-        let selected = Set(audioSettings.settings.selectedMidiDevices.map(\.ref))
+        let selected = Set(sources.map(\.ref))
         for source in connectedSources.subtracting(selected) {
             coreMidiGateway.disconnect(source: source, from: midiInputPort)
         }

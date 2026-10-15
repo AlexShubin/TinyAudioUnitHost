@@ -6,6 +6,7 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioSettingsKit
 import AudioUnitsKit
 import AVFoundation
 import OSLog
@@ -31,20 +32,23 @@ final actor PluginChain: PluginChainType {
 
     private let engine: AVAudioEngineType
     private let avAudioUnitFactory: AVAudioUnitFactoryType
-    private let hardwareConnector: HardwareConnectorType
-    private let midiManager: MidiManagerType
+    private let audioConnector: AudioConnectorType
+    private let midiConnector: MidiConnectorType
+    private let audioSettings: AudioSettingsModelType
     private var chain: [Int: Node] = [:]
 
     init(
         engine: AVAudioEngineType,
         avAudioUnitFactory: AVAudioUnitFactoryType,
-        hardwareConnector: HardwareConnectorType,
-        midiManager: MidiManagerType
+        audioConnector: AudioConnectorType,
+        midiConnector: MidiConnectorType,
+        audioSettings: AudioSettingsModelType
     ) {
         self.engine = engine
         self.avAudioUnitFactory = avAudioUnitFactory
-        self.hardwareConnector = hardwareConnector
-        self.midiManager = midiManager
+        self.audioConnector = audioConnector
+        self.midiConnector = midiConnector
+        self.audioSettings = audioSettings
     }
 
     func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit {
@@ -88,8 +92,8 @@ final actor PluginChain: PluginChainType {
 
     private func stop() async {
         engine.stop()
-        hardwareConnector.disconnect(in: engine)
-        await midiManager.teardownMIDI()
+        audioConnector.disconnect(in: engine)
+        await midiConnector.disconnect()
     }
 
     private func start() async {
@@ -97,7 +101,16 @@ final actor PluginChain: PluginChainType {
         await stop()
         let nodes = chain.orderedValues
         guard let first = nodes.first, let last = nodes.last,
-              await hardwareConnector.connect(first: first.avAudioUnit, last: last.avAudioUnit, in: engine) else { return }
+              await audioSettings.setup == .met,
+              let device = await audioSettings.targetDevice else { return }
+        let settings = await audioSettings.settings
+        guard audioConnector.connect(
+            first: first.avAudioUnit,
+            last: last.avAudioUnit,
+            to: device,
+            settings: settings,
+            in: engine
+        ) else { return }
         for (source, destination) in zip(nodes, nodes.dropFirst()) {
             let format = AVAudioFormat(
                 standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
@@ -110,7 +123,7 @@ final actor PluginChain: PluginChainType {
         } catch {
             logger.warning("Engine start failed: \(String(describing: error), privacy: .public)")
         }
-        await midiManager.setupMIDI(for: first.audioUnit)
+        await midiConnector.connect(first.audioUnit, sources: settings.selectedMidiDevices)
     }
 
     private func insert(_ slot: PluginChainSlot, at position: Int) async -> Result<LoadedAudioUnit, PluginChainLoadError> {

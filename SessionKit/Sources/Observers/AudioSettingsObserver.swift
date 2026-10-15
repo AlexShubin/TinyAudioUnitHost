@@ -17,17 +17,17 @@ public protocol AudioSettingsObserverType: AnyObject {
 final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
     private let pluginChain: PluginChainType
-    private let midiManager: MidiManagerType
+    private let midiConnector: MidiConnectorType
     private var appliedBinding: AudioBinding?
 
     init(
         audioSettings: AudioSettingsModelType,
         pluginChain: PluginChainType,
-        midiManager: MidiManagerType
+        midiConnector: MidiConnectorType
     ) {
         self.audioSettings = audioSettings
         self.pluginChain = pluginChain
-        self.midiManager = midiManager
+        self.midiConnector = midiConnector
     }
 
     func start() {
@@ -44,7 +44,7 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
             appliedBinding = binding
             await pluginChain.reconnect()
         }
-        await midiManager.reconnectMIDISources()
+        await midiConnector.reconnect(sources: audioSettings.settings.selectedMidiDevices)
     }
 }
 
