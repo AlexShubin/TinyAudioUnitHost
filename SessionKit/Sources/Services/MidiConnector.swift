@@ -6,15 +6,14 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
 import AudioUnitsKit
 import CoreMidiGatewayKit
 
 @MainActor
 protocol MidiConnectorType: Sendable {
-    func connect(_ audioUnit: LoadedAudioUnit, sources: Set<MidiDevice>) async
+    func connect(_ audioUnit: LoadedAudioUnit, settings: SessionAudioSettings.Midi) async
     func disconnect() async
-    func reconnect(sources: Set<MidiDevice>) async
+    func reconnect(settings: SessionAudioSettings.Midi) async
 }
 
 @MainActor
@@ -28,7 +27,7 @@ final class MidiConnector: MidiConnectorType {
         self.coreMidiGateway = coreMidiGateway
     }
 
-    func connect(_ audioUnit: LoadedAudioUnit, sources: Set<MidiDevice>) async {
+    func connect(_ audioUnit: LoadedAudioUnit, settings: SessionAudioSettings.Midi) async {
         disconnect()
         guard startClient() else { return }
 
@@ -39,7 +38,7 @@ final class MidiConnector: MidiConnectorType {
         ) else { return }
         midiInputPort = port
 
-        await reconnect(sources: sources)
+        await reconnect(settings: settings)
     }
 
     func disconnect() {
@@ -49,9 +48,9 @@ final class MidiConnector: MidiConnectorType {
         connectedSources = []
     }
 
-    func reconnect(sources: Set<MidiDevice>) async {
+    func reconnect(settings: SessionAudioSettings.Midi) async {
         guard midiInputPort != 0 else { return }
-        let selected = Set(sources.map(\.ref))
+        let selected = settings.sources
         for source in connectedSources.subtracting(selected) {
             coreMidiGateway.disconnect(source: source, from: midiInputPort)
         }

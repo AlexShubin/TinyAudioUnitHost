@@ -44,7 +44,7 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
             appliedBinding = binding
             await pluginChain.reconnect()
         }
-        await midiConnector.reconnect(sources: audioSettings.settings.selectedMidiDevices)
+        await midiConnector.reconnect(settings: SessionAudioSettings.Midi(audioSettings.settings))
     }
 }
 
