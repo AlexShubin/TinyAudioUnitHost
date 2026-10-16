@@ -72,13 +72,13 @@ final class SessionModel: SessionModelType {
         }
     }
 
-    @ObservationIgnored private let pluginChain: PluginChainType
+    @ObservationIgnored private let channelStrip: ChannelStripType
     @ObservationIgnored private let presetProvider: PresetProviderType
     init(
-        pluginChain: PluginChainType,
+        channelStrip: ChannelStripType,
         presetProvider: PresetProviderType
     ) {
-        self.pluginChain = pluginChain
+        self.channelStrip = channelStrip
         self.presetProvider = presetProvider
         presets = presetProvider.presets
         activePresetName = presetProvider.activeName
@@ -96,7 +96,7 @@ final class SessionModel: SessionModelType {
         selectedIndex = index
         replaceSlot(at: index, with: .loading(component: component))
         do {
-            let audioUnit = try await pluginChain.load(PluginChainSlot(component: component, state: nil), at: index)
+            let audioUnit = try await channelStrip.load(ChannelStripSlot(component: component, state: nil), at: index)
             finishLoadingSlot(at: index, with: .loaded(audioUnit: audioUnit, isBypassed: false))
         } catch {
             finishLoadingSlot(at: index, with: .failed(component: component, state: nil, isBypassed: false, message: error.message))
@@ -105,7 +105,7 @@ final class SessionModel: SessionModelType {
 
     func unload(at index: Int) async {
         replaceSlot(at: index, with: .empty)
-        await pluginChain.unload(at: index)
+        await channelStrip.unload(at: index)
     }
 
     func setBypassed(_ isBypassed: Bool, at index: Int) {
@@ -168,8 +168,8 @@ final class SessionModel: SessionModelType {
 
     private func loadPreset(_ preset: Preset) async {
         replaceSlots(with: preset.pluginSlots.map { $0?.initialContent ?? .empty })
-        let chainSlots = preset.pluginSlots.map { $0?.chainSlot }
-        let results = await pluginChain.load(chainSlots)
+        let channelStripSlots = preset.pluginSlots.map { $0?.channelStripSlot }
+        let results = await channelStrip.load(channelStripSlots)
         for (index, (pluginSlot, result)) in zip(preset.pluginSlots, results).enumerated() {
             guard let pluginSlot, let result else { continue }
             finishLoadingSlot(at: index, with: pluginSlot.content(for: result))
@@ -242,11 +242,11 @@ private extension Preset.PluginSlot {
         isInstalled ? .loading(component: component) : failed(message: Self.notInstalledMessage)
     }
 
-    var chainSlot: PluginChainSlot? {
-        isInstalled ? PluginChainSlot(component: component, state: state) : nil
+    var channelStripSlot: ChannelStripSlot? {
+        isInstalled ? ChannelStripSlot(component: component, state: state) : nil
     }
 
-    func content(for result: Result<LoadedAudioUnit, PluginChainLoadError>) -> PluginSlotContent {
+    func content(for result: Result<LoadedAudioUnit, ChannelStripLoadError>) -> PluginSlotContent {
         switch result {
         case .success(let audioUnit):
             audioUnit.isBypassed = isBypassed
@@ -261,7 +261,7 @@ private extension Preset.PluginSlot {
     }
 }
 
-private extension PluginChainLoadError {
+private extension ChannelStripLoadError {
     var message: String {
         switch self {
         case .audioUnitInstantiationFailed: return "Couldn't load this audio unit."

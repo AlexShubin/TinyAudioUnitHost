@@ -1,5 +1,5 @@
 //
-//  PluginChainSlot+Fake.swift
+//  ChannelStripSlot+Fake.swift
 //  SessionKitTests
 //
 //  Created by Alex Shubin on 11.10.26.
@@ -11,11 +11,11 @@ import AudioUnitsKitTestSupport
 import Foundation
 @testable import SessionKit
 
-extension PluginChainSlot {
+extension ChannelStripSlot {
     static func fake(
         component: AudioUnitComponent = .fake(),
         state: Data? = nil
-    ) -> PluginChainSlot {
-        PluginChainSlot(component: component, state: state)
+    ) -> ChannelStripSlot {
+        ChannelStripSlot(component: component, state: state)
     }
 }

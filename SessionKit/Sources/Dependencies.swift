@@ -23,7 +23,7 @@ public struct Dependencies: Sendable {
     public static let live: Dependencies = {
         let audioSettings = AudioSettingsKit.Dependencies.live.audioSettingsModel
         let midiConnector = MidiConnector(coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway)
-        let pluginChain = PluginChain(
+        let channelStrip = ChannelStrip(
             engine: AVAudioEngine(),
             avAudioUnitFactory: AVAudioUnitFactory(),
             audioConnector: AudioConnector(audioUnitGateway: AudioToolboxGatewayKit.Dependencies.live.audioUnitGateway),
@@ -32,16 +32,16 @@ public struct Dependencies: Sendable {
         )
         return Dependencies(
             sessionModel: SessionModel(
-                pluginChain: pluginChain,
+                channelStrip: channelStrip,
                 presetProvider: PresetKit.Dependencies.live.presetProvider
             ),
             audioSettingsObserver: AudioSettingsObserver(
                 audioSettings: audioSettings,
-                pluginChain: pluginChain,
+                channelStrip: channelStrip,
                 midiConnector: midiConnector
             ),
             systemWakeObserver: SystemWakeObserver(
-                pluginChain: pluginChain,
+                channelStrip: channelStrip,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
             )
         )

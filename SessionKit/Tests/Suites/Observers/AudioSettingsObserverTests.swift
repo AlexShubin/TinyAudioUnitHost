@@ -15,21 +15,21 @@ import Testing
 @Suite
 struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var pluginChainSpy: PluginChainSpy!
-    var midiManagerSpy: MidiManagerSpy!
+    var channelStripSpy: ChannelStripSpy!
+    var midiConnectorSpy: MidiConnectorSpy!
     var sut: AudioSettingsObserverType!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
-        pluginChainSpy = PluginChainSpy()
-        midiManagerSpy = MidiManagerSpy()
+        channelStripSpy = ChannelStripSpy()
+        midiConnectorSpy = MidiConnectorSpy()
     }
 
     mutating func createSut() {
         sut = AudioSettingsObserver(
             audioSettings: audioSettingsSpy,
-            pluginChain: pluginChainSpy,
-            midiManager: midiManagerSpy
+            channelStrip: channelStripSpy,
+            midiConnector: midiConnectorSpy
         )
     }
 
@@ -47,19 +47,19 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_reconnectsPluginChainAndMidi() async {
+    mutating func change_reconnectsChannelStripAndMidi() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
 
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(pluginChainSpy.calls == [.reconnect])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources])
+        #expect(channelStripSpy.calls == [.reconnect])
+        #expect(midiConnectorSpy.calls == [.reconnect(.fake())])
     }
 
     @Test
-    mutating func change_sameAudioBindingTwice_reconnectsPluginChainOnce() async {
+    mutating func change_sameAudioBindingTwice_reconnectsChannelStripOnce() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
@@ -67,26 +67,26 @@ struct AudioSettingsObserverTests {
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(pluginChainSpy.calls == [.reconnect])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
+        #expect(channelStripSpy.calls == [.reconnect])
+        #expect(midiConnectorSpy.calls == [.reconnect(.fake()), .reconnect(.fake())])
     }
 
     @Test
-    mutating func change_midiOnly_skipsPluginChainReconnect() async {
+    mutating func change_midiOnly_skipsChannelStripReconnect() async {
         createSut()
         sut.start()
         audioSettingsSpy.settings = .fake(sampleRate: 48_000)
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        audioSettingsSpy.settings = .fake(sampleRate: 48_000, selectedMidiDevices: [.fake()])
+        audioSettingsSpy.settings = .fake(sampleRate: 48_000, selectedMidiDevices: [.fake(ref: 10)])
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(pluginChainSpy.calls == [.reconnect])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
+        #expect(channelStripSpy.calls == [.reconnect])
+        #expect(midiConnectorSpy.calls == [.reconnect(.fake()), .reconnect(.fake(sources: [10]))])
     }
 
     @Test
-    mutating func change_targetDeviceOnly_reconnectsPluginChain() async {
+    mutating func change_targetDeviceOnly_reconnectsChannelStrip() async {
         createSut()
         sut.start()
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
@@ -94,11 +94,11 @@ struct AudioSettingsObserverTests {
         audioSettingsSpy.targetDevice = .fake(id: 7)
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(pluginChainSpy.calls == [.reconnect, .reconnect])
+        #expect(channelStripSpy.calls == [.reconnect, .reconnect])
     }
 
     @Test
-    mutating func change_setupOnly_reconnectsPluginChain() async {
+    mutating func change_setupOnly_reconnectsChannelStrip() async {
         audioSettingsSpy.setup = .unmet([.microphonePermission])
         createSut()
         sut.start()
@@ -107,6 +107,6 @@ struct AudioSettingsObserverTests {
         audioSettingsSpy.setup = .met
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(pluginChainSpy.calls == [.reconnect, .reconnect])
+        #expect(channelStripSpy.calls == [.reconnect, .reconnect])
     }
 }

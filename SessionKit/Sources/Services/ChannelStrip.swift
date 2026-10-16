@@ -1,5 +1,5 @@
 //
-//  PluginChain.swift
+//  ChannelStrip.swift
 //  SessionKit
 //
 //  Created by Alex Shubin on 19.04.26.
@@ -11,24 +11,24 @@ import AudioUnitsKit
 import AVFoundation
 import OSLog
 
-enum PluginChainLoadError: Error, Equatable {
+enum ChannelStripLoadError: Error, Equatable {
     case audioUnitInstantiationFailed
 }
 
-protocol PluginChainType: Sendable {
-    func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit
-    func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?]
+protocol ChannelStripType: Sendable {
+    func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit
+    func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?]
     func unload(at position: Int) async
     func reconnect() async
 }
 
-final actor PluginChain: PluginChainType {
+final actor ChannelStrip: ChannelStripType {
     private struct Node {
         let avAudioUnit: AVAudioUnit
         let audioUnit: LoadedAudioUnit
     }
 
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "PluginChain")
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ChannelStrip")
 
     private let engine: AVAudioEngineType
     private let avAudioUnitFactory: AVAudioUnitFactoryType
@@ -51,7 +51,7 @@ final actor PluginChain: PluginChainType {
         self.audioSettings = audioSettings
     }
 
-    func load(_ slot: PluginChainSlot, at position: Int) async throws(PluginChainLoadError) -> LoadedAudioUnit {
+    func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
         await stop()
         remove(at: position)
         let result = await insert(slot, at: position)
@@ -59,17 +59,17 @@ final actor PluginChain: PluginChainType {
         return try result.get()
     }
 
-    func load(_ slots: [PluginChainSlot?]) async -> [Result<LoadedAudioUnit, PluginChainLoadError>?] {
+    func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
         await stop()
         for position in chain.keys {
             remove(at: position)
         }
-        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, PluginChainLoadError>).self) { group in
+        let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, ChannelStripLoadError>).self) { group in
             for (position, slot) in slots.enumerated() {
                 guard let slot else { continue }
                 group.addTask { (position, await self.insert(slot, at: position)) }
             }
-            var results = [Result<LoadedAudioUnit, PluginChainLoadError>?](repeating: nil, count: slots.count)
+            var results = [Result<LoadedAudioUnit, ChannelStripLoadError>?](repeating: nil, count: slots.count)
             for await (position, result) in group {
                 results[position] = result
             }
@@ -103,7 +103,7 @@ final actor PluginChain: PluginChainType {
         guard let first = nodes.first, let last = nodes.last,
               await audioSettings.setup == .met,
               let device = await audioSettings.targetDevice else { return }
-        let settings = SessionAudioSettings(await audioSettings.settings, targetDevice: device)
+        let settings = SessionHardwareSettings(await audioSettings.settings, targetDevice: device)
         guard audioConnector.connect(first: first.avAudioUnit, last: last.avAudioUnit, to: settings.audio, in: engine) else { return }
         for (source, destination) in zip(nodes, nodes.dropFirst()) {
             let format = AVAudioFormat(
@@ -120,7 +120,7 @@ final actor PluginChain: PluginChainType {
         await midiConnector.connect(first.audioUnit, settings: settings.midi)
     }
 
-    private func insert(_ slot: PluginChainSlot, at position: Int) async -> Result<LoadedAudioUnit, PluginChainLoadError> {
+    private func insert(_ slot: ChannelStripSlot, at position: Int) async -> Result<LoadedAudioUnit, ChannelStripLoadError> {
         guard let avAudioUnit = try? await avAudioUnitFactory.instantiate(
             with: slot.component.componentDescription,
             options: .loadOutOfProcess

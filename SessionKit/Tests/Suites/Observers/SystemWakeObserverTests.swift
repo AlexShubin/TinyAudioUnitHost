@@ -14,18 +14,18 @@ import Testing
 @MainActor
 @Suite
 struct SystemWakeObserverTests {
-    var pluginChainSpy: PluginChainSpy!
+    var channelStripSpy: ChannelStripSpy!
     var workspaceNotificationCenterSpy: NotificationCenterSpy!
     var sut: SystemWakeObserverType!
 
     init() {
-        pluginChainSpy = PluginChainSpy()
+        channelStripSpy = ChannelStripSpy()
         workspaceNotificationCenterSpy = NotificationCenterSpy()
     }
 
     mutating func createSut() {
         sut = SystemWakeObserver(
-            pluginChain: pluginChainSpy,
+            channelStrip: channelStripSpy,
             workspaceNotificationCenter: workspaceNotificationCenterSpy
         )
     }
@@ -50,12 +50,12 @@ struct SystemWakeObserverTests {
     }
 
     @Test
-    mutating func didWake_reconnectsPluginChain() async {
+    mutating func didWake_reconnectsChannelStrip() async {
         createSut()
         sut.start()
 
         await workspaceNotificationCenterSpy.handlers[NSWorkspace.didWakeNotification]?()
 
-        #expect(pluginChainSpy.calls == [.reconnect])
+        #expect(channelStripSpy.calls == [.reconnect])
     }
 }

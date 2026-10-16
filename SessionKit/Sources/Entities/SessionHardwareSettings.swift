@@ -1,5 +1,5 @@
 //
-//  SessionAudioSettings.swift
+//  SessionHardwareSettings.swift
 //  SessionKit
 //
 //  Created by Alex Shubin on 15.10.26.
@@ -8,7 +8,7 @@
 
 import AudioSettingsKit
 
-struct SessionAudioSettings: Equatable {
+struct SessionHardwareSettings: Equatable {
     struct Audio: Equatable {
         struct Device: Equatable {
             let id: UInt32
@@ -31,13 +31,13 @@ struct SessionAudioSettings: Equatable {
     let midi: Midi
 }
 
-extension SessionAudioSettings {
+extension SessionHardwareSettings {
     init(_ settings: AudioSettings, targetDevice: AudioDevice) {
         self.init(audio: Audio(settings, targetDevice: targetDevice), midi: Midi(settings))
     }
 }
 
-extension SessionAudioSettings.Audio {
+extension SessionHardwareSettings.Audio {
     init(_ settings: AudioSettings, targetDevice: AudioDevice) {
         self.init(
             deviceID: targetDevice.id,
@@ -49,13 +49,13 @@ extension SessionAudioSettings.Audio {
     }
 }
 
-extension SessionAudioSettings.Audio.Device {
+extension SessionHardwareSettings.Audio.Device {
     init(_ device: AudioDevice) {
         self.init(id: device.id, outputChannelCount: device.outputChannels.count)
     }
 }
 
-extension SessionAudioSettings.Midi {
+extension SessionHardwareSettings.Midi {
     init(_ settings: AudioSettings) {
         self.init(sources: Set(settings.selectedMidiDevices.map(\.ref)))
     }

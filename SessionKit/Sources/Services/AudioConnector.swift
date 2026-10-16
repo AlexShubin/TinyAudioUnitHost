@@ -10,9 +10,9 @@ import AudioToolboxGatewayKit
 import AVFoundation
 import OSLog
 
-/// Connects the plug-in chain's ends to the audio device: device binding, I/O, channel maps, input and output.
+/// Connects the channel strip's ends to the audio device: device binding, I/O, channel maps, input and output.
 protocol AudioConnectorType: Sendable {
-    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionAudioSettings.Audio, in engine: AVAudioEngineType) -> Bool
+    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool
     func disconnect(in engine: AVAudioEngineType)
 }
 
@@ -21,7 +21,7 @@ struct AudioConnector: AudioConnectorType {
 
     let audioUnitGateway: AudioUnitGatewayType
 
-    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionAudioSettings.Audio, in engine: AVAudioEngineType) -> Bool {
+    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool {
         do {
             try bind(settings, in: engine)
         } catch {
@@ -40,7 +40,7 @@ struct AudioConnector: AudioConnectorType {
         engine.disconnectHardwareInput()
     }
 
-    private func bind(_ settings: SessionAudioSettings.Audio, in engine: AVAudioEngineType) throws(AudioUnitGatewayError) {
+    private func bind(_ settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) throws(AudioUnitGatewayError) {
         guard let outputUnit = engine.outputAudioUnit else { return }
         logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: outputUnit) }
         logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: outputUnit) }
@@ -94,7 +94,7 @@ private extension AVAudioUnit {
     }
 }
 
-private extension SessionAudioSettings.Audio {
+private extension SessionHardwareSettings.Audio {
     /// Output position in the aggregate's physical channel layout.
     /// `AggregateDeviceFactory` lists sub-devices as [input, output], so output's channels start
     /// after the input device's output channels in the combined layout.

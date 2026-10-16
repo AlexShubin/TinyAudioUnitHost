@@ -1,5 +1,5 @@
 //
-//  PluginChainSlot.swift
+//  ChannelStripSlot.swift
 //  SessionKit
 //
 //  Created by Alex Shubin on 11.10.26.
@@ -9,7 +9,7 @@
 import AudioUnitsKit
 import Foundation
 
-struct PluginChainSlot: Equatable {
+struct ChannelStripSlot: Equatable {
     let component: AudioUnitComponent
     let state: Data?
 }

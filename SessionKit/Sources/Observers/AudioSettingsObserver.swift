@@ -16,17 +16,17 @@ public protocol AudioSettingsObserverType: AnyObject {
 @MainActor
 final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
-    private let pluginChain: PluginChainType
+    private let channelStrip: ChannelStripType
     private let midiConnector: MidiConnectorType
     private var appliedBinding: AudioBinding?
 
     init(
         audioSettings: AudioSettingsModelType,
-        pluginChain: PluginChainType,
+        channelStrip: ChannelStripType,
         midiConnector: MidiConnectorType
     ) {
         self.audioSettings = audioSettings
-        self.pluginChain = pluginChain
+        self.channelStrip = channelStrip
         self.midiConnector = midiConnector
     }
 
@@ -42,9 +42,9 @@ final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModel
         )
         if binding != appliedBinding {
             appliedBinding = binding
-            await pluginChain.reconnect()
+            await channelStrip.reconnect()
         }
-        await midiConnector.reconnect(settings: SessionAudioSettings.Midi(audioSettings.settings))
+        await midiConnector.reconnect(settings: SessionHardwareSettings.Midi(audioSettings.settings))
     }
 }
 
