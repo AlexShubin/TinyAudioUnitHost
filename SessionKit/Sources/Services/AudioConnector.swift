@@ -31,7 +31,7 @@ struct AudioConnector: AudioConnectorType {
         if !settings.inputChannels.isEmpty, first.acceptsAudioInput {
             connectInput(settings.inputChannels, to: first, in: engine)
         }
-        connectOutput(from: last, to: settings.outputChannels, in: engine)
+        connectOutput(from: last, to: settings.outputChannels, offset: settings.outputChannelOffset, in: engine)
         return true
     }
 
@@ -42,14 +42,15 @@ struct AudioConnector: AudioConnectorType {
 
     private func bind(_ settings: SessionAudioSettings.Audio, in engine: AVAudioEngineType) throws(AudioUnitGatewayError) {
         guard let outputUnit = engine.outputAudioUnit else { return }
-        logging { try audioUnitGateway.setEnableIO(settings.isInputEnabled, bus: .input, on: outputUnit) }
-        logging { try audioUnitGateway.setEnableIO(settings.isOutputEnabled, bus: .output, on: outputUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.inputDevice != nil, bus: .input, on: outputUnit) }
+        logging { try audioUnitGateway.setEnableIO(settings.outputDevice != nil, bus: .output, on: outputUnit) }
         try audioUnitGateway.setCurrentDevice(settings.deviceID, on: outputUnit)
     }
 
-    private func connectInput(_ channels: [Int], to first: AVAudioUnit, in engine: AVAudioEngineType) {
+    private func connectInput(_ channels: [UInt32], to first: AVAudioUnit, in engine: AVAudioEngineType) {
         if let inputUnit = engine.inputAudioUnit {
-            logging { try audioUnitGateway.setChannelMap(channels.map(Int32.init), bus: .input, on: inputUnit) }
+            let map = channels.map { Int32($0) - 1 }
+            logging { try audioUnitGateway.setChannelMap(map, bus: .input, on: inputUnit) }
         }
         let format = AVAudioFormat(
             standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
@@ -58,7 +59,7 @@ struct AudioConnector: AudioConnectorType {
         engine.connectHardwareInput(to: first, format: format)
     }
 
-    private func connectOutput(from last: AVAudioUnit, to channels: [Int], in engine: AVAudioEngineType) {
+    private func connectOutput(from last: AVAudioUnit, to channels: [UInt32], offset: Int, in engine: AVAudioEngineType) {
         let format = AVAudioFormat(
             standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
             channels: last.auAudioUnit.outputBusses[0].format.channelCount
@@ -69,7 +70,9 @@ struct AudioConnector: AudioConnectorType {
               let outputUnit = engine.outputAudioUnit,
               let physicalCount = audioUnitGateway.physicalChannelCount(of: outputUnit) else { return }
         var map = [Int32](repeating: -1, count: physicalCount)
-        for (virtualIndex, physicalIndex) in channels.enumerated() where map.indices.contains(physicalIndex) {
+        for (virtualIndex, channel) in channels.enumerated() {
+            let physicalIndex = offset + Int(channel) - 1
+            guard map.indices.contains(physicalIndex) else { continue }
             map[physicalIndex] = Int32(virtualIndex)
         }
         logging { try audioUnitGateway.setChannelMap(map, bus: .output, on: outputUnit) }
@@ -88,5 +91,15 @@ private extension AVAudioUnit {
     var acceptsAudioInput: Bool {
         let type = audioComponentDescription.componentType
         return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
+    }
+}
+
+private extension SessionAudioSettings.Audio {
+    /// Output position in the aggregate's physical channel layout.
+    /// `AggregateDeviceFactory` lists sub-devices as [input, output], so output's channels start
+    /// after the input device's output channels in the combined layout.
+    var outputChannelOffset: Int {
+        guard let inputDevice, let outputDevice, inputDevice.id != outputDevice.id else { return 0 }
+        return inputDevice.outputChannelCount
     }
 }

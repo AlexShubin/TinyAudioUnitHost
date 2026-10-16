@@ -10,13 +10,16 @@ import AudioSettingsKit
 
 struct SessionAudioSettings: Equatable {
     struct Audio: Equatable {
+        struct Device: Equatable {
+            let id: UInt32
+            let outputChannelCount: Int
+        }
+
         let deviceID: UInt32
-        let isInputEnabled: Bool
-        let isOutputEnabled: Bool
-        /// Zero-based device channels feeding the chain; empty when no input is selected.
-        let inputChannels: [Int]
-        /// Zero-based channels in the device's physical layout that the chain plays to.
-        let outputChannels: [Int]
+        let inputDevice: Device?
+        let outputDevice: Device?
+        let inputChannels: [UInt32]
+        let outputChannels: [UInt32]
     }
 
     struct Midi: Equatable {
@@ -36,31 +39,24 @@ extension SessionAudioSettings {
 
 extension SessionAudioSettings.Audio {
     init(_ settings: AudioSettings, targetDevice: AudioDevice) {
-        let outputOffset = settings.outputOffset
         self.init(
             deviceID: targetDevice.id,
-            isInputEnabled: settings.inputDevice != nil,
-            isOutputEnabled: settings.outputDevice != nil,
-            inputChannels: settings.inputChannel?.channels.map { Int($0.id) - 1 } ?? [],
-            outputChannels: settings.outputChannel?.channels.map { outputOffset + Int($0.id) - 1 } ?? []
+            inputDevice: settings.inputDevice.map(Device.init),
+            outputDevice: settings.outputDevice.map(Device.init),
+            inputChannels: settings.inputChannel?.channels.map(\.id) ?? [],
+            outputChannels: settings.outputChannel?.channels.map(\.id) ?? []
         )
+    }
+}
+
+extension SessionAudioSettings.Audio.Device {
+    init(_ device: AudioDevice) {
+        self.init(id: device.id, outputChannelCount: device.outputChannels.count)
     }
 }
 
 extension SessionAudioSettings.Midi {
     init(_ settings: AudioSettings) {
         self.init(sources: Set(settings.selectedMidiDevices.map(\.ref)))
-    }
-}
-
-private extension AudioSettings {
-    /// Output position in the aggregate's physical channel layout.
-    /// Sub-devices are listed [input, output], so output's channels start
-    /// after the input device's output channels in the combined layout.
-    var outputOffset: Int {
-        guard let input = inputDevice,
-              let output = outputDevice,
-              input.id != output.id else { return 0 }
-        return input.outputChannels.count
     }
 }
