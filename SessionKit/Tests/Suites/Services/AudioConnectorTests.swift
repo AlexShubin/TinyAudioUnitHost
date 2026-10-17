@@ -10,6 +10,7 @@ import AudioToolbox
 import AudioToolboxGatewayKit
 import AudioToolboxGatewayKitTestSupport
 import AVFoundation
+import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 

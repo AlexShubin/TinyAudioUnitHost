@@ -15,6 +15,7 @@ import SessionKit
 public final class SessionModelSpy: SessionModelType {
     public enum Calls: Equatable, Sendable {
         case load
+        case updateHardwareSettings(SessionHardwareSettings?)
         case acknowledgePresetEvent
         case loadComponent(AudioUnitComponent, at: Int)
         case unload(at: Int)
@@ -41,6 +42,7 @@ public final class SessionModelSpy: SessionModelType {
     public var presetEvent: PresetEvent?
 
     public func load() async { calls.append(.load) }
+    public func updateHardwareSettings(_ settings: SessionHardwareSettings?) async { calls.append(.updateHardwareSettings(settings)) }
     public func acknowledgePresetEvent() { calls.append(.acknowledgePresetEvent) }
     public func load(_ component: AudioUnitComponent, at index: Int) async { calls.append(.loadComponent(component, at: index)) }
     public func unload(at index: Int) async { calls.append(.unload(at: index)) }

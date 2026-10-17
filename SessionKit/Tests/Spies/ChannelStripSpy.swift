@@ -16,6 +16,7 @@ final class ChannelStripSpy: ChannelStripType, @unchecked Sendable {
         case load([ChannelStripSlot?])
         case unload(Int)
         case reconnect
+        case updateHardwareSettings(SessionHardwareSettings?)
     }
 
     private(set) var calls: [Calls] = []
@@ -44,5 +45,9 @@ final class ChannelStripSpy: ChannelStripType, @unchecked Sendable {
 
     func reconnect() async {
         calls.append(.reconnect)
+    }
+
+    func updateHardwareSettings(_ settings: SessionHardwareSettings?) async {
+        calls.append(.updateHardwareSettings(settings))
     }
 }

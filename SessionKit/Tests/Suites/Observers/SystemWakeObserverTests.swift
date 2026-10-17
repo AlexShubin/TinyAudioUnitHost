@@ -16,7 +16,7 @@ import Testing
 struct SystemWakeObserverTests {
     var channelStripSpy: ChannelStripSpy!
     var workspaceNotificationCenterSpy: NotificationCenterSpy!
-    var sut: SystemWakeObserverType!
+    var sut: SystemWakeObserver!
 
     init() {
         channelStripSpy = ChannelStripSpy()
@@ -31,20 +31,8 @@ struct SystemWakeObserverTests {
     }
 
     @Test
-    mutating func start_observesWorkspaceDidWake() {
+    mutating func init_observesWorkspaceDidWake() {
         createSut()
-
-        sut.start()
-
-        #expect(workspaceNotificationCenterSpy.calls == [.observe(NSWorkspace.didWakeNotification)])
-    }
-
-    @Test
-    mutating func start_calledTwice_observesOnce() {
-        createSut()
-
-        sut.start()
-        sut.start()
 
         #expect(workspaceNotificationCenterSpy.calls == [.observe(NSWorkspace.didWakeNotification)])
     }
@@ -52,7 +40,6 @@ struct SystemWakeObserverTests {
     @Test
     mutating func didWake_reconnectsChannelStrip() async {
         createSut()
-        sut.start()
 
         await workspaceNotificationCenterSpy.handlers[NSWorkspace.didWakeNotification]?()
 

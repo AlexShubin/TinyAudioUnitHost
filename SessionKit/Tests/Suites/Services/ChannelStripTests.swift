@@ -6,11 +6,10 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
-import AudioSettingsKitTestSupport
 import AudioToolbox
 import AudioUnitsKit
 import AVFoundation
+import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 
@@ -20,7 +19,6 @@ struct ChannelStripTests {
     var avAudioUnitFactorySpy: AVAudioUnitFactorySpy!
     var audioConnectorSpy: AudioConnectorSpy!
     var midiConnectorSpy: MidiConnectorSpy!
-    var audioSettingsSpy: AudioSettingsModelSpy!
     var sut: ChannelStripType!
 
     init() {
@@ -28,7 +26,6 @@ struct ChannelStripTests {
         avAudioUnitFactorySpy = AVAudioUnitFactorySpy()
         audioConnectorSpy = AudioConnectorSpy()
         midiConnectorSpy = MidiConnectorSpy()
-        audioSettingsSpy = AudioSettingsModelSpy()
     }
 
     mutating func createSut() {
@@ -36,8 +33,7 @@ struct ChannelStripTests {
             engine: avEngineSpy,
             avAudioUnitFactory: avAudioUnitFactorySpy,
             audioConnector: audioConnectorSpy,
-            midiConnector: midiConnectorSpy,
-            audioSettings: audioSettingsSpy
+            midiConnector: midiConnectorSpy
         )
     }
 
@@ -66,9 +62,8 @@ struct ChannelStripTests {
     mutating func load_happyPath_attachesConnectsStartsAndSetsUpMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let result = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
@@ -103,9 +98,8 @@ struct ChannelStripTests {
         let firstAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         let secondAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(firstAU)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let firstResult = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(secondAU)
@@ -131,9 +125,8 @@ struct ChannelStripTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         audioConnectorSpy.connectResult = false
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
@@ -142,25 +135,9 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func load_setupNotMet_keepsNodeWithoutConnectingOrStarting() async throws {
+    mutating func load_withoutHardwareSettings_keepsNodeWithoutConnectingOrStarting() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .unmet([.microphonePermission])
-        audioSettingsSpy.targetDevice = .fake()
-        createSut()
-
-        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
-
-        #expect(audioConnectorSpy.calls == [.disconnect, .disconnect])
-        #expect(avEngineSpy.calls == [.stop, .attach(avAudioUnit), .stop])
-        #expect(midiConnectorSpy.calls == [.disconnect, .disconnect])
-    }
-
-    @Test
-    mutating func load_withoutTargetDevice_keepsNodeWithoutConnectingOrStarting() async throws {
-        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
-        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
         createSut()
 
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
@@ -174,30 +151,12 @@ struct ChannelStripTests {
     mutating func load_passesHardwareSettingsToConnectors() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake(id: 7)
-        audioSettingsSpy.settings = .fake(
-            inputDevice: .fake(id: 3, outputChannels: [.fake(id: 1), .fake(id: 2)]),
-            outputDevice: .fake(id: 4),
-            inputChannel: .mono(.fake(id: 2)),
-            outputChannel: .stereo(l: .fake(id: 1), r: .fake(id: 2)),
-            selectedMidiDevices: [.fake(ref: 10)]
-        )
         createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(deviceID: 7), midi: .fake(sources: [10])))
 
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
-        #expect(audioConnectorSpy.calls.last == .connect(
-            first: avAudioUnit,
-            last: avAudioUnit,
-            settings: .fake(
-                deviceID: 7,
-                inputDevice: .fake(id: 3, outputChannelCount: 2),
-                outputDevice: .fake(id: 4, outputChannelCount: 0),
-                inputChannels: [2],
-                outputChannels: [1, 2]
-            )
-        ))
+        #expect(audioConnectorSpy.calls.last == .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake(deviceID: 7)))
         #expect(midiConnectorSpy.calls.last == .connect(loaded, .fake(sources: [10])))
     }
 
@@ -211,9 +170,8 @@ struct ChannelStripTests {
             Self.effectDescription: .success(first),
             Self.delayDescription: .success(second),
         ]
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
 
@@ -234,9 +192,8 @@ struct ChannelStripTests {
             Self.effectDescription: .success(first),
             Self.delayDescription: .success(second),
         ]
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
 
@@ -252,9 +209,8 @@ struct ChannelStripTests {
             Self.effectDescription: .success(first),
             Self.delayDescription: .success(third),
         ]
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let results = await sut.load([.fake(component: Self.effectComponent), nil, .fake(component: Self.delayComponent)])
 
@@ -267,9 +223,8 @@ struct ChannelStripTests {
     mutating func loadSlots_oneFails_returnsFailureAndStartsTheRest() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResultByDescription = [Self.effectDescription: .success(first)]
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
 
         let results = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
 
@@ -285,9 +240,8 @@ struct ChannelStripTests {
         let oldInsert = try await Self.makeAVAudioUnit(Self.effectDescription)
         let new = try await Self.makeAVAudioUnit(Self.delayDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(old)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(oldInsert)
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 3)
@@ -308,9 +262,8 @@ struct ChannelStripTests {
     mutating func loadSlots_empty_detachesChainAndStaysStopped() async throws {
         let old = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(old)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         let callsBefore = avEngineSpy.calls.count
 
@@ -327,9 +280,8 @@ struct ChannelStripTests {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
         let callsBefore = avEngineSpy.calls.count
@@ -347,9 +299,8 @@ struct ChannelStripTests {
         let upper = try await Self.makeAVAudioUnit(Self.effectDescription)
         let lower = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(upper)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 2)
         avAudioUnitFactorySpy.instantiateResult = .success(lower)
         let callsBefore = avEngineSpy.calls.count
@@ -367,9 +318,8 @@ struct ChannelStripTests {
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         let replacement = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
@@ -389,9 +339,8 @@ struct ChannelStripTests {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let firstLoaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(second)
 
@@ -407,9 +356,8 @@ struct ChannelStripTests {
     mutating func load_factoryFailure_restartsRemainingChain() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let firstLoaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         let callsBefore = avEngineSpy.calls.count
@@ -430,9 +378,8 @@ struct ChannelStripTests {
     mutating func load_factoryFailureAtOccupiedPosition_clearsItAndStaysStopped() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .failure(TestError.factoryFailed)
         let callsBefore = avEngineSpy.calls.count
@@ -449,9 +396,8 @@ struct ChannelStripTests {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let channelStrip = sut!
         let factory = avAudioUnitFactorySpy!
         factory.onInstantiate = {
@@ -475,9 +421,8 @@ struct ChannelStripTests {
         let middle = try await Self.makeAVAudioUnit(Self.effectDescription)
         let last = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         avAudioUnitFactorySpy.instantiateResult = .success(middle)
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 1)
@@ -497,9 +442,8 @@ struct ChannelStripTests {
     mutating func unload_withAudioUnit_stopsDisconnectsAndDetaches() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         let callsAfterLoad = avEngineSpy.calls
 
@@ -524,9 +468,8 @@ struct ChannelStripTests {
     mutating func unload_thenReconnect_leavesEngineUntouched() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         await sut.unload(at: 0)
         let callsAfterUnload = avEngineSpy.calls
@@ -534,6 +477,101 @@ struct ChannelStripTests {
         await sut.reconnect()
 
         #expect(avEngineSpy.calls == callsAfterUnload)
+    }
+
+    // MARK: - updateHardwareSettings
+
+    @Test
+    mutating func updateHardwareSettings_firstSettingsAfterLoad_startsChain() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let engineCallsAfterLoad = avEngineSpy.calls.count
+        let midiCallsAfterLoad = midiConnectorSpy.calls.count
+
+        await sut.updateHardwareSettings(.fake())
+
+        #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
+        #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsAfterLoad)) == [.disconnect, .connect(loaded, .fake())])
+    }
+
+    @Test
+    mutating func updateHardwareSettings_audioChanged_reconnectsWithNewSettings() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        await sut.updateHardwareSettings(.fake())
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let engineCallsBefore = avEngineSpy.calls.count
+        let connectorCallsBefore = audioConnectorSpy.calls.count
+
+        await sut.updateHardwareSettings(.fake(audio: .fake(sampleRate: 96_000)))
+
+        #expect(Array(avEngineSpy.calls.dropFirst(engineCallsBefore)) == [.stop, .start])
+        #expect(Array(audioConnectorSpy.calls.dropFirst(connectorCallsBefore)) == [
+            .disconnect,
+            .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake(sampleRate: 96_000))
+        ])
+    }
+
+    @Test
+    mutating func updateHardwareSettings_midiOnlyChanged_reconnectsMidiOnly() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        await sut.updateHardwareSettings(.fake())
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let engineCallsBefore = avEngineSpy.calls
+        let midiCallsBefore = midiConnectorSpy.calls.count
+
+        await sut.updateHardwareSettings(.fake(midi: .fake(sources: [10])))
+
+        #expect(avEngineSpy.calls == engineCallsBefore)
+        #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsBefore)) == [.reconnect(.fake(sources: [10]))])
+    }
+
+    @Test
+    mutating func updateHardwareSettings_unchanged_leavesEverythingUntouched() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        await sut.updateHardwareSettings(.fake())
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let engineCallsBefore = avEngineSpy.calls
+        let midiCallsBefore = midiConnectorSpy.calls
+
+        await sut.updateHardwareSettings(.fake())
+
+        #expect(avEngineSpy.calls == engineCallsBefore)
+        #expect(midiConnectorSpy.calls == midiCallsBefore)
+    }
+
+    @Test
+    mutating func updateHardwareSettings_nil_stopsWithoutStartingOrMIDI() async throws {
+        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
+        createSut()
+        await sut.updateHardwareSettings(.fake())
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let engineCallsBefore = avEngineSpy.calls.count
+        let midiCallsBefore = midiConnectorSpy.calls.count
+
+        await sut.updateHardwareSettings(nil)
+
+        #expect(Array(avEngineSpy.calls.dropFirst(engineCallsBefore)) == [.stop])
+        #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsBefore)) == [.disconnect])
+    }
+
+    @Test
+    mutating func updateHardwareSettings_withoutPlugins_leavesEngineUntouched() async {
+        createSut()
+
+        await sut.updateHardwareSettings(.fake())
+
+        #expect(avEngineSpy.calls.isEmpty)
+        #expect(audioConnectorSpy.calls.isEmpty)
+        #expect(midiConnectorSpy.calls.isEmpty)
     }
 
     // MARK: - reconnect
@@ -554,9 +592,8 @@ struct ChannelStripTests {
     mutating func reconnect_withAudioUnit_reconnectsRestartsAndSetsUpMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let connectorCallsAfterLoad = audioConnectorSpy.calls.count
@@ -578,29 +615,10 @@ struct ChannelStripTests {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         audioConnectorSpy.connectResult = false
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         audioConnectorSpy.connectResult = true
-        let engineCallsAfterLoad = avEngineSpy.calls.count
-        let midiCallsAfterLoad = midiConnectorSpy.calls.count
-
-        await sut.reconnect()
-
-        #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
-        #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsAfterLoad)) == [.disconnect, .connect(loaded, .fake())])
-    }
-
-    @Test
-    mutating func reconnect_setupMetAfterLoadingUnmet_startsChain() async throws {
-        let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
-        avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .unmet([.microphonePermission])
-        audioSettingsSpy.targetDevice = .fake()
-        createSut()
-        let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
-        audioSettingsSpy.setup = .met
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let midiCallsAfterLoad = midiConnectorSpy.calls.count
 
@@ -614,9 +632,8 @@ struct ChannelStripTests {
     mutating func reconnect_hardwareNoLongerConnects_stopsWithoutStartingOrMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioSettingsSpy.setup = .met
-        audioSettingsSpy.targetDevice = .fake()
         createSut()
+        await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
         audioConnectorSpy.connectResult = false
         let engineCallsAfterLoad = avEngineSpy.calls.count

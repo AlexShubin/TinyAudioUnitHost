@@ -9,6 +9,7 @@
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import CoreMidiGatewayKitTestSupport
+import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 

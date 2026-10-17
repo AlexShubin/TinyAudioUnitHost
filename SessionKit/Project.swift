@@ -12,7 +12,6 @@ let project = Project.library(
         .module("PresetKit"),
     ],
     testSupportDependencies: [
-        .module("AudioSettingsKit"),
         .module("AudioUnitsKit"),
         .testSupport("AudioUnitsKit"),
     ],
@@ -25,8 +24,6 @@ let project = Project.library(
         .testSupport("Common"),
         .module("StorageKit"),
         .testSupport("StorageKit"),
-        .module("AudioSettingsKit"),
-        .testSupport("AudioSettingsKit"),
         .module("AudioUnitsKit"),
         .testSupport("AudioUnitsKit"),
         .module("PresetKit"),

@@ -11,6 +11,7 @@ import AudioUnitsKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport
+import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 
@@ -140,6 +141,17 @@ struct SessionModelTests {
         #expect(channelStripSpy.calls == [.load([])])
         #expect(sut.activePresetName == "ghost")
         #expect(!presetProviderSpy.calls.contains(.setActive(nil)))
+    }
+
+    // MARK: - updateHardwareSettings
+
+    @Test
+    mutating func updateHardwareSettings_forwardsToChannelStrip() async {
+        createSut()
+
+        await sut.updateHardwareSettings(.fake(midi: .fake(sources: [10])))
+
+        #expect(channelStripSpy.calls == [.updateHardwareSettings(.fake(midi: .fake(sources: [10])))])
     }
 
     // MARK: - load(_:at:)
