@@ -21,16 +21,15 @@ final class AudioSettingsObserver: AudioSettingsModelDelegate {
     }
 
     func audioSettingsDidChange() async {
-        await session.updateHardwareSettings(SessionHardwareSettings(audioSettings))
-    }
-}
-
-private extension SessionHardwareSettings {
-    @MainActor
-    init?(_ audioSettings: AudioSettingsModelType) {
-        guard audioSettings.setup == .met, let targetDevice = audioSettings.targetDevice else { return nil }
+        guard audioSettings.setup == .met, let targetDevice = audioSettings.targetDevice else {
+            await session.updateHardwareSettings(nil)
+            return
+        }
         let settings = audioSettings.settings
-        self.init(audio: Audio(settings, targetDevice: targetDevice), midi: Midi(settings))
+        await session.updateHardwareSettings(SessionHardwareSettings(
+            audio: .init(settings, targetDevice: targetDevice),
+            midi: .init(settings)
+        ))
     }
 }
 
