@@ -18,15 +18,15 @@ final class MidiConnectorSpy: MidiConnectorType, @unchecked Sendable {
 
     private(set) var calls: [Calls] = []
 
-    func connect(_ audioUnit: LoadedAudioUnit, settings: SessionHardwareSettings.Midi) async {
+    func connect(_ audioUnit: LoadedAudioUnit, settings: SessionHardwareSettings.Midi) {
         calls.append(.connect(audioUnit, settings))
     }
 
-    func disconnect() async {
+    func disconnect() {
         calls.append(.disconnect)
     }
 
-    func reconnect(settings: SessionHardwareSettings.Midi) async {
+    func reconnect(settings: SessionHardwareSettings.Midi) {
         calls.append(.reconnect(settings))
     }
 }

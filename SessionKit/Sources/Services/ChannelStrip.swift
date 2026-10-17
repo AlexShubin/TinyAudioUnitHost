@@ -50,15 +50,15 @@ final actor ChannelStrip: ChannelStripType {
     }
 
     func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
-        await stop()
+        stop()
         remove(at: position)
         let result = await insert(slot, at: position)
-        await start()
+        start()
         return try result.get()
     }
 
     func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
-        await stop()
+        stop()
         for position in chain.keys {
             remove(at: position)
         }
@@ -73,19 +73,19 @@ final actor ChannelStrip: ChannelStripType {
             }
             return results
         }
-        await start()
+        start()
         return results
     }
 
     func unload(at position: Int) async {
-        await stop()
+        stop()
         remove(at: position)
-        await start()
+        start()
     }
 
     func reconnect() async {
         guard !chain.isEmpty else { return }
-        await start()
+        start()
     }
 
     func updateHardwareSettings(_ settings: SessionHardwareSettings?) async {
@@ -94,19 +94,19 @@ final actor ChannelStrip: ChannelStripType {
         if settings?.audio != previous?.audio {
             await reconnect()
         } else if let midi = settings?.midi, midi != previous?.midi {
-            await midiConnector.reconnect(settings: midi)
+            midiConnector.reconnect(settings: midi)
         }
     }
 
-    private func stop() async {
+    private func stop() {
         engine.stop()
         audioConnector.disconnect(in: engine)
-        await midiConnector.disconnect()
+        midiConnector.disconnect()
     }
 
-    private func start() async {
+    private func start() {
         // Another operation may have started the engine while this one was suspended.
-        await stop()
+        stop()
         let nodes = chain.orderedValues
         guard let first = nodes.first, let last = nodes.last, let hardwareSettings,
               audioConnector.connect(first: first.avAudioUnit, last: last.avAudioUnit, to: hardwareSettings.audio, in: engine) else { return }
@@ -122,7 +122,7 @@ final actor ChannelStrip: ChannelStripType {
         } catch {
             logger.warning("Engine start failed: \(String(describing: error), privacy: .public)")
         }
-        await midiConnector.connect(first.audioUnit, settings: hardwareSettings.midi)
+        midiConnector.connect(first.audioUnit, settings: hardwareSettings.midi)
     }
 
     private func insert(_ slot: ChannelStripSlot, at position: Int) async -> Result<LoadedAudioUnit, ChannelStripLoadError> {

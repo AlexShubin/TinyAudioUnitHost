@@ -13,7 +13,7 @@ import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 
-@Suite @MainActor
+@Suite
 struct ChannelStripTests {
     var avEngineSpy: AVAudioEngineSpy!
     var avAudioUnitFactorySpy: AVAudioUnitFactorySpy!
@@ -86,9 +86,7 @@ struct ChannelStripTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        try await Task(priority: .utility) { [sut] in
-            _ = try await sut!.load(.fake(component: Self.effectComponent, state: stateAtMax), at: 0)
-        }.value
+        _ = try await sut.load(.fake(component: Self.effectComponent, state: stateAtMax), at: 0)
 
         #expect(parameter.value == parameter.maxValue)
     }
