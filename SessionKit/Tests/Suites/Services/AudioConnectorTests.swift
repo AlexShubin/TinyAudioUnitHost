@@ -37,7 +37,7 @@ struct AudioConnectorTests {
         avEngineSpy.outputAudioUnit = Self.outputUnit
         createSut()
 
-        let isConnected = sut.connect(first: effect, last: effect, to: .fake(deviceID: 7, inputDevice: .fake()), in: avEngineSpy)
+        let isConnected = sut.connect(input: effect, output: effect, to: .fake(deviceID: 7, inputDevice: .fake()), in: avEngineSpy)
 
         #expect(isConnected)
         #expect(audioUnitGatewaySpy.calls == [
@@ -55,8 +55,8 @@ struct AudioConnectorTests {
         createSut()
 
         let isConnected = sut.connect(
-            first: effect,
-            last: effect,
+            input: effect,
+            output: effect,
             to: .fake(inputChannels: [1, 2], outputChannels: [1, 2]),
             in: avEngineSpy
         )
@@ -66,16 +66,16 @@ struct AudioConnectorTests {
     }
 
     @Test
-    mutating func connect_plugsHardwareInputIntoFirstAndLastIntoMainMixer() async throws {
-        let first = try await Self.makeAVAudioUnit(Self.effectDescription)
-        let last = try await Self.makeAVAudioUnit(Self.delayDescription)
+    mutating func connect_plugsHardwareInputIntoInputAndOutputIntoMainMixer() async throws {
+        let input = try await Self.makeAVAudioUnit(Self.effectDescription)
+        let output = try await Self.makeAVAudioUnit(Self.delayDescription)
         createSut()
 
-        _ = sut.connect(first: first, last: last, to: .fake(inputChannels: [1], outputChannels: [1, 2]), in: avEngineSpy)
+        _ = sut.connect(input: input, output: output, to: .fake(inputChannels: [1], outputChannels: [1, 2]), in: avEngineSpy)
 
         #expect(avEngineSpy.calls == [
-            .connectHardwareInput(first, AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)),
-            .connectToMainMixer(last, Self.outputFormat(of: last))
+            .connectHardwareInput(input, AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)),
+            .connectToMainMixer(output, Self.outputFormat(of: output))
         ])
     }
 
@@ -86,21 +86,21 @@ struct AudioConnectorTests {
         avEngineSpy.inputAudioUnit = inputUnit
         createSut()
 
-        _ = sut.connect(first: effect, last: effect, to: .fake(inputDevice: .fake(), inputChannels: [1, 2]), in: avEngineSpy)
+        _ = sut.connect(input: effect, output: effect, to: .fake(inputDevice: .fake(), inputChannels: [1, 2]), in: avEngineSpy)
 
         #expect(audioUnitGatewaySpy.calls == [.setChannelMap([0, 1], .input, inputUnit)])
         #expect(avEngineSpy.calls.contains(.connectHardwareInput(effect, AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2))))
     }
 
     @Test
-    mutating func connect_firstTakesNoAudioInput_skipsHardwareInput() async throws {
-        let mixer = try await Self.makeAVAudioUnit(Self.mixerDescription)
+    mutating func connect_withoutInput_skipsHardwareInput() async throws {
+        let effect = try await Self.makeAVAudioUnit(Self.effectDescription)
         avEngineSpy.inputAudioUnit = AudioUnit(bitPattern: 0xBADC0DE)!
         createSut()
 
-        _ = sut.connect(first: mixer, last: mixer, to: .fake(inputDevice: .fake(), inputChannels: [1, 2]), in: avEngineSpy)
+        _ = sut.connect(input: nil, output: effect, to: .fake(inputDevice: .fake(), inputChannels: [1, 2]), in: avEngineSpy)
 
-        #expect(avEngineSpy.calls == [.connectToMainMixer(mixer, Self.outputFormat(of: mixer))])
+        #expect(avEngineSpy.calls == [.connectToMainMixer(effect, Self.outputFormat(of: effect))])
         #expect(audioUnitGatewaySpy.calls.isEmpty)
     }
 
@@ -112,8 +112,8 @@ struct AudioConnectorTests {
         createSut()
 
         _ = sut.connect(
-            first: effect,
-            last: effect,
+            input: effect,
+            output: effect,
             to: .fake(deviceID: 7, outputDevice: .fake(), outputChannels: [1, 2]),
             in: avEngineSpy
         )
@@ -135,8 +135,8 @@ struct AudioConnectorTests {
         createSut()
 
         _ = sut.connect(
-            first: effect,
-            last: effect,
+            input: effect,
+            output: effect,
             to: .fake(
                 inputDevice: .fake(id: 1, outputChannelCount: 2),
                 outputDevice: .fake(id: 2),
@@ -156,8 +156,8 @@ struct AudioConnectorTests {
         createSut()
 
         _ = sut.connect(
-            first: effect,
-            last: effect,
+            input: effect,
+            output: effect,
             to: .fake(
                 inputDevice: .fake(id: 1, outputChannelCount: 2),
                 outputDevice: .fake(id: 1, outputChannelCount: 2),
@@ -197,14 +197,6 @@ private extension AudioConnectorTests {
     static let delayDescription = AudioComponentDescription(
         componentType: kAudioUnitType_Effect,
         componentSubType: kAudioUnitSubType_Delay,
-        componentManufacturer: kAudioUnitManufacturer_Apple,
-        componentFlags: 0,
-        componentFlagsMask: 0
-    )
-
-    static let mixerDescription = AudioComponentDescription(
-        componentType: kAudioUnitType_Mixer,
-        componentSubType: kAudioUnitSubType_MultiChannelMixer,
         componentManufacturer: kAudioUnitManufacturer_Apple,
         componentFlags: 0,
         componentFlagsMask: 0

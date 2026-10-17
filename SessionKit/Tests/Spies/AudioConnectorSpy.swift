@@ -11,15 +11,15 @@ import AVFoundation
 
 final class AudioConnectorSpy: AudioConnectorType, @unchecked Sendable {
     enum Calls: Equatable {
-        case connect(first: AVAudioUnit, last: AVAudioUnit, settings: SessionHardwareSettings.Audio)
+        case connect(input: AVAudioNode?, output: AVAudioUnit, settings: SessionHardwareSettings.Audio)
         case disconnect
     }
 
     private(set) var calls: [Calls] = []
 
     var connectResult = true
-    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool {
-        calls.append(.connect(first: first, last: last, settings: settings))
+    func connect(input: AVAudioNode?, output: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool {
+        calls.append(.connect(input: input, output: output, settings: settings))
         return connectResult
     }
 

@@ -69,7 +69,7 @@ struct ChannelStripTests {
 
         #expect(result.component == Self.effectComponent)
         #expect(avEngineSpy.calls == [.stop, .attach(avAudioUnit), .stop, .start])
-        #expect(audioConnectorSpy.calls == [.disconnect, .disconnect, .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake())])
+        #expect(audioConnectorSpy.calls == [.disconnect, .disconnect, .connect(input: nil, output: avAudioUnit, settings: .fake())])
         #expect(midiConnectorSpy.calls == [.disconnect, .disconnect, .connect(result, .fake())])
     }
 
@@ -156,8 +156,86 @@ struct ChannelStripTests {
 
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
 
-        #expect(audioConnectorSpy.calls.last == .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake(deviceID: 7)))
+        #expect(audioConnectorSpy.calls.last == .connect(input: nil, output: avAudioUnit, settings: .fake(deviceID: 7)))
         #expect(midiConnectorSpy.calls.last == .connect(loaded, .fake(sources: [10])))
+    }
+
+    // MARK: - converters
+
+    @Test
+    mutating func load_inputThePluginAccepts_feedsItDirectly() async throws {
+        let effect = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(effect)
+        createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(inputChannels: [1, 2])))
+
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+
+        #expect(audioConnectorSpy.calls.last == .connect(input: effect, output: effect, settings: .fake(inputChannels: [1, 2])))
+        #expect(attachedConverters.isEmpty)
+    }
+
+    @Test
+    mutating func load_inputThePluginDeclaresNextToItsOutput_feedsItDirectly() async throws {
+        let reverb = try await Self.makeAVAudioUnit(Self.reverbDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(reverb)
+        createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(inputChannels: [1])))
+
+        _ = try await sut.load(.fake(component: Self.reverbComponent), at: 0)
+
+        #expect(audioConnectorSpy.calls.last == .connect(input: reverb, output: reverb, settings: .fake(inputChannels: [1])))
+        #expect(attachedConverters.isEmpty)
+    }
+
+    @Test
+    mutating func load_inputThePluginRejects_putsConverterInFront() async throws {
+        let effect = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(effect)
+        createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(inputChannels: [1])))
+
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+
+        let converter = try #require(attachedConverters.first)
+        #expect(attachedConverters.count == 1)
+        #expect(avEngineSpy.calls.contains(.connect(converter, effect, Self.format(channels: 2))))
+        #expect(audioConnectorSpy.calls.last == .connect(input: converter, output: effect, settings: .fake(inputChannels: [1])))
+    }
+
+    @Test
+    mutating func load_outputTheNextPluginRejects_putsConverterBetween() async throws {
+        let mono = try await Self.makeAVAudioUnit(Self.effectDescription)
+        try mono.auAudioUnit.inputBusses[0].setFormat(try #require(Self.format(channels: 1)))
+        try mono.auAudioUnit.outputBusses[0].setFormat(try #require(Self.format(channels: 1)))
+        let stereo = try await Self.makeAVAudioUnit(Self.delayDescription)
+        avAudioUnitFactorySpy.instantiateResultByDescription = [
+            Self.effectDescription: .success(mono),
+            Self.delayDescription: .success(stereo),
+        ]
+        createSut()
+        await sut.updateHardwareSettings(.fake())
+
+        _ = await sut.load([.fake(component: Self.effectComponent), .fake(component: Self.delayComponent)])
+
+        let converter = try #require(attachedConverters.first)
+        #expect(avEngineSpy.calls.contains(.connect(mono, converter, Self.format(channels: 1))))
+        #expect(avEngineSpy.calls.contains(.connect(converter, stereo, Self.format(channels: 2))))
+    }
+
+    @Test
+    mutating func load_afterConverterRebuild_detachesConverter() async throws {
+        let effect = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(effect)
+        createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(inputChannels: [1])))
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+        let converter = try #require(attachedConverters.first)
+        let callsBefore = avEngineSpy.calls.count
+
+        await sut.unload(at: 0)
+
+        #expect(Array(avEngineSpy.calls.dropFirst(callsBefore)).contains(.detach(converter)))
     }
 
     // MARK: - load slots
@@ -179,7 +257,7 @@ struct ChannelStripTests {
         #expect(avEngineSpy.calls.contains(.attach(first)))
         #expect(avEngineSpy.calls.contains(.attach(second)))
         #expect(avEngineSpy.calls.contains(.connect(first, second, Self.outputFormat(of: first))))
-        #expect(audioConnectorSpy.calls.last == .connect(first: first, last: second, settings: .fake()))
+        #expect(audioConnectorSpy.calls.last == .connect(input: nil, output: second, settings: .fake()))
         #expect(avEngineSpy.calls.filter { $0 == .start } == [.start])
         #expect(avEngineSpy.calls.last == .start)
     }
@@ -290,7 +368,7 @@ struct ChannelStripTests {
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.connect(first, second, Self.outputFormat(of: first))))
-        #expect(audioConnectorSpy.calls.last == .connect(first: first, last: second, settings: .fake()))
+        #expect(audioConnectorSpy.calls.last == .connect(input: nil, output: second, settings: .fake()))
         #expect(!calls.contains(.detach(first)))
     }
 
@@ -309,7 +387,7 @@ struct ChannelStripTests {
 
         let calls = Array(avEngineSpy.calls.dropFirst(callsBefore))
         #expect(calls.contains(.connect(lower, upper, Self.outputFormat(of: lower))))
-        #expect(audioConnectorSpy.calls.last == .connect(first: lower, last: upper, settings: .fake()))
+        #expect(audioConnectorSpy.calls.last == .connect(input: nil, output: upper, settings: .fake()))
     }
 
     @Test
@@ -511,7 +589,7 @@ struct ChannelStripTests {
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsBefore)) == [.stop, .start])
         #expect(Array(audioConnectorSpy.calls.dropFirst(connectorCallsBefore)) == [
             .disconnect,
-            .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake(sampleRate: 96_000))
+            .connect(input: nil, output: avAudioUnit, settings: .fake(sampleRate: 96_000))
         ])
     }
 
@@ -604,7 +682,7 @@ struct ChannelStripTests {
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
         #expect(Array(audioConnectorSpy.calls.dropFirst(connectorCallsAfterLoad)) == [
             .disconnect,
-            .connect(first: avAudioUnit, last: avAudioUnit, settings: .fake())
+            .connect(input: nil, output: avAudioUnit, settings: .fake())
         ])
         #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsAfterLoad)) == [.disconnect, .connect(loaded, .fake())])
         #expect(avAudioUnitFactorySpy.calls.count == 1)
@@ -667,12 +745,34 @@ private extension ChannelStripTests {
         componentFlagsMask: 0
     )
 
+    static let reverbDescription = AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_Reverb2,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    )
+
+    static var reverbComponent: AudioUnitComponent {
+        AudioUnitComponent(id: reverbDescription.componentID, name: "Reverb", manufacturer: "Apple")
+    }
+
     static var effectComponent: AudioUnitComponent {
         AudioUnitComponent(id: effectDescription.componentID, name: "Dyn", manufacturer: "Apple")
     }
 
     static var delayComponent: AudioUnitComponent {
         AudioUnitComponent(id: delayDescription.componentID, name: "Delay", manufacturer: "Apple")
+    }
+
+    static func format(channels: AVAudioChannelCount) -> AVAudioFormat? {
+        AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: channels)
+    }
+
+    var attachedConverters: [AVAudioNode] {
+        avEngineSpy.calls.compactMap { call in
+            if case .attach(let node) = call, node is AVAudioMixerNode { node } else { nil }
+        }
     }
 
     static func outputFormat(of avAudioUnit: AVAudioUnit) -> AVAudioFormat? {
