@@ -16,7 +16,7 @@ import PresetKit
 @MainActor
 public struct Dependencies: Sendable {
     public let sessionModel: SessionModelType
-    public let systemWakeObserver: SystemWakeObserverType
+    let systemWakeObserver: SystemWakeObserver
 
     public static let live: Dependencies = {
         let channelStrip = ChannelStrip(

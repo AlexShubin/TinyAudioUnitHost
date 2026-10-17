@@ -10,21 +10,13 @@ import AudioSettingsKit
 import SessionKit
 
 @MainActor
-protocol AudioSettingsObserverType: AnyObject {
-    func start()
-}
-
-@MainActor
-final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModelDelegate {
+final class AudioSettingsObserver: AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
     private let session: SessionModelType
 
     init(audioSettings: AudioSettingsModelType, session: SessionModelType) {
         self.audioSettings = audioSettings
         self.session = session
-    }
-
-    func start() {
         audioSettings.delegate = self
     }
 

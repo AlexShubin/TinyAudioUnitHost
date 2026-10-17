@@ -20,7 +20,7 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionKit.Dependencies
-    let audioSettingsObserver: AudioSettingsObserverType
+    let audioSettingsObserver: AudioSettingsObserver
     let presetsNavigation: PresetsNavigationModelType
 
     static let live: Dependencies = {
