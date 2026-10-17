@@ -12,7 +12,7 @@ import OSLog
 
 /// Connects the channel strip's ends to the audio device: device binding, I/O, channel maps, input and output.
 protocol AudioConnectorType: Sendable {
-    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool
+    func connect(input: AVAudioNode?, output: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool
     func disconnect(in engine: AVAudioEngineType)
 }
 
@@ -21,17 +21,17 @@ struct AudioConnector: AudioConnectorType {
 
     let audioUnitGateway: AudioUnitGatewayType
 
-    func connect(first: AVAudioUnit, last: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool {
+    func connect(input: AVAudioNode?, output: AVAudioUnit, to settings: SessionHardwareSettings.Audio, in engine: AVAudioEngineType) -> Bool {
         do {
             try bind(settings, in: engine)
         } catch {
             logger.warning("setCurrentDevice failed: \(String(describing: error), privacy: .public)")
             return false
         }
-        if !settings.inputChannels.isEmpty, first.acceptsAudioInput {
-            connectInput(settings.inputChannels, to: first, in: engine)
+        if let input {
+            connectInput(settings.inputChannels, to: input, in: engine)
         }
-        connectOutput(from: last, to: settings.outputChannels, offset: settings.outputChannelOffset, in: engine)
+        connectOutput(from: output, to: settings.outputChannels, offset: settings.outputChannelOffset, in: engine)
         return true
     }
 
@@ -47,7 +47,7 @@ struct AudioConnector: AudioConnectorType {
         try audioUnitGateway.setCurrentDevice(settings.deviceID, on: outputUnit)
     }
 
-    private func connectInput(_ channels: [UInt32], to first: AVAudioUnit, in engine: AVAudioEngineType) {
+    private func connectInput(_ channels: [UInt32], to input: AVAudioNode, in engine: AVAudioEngineType) {
         if let inputUnit = engine.inputAudioUnit {
             let map = channels.map { Int32($0) - 1 }
             logging { try audioUnitGateway.setChannelMap(map, bus: .input, on: inputUnit) }
@@ -56,15 +56,15 @@ struct AudioConnector: AudioConnectorType {
             standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
             channels: AVAudioChannelCount(channels.count)
         )
-        engine.connectHardwareInput(to: first, format: format)
+        engine.connectHardwareInput(to: input, format: format)
     }
 
-    private func connectOutput(from last: AVAudioUnit, to channels: [UInt32], offset: Int, in engine: AVAudioEngineType) {
+    private func connectOutput(from output: AVAudioUnit, to channels: [UInt32], offset: Int, in engine: AVAudioEngineType) {
         let format = AVAudioFormat(
             standardFormatWithSampleRate: engine.hardwareOutputFormat.sampleRate,
-            channels: last.auAudioUnit.outputBusses[0].format.channelCount
+            channels: output.auAudioUnit.outputBusses[0].format.channelCount
         )
-        engine.connectToMainMixer(last, format: format)
+        engine.connectToMainMixer(output, format: format)
 
         guard !channels.isEmpty,
               let outputUnit = engine.outputAudioUnit,
@@ -84,13 +84,6 @@ struct AudioConnector: AudioConnectorType {
         } catch {
             logger.warning("\(String(describing: error), privacy: .public)")
         }
-    }
-}
-
-private extension AVAudioUnit {
-    var acceptsAudioInput: Bool {
-        let type = audioComponentDescription.componentType
-        return type == kAudioUnitType_Effect || type == kAudioUnitType_MusicEffect
     }
 }
 
