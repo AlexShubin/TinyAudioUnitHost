@@ -6,57 +6,57 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import AudioSettingsKit
+public struct SessionHardwareSettings: Sendable, Equatable {
+    public struct Audio: Sendable, Equatable {
+        public struct Device: Sendable, Equatable {
+            public let id: UInt32
+            public let outputChannelCount: Int
 
-struct SessionHardwareSettings: Equatable {
-    struct Audio: Equatable {
-        struct Device: Equatable {
-            let id: UInt32
-            let outputChannelCount: Int
+            public init(id: UInt32, outputChannelCount: Int) {
+                self.id = id
+                self.outputChannelCount = outputChannelCount
+            }
         }
 
-        let deviceID: UInt32
-        let inputDevice: Device?
-        let outputDevice: Device?
-        let inputChannels: [UInt32]
-        let outputChannels: [UInt32]
+        public let deviceID: UInt32
+        public let inputDevice: Device?
+        public let outputDevice: Device?
+        public let inputChannels: [UInt32]
+        public let outputChannels: [UInt32]
+        /// Connections are built at the hardware sample rate, so a change needs the strip reconnected.
+        public let sampleRate: Float64?
+
+        public init(
+            deviceID: UInt32,
+            inputDevice: Device?,
+            outputDevice: Device?,
+            inputChannels: [UInt32],
+            outputChannels: [UInt32],
+            sampleRate: Float64?
+        ) {
+            self.deviceID = deviceID
+            self.inputDevice = inputDevice
+            self.outputDevice = outputDevice
+            self.inputChannels = inputChannels
+            self.outputChannels = outputChannels
+            self.sampleRate = sampleRate
+        }
     }
 
-    struct Midi: Equatable {
+    public struct Midi: Sendable, Equatable {
         /// CoreMIDI endpoints the chain receives MIDI from.
-        let sources: Set<UInt32>
+        public let sources: Set<UInt32>
+
+        public init(sources: Set<UInt32>) {
+            self.sources = sources
+        }
     }
 
-    let audio: Audio
-    let midi: Midi
-}
+    public let audio: Audio
+    public let midi: Midi
 
-extension SessionHardwareSettings {
-    init(_ settings: AudioSettings, targetDevice: AudioDevice) {
-        self.init(audio: Audio(settings, targetDevice: targetDevice), midi: Midi(settings))
-    }
-}
-
-extension SessionHardwareSettings.Audio {
-    init(_ settings: AudioSettings, targetDevice: AudioDevice) {
-        self.init(
-            deviceID: targetDevice.id,
-            inputDevice: settings.inputDevice.map(Device.init),
-            outputDevice: settings.outputDevice.map(Device.init),
-            inputChannels: settings.inputChannel?.channels.map(\.id) ?? [],
-            outputChannels: settings.outputChannel?.channels.map(\.id) ?? []
-        )
-    }
-}
-
-extension SessionHardwareSettings.Audio.Device {
-    init(_ device: AudioDevice) {
-        self.init(id: device.id, outputChannelCount: device.outputChannels.count)
-    }
-}
-
-extension SessionHardwareSettings.Midi {
-    init(_ settings: AudioSettings) {
-        self.init(sources: Set(settings.selectedMidiDevices.map(\.ref)))
+    public init(audio: Audio, midi: Midi) {
+        self.audio = audio
+        self.midi = midi
     }
 }

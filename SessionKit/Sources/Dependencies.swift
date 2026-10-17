@@ -7,7 +7,6 @@
 //
 
 import AppKit
-import AudioSettingsKit
 import AudioToolboxGatewayKit
 import AVFoundation
 import Common
@@ -17,28 +16,19 @@ import PresetKit
 @MainActor
 public struct Dependencies: Sendable {
     public let sessionModel: SessionModelType
-    public let audioSettingsObserver: AudioSettingsObserverType
     public let systemWakeObserver: SystemWakeObserverType
 
     public static let live: Dependencies = {
-        let audioSettings = AudioSettingsKit.Dependencies.live.audioSettingsModel
-        let midiConnector = MidiConnector(coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway)
         let channelStrip = ChannelStrip(
             engine: AVAudioEngine(),
             avAudioUnitFactory: AVAudioUnitFactory(),
             audioConnector: AudioConnector(audioUnitGateway: AudioToolboxGatewayKit.Dependencies.live.audioUnitGateway),
-            midiConnector: midiConnector,
-            audioSettings: audioSettings
+            midiConnector: MidiConnector(coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway)
         )
         return Dependencies(
             sessionModel: SessionModel(
                 channelStrip: channelStrip,
                 presetProvider: PresetKit.Dependencies.live.presetProvider
-            ),
-            audioSettingsObserver: AudioSettingsObserver(
-                audioSettings: audioSettings,
-                channelStrip: channelStrip,
-                midiConnector: midiConnector
             ),
             systemWakeObserver: SystemWakeObserver(
                 channelStrip: channelStrip,

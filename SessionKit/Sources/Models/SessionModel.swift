@@ -22,6 +22,7 @@ public protocol SessionModelType: AnyObject, Observable, Sendable {
     var presetEvent: PresetEvent? { get }
 
     func load() async
+    func updateHardwareSettings(_ settings: SessionHardwareSettings?) async
     func acknowledgePresetEvent()
     func load(_ component: AudioUnitComponent, at index: Int) async
     func unload(at index: Int) async
@@ -86,6 +87,10 @@ final class SessionModel: SessionModelType {
 
     func load() async {
         await loadActivePreset()
+    }
+
+    func updateHardwareSettings(_ settings: SessionHardwareSettings?) async {
+        await channelStrip.updateHardwareSettings(settings)
     }
 
     func acknowledgePresetEvent() {

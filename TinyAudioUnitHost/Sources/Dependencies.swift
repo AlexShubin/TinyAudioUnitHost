@@ -20,16 +20,25 @@ struct Dependencies: Sendable {
     let presets: PresetKit.Dependencies
     let purchases: PurchasesKit.Dependencies
     let session: SessionKit.Dependencies
+    let audioSettingsObserver: AudioSettingsObserverType
     let presetsNavigation: PresetsNavigationModelType
 
-    static let live = Dependencies(
-        audioSettings: .live,
-        audioUnits: .live,
-        presets: .live,
-        purchases: .live,
-        session: .live,
-        presetsNavigation: PresetsNavigationModel()
-    )
+    static let live: Dependencies = {
+        let audioSettings = AudioSettingsKit.Dependencies.live
+        let session = SessionKit.Dependencies.live
+        return Dependencies(
+            audioSettings: audioSettings,
+            audioUnits: .live,
+            presets: .live,
+            purchases: .live,
+            session: session,
+            audioSettingsObserver: AudioSettingsObserver(
+                audioSettings: audioSettings.audioSettingsModel,
+                session: session.sessionModel
+            ),
+            presetsNavigation: PresetsNavigationModel()
+        )
+    }()
 
     func makeHostPresenter() -> HostPresenter {
         HostPresenter(

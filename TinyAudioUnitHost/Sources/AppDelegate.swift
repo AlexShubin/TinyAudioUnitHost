@@ -14,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !isRunningTests else { return }
         let dependencies = Dependencies.live
         dependencies.session.systemWakeObserver.start()
-        dependencies.session.audioSettingsObserver.start()
+        dependencies.audioSettingsObserver.start()
         Task { await dependencies.audioSettings.audioSettingsModel.load() }
         Task { await dependencies.session.sessionModel.load() }
         Task { await dependencies.purchases.purchasesModel.load() }

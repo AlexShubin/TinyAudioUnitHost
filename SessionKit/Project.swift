@@ -8,7 +8,6 @@ let project = Project.library(
         .module("Common"),
         .module("CoreMidiGatewayKit"),
         .module("StorageKit"),
-        .module("AudioSettingsKit"),
         .module("AudioUnitsKit"),
         .module("PresetKit"),
     ],
