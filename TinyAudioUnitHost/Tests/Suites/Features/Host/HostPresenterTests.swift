@@ -15,6 +15,8 @@ import PresetKit
 import PresetKitTestSupport
 import PurchasesKit
 import PurchasesKitTestSupport
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -72,7 +74,7 @@ struct HostPresenterTests {
     @Test
     mutating func feedback_savedEvent_projectsSaved() {
         let id = UUID()
-        sessionSpy.presetEvent = PresetEvent(id: id, kind: .saved)
+        sessionSpy.presetEvent = .fake(id: id, kind: .saved)
         createSut()
 
         #expect(sut.feedback == FeedbackToastViewState(id: id, kind: .saved))
@@ -81,7 +83,7 @@ struct HostPresenterTests {
     @Test
     mutating func feedback_restoredEvent_projectsRestored() {
         let id = UUID()
-        sessionSpy.presetEvent = PresetEvent(id: id, kind: .restored)
+        sessionSpy.presetEvent = .fake(id: id, kind: .restored)
         createSut()
 
         #expect(sut.feedback == FeedbackToastViewState(id: id, kind: .restored))
@@ -89,7 +91,7 @@ struct HostPresenterTests {
 
     @Test
     mutating func feedbackToastTimedOut_acknowledgesPresetEvent() {
-        sessionSpy.presetEvent = PresetEvent(id: UUID(), kind: .saved)
+        sessionSpy.presetEvent = .fake()
         createSut()
 
         sut.feedbackTimedOut()

@@ -8,7 +8,8 @@
 
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
-import EngineKitTestSupport
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -16,31 +17,23 @@ import Testing
 @Suite
 struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var engineSpy: EngineSpy!
-    var midiManagerSpy: MidiManagerSpy!
-    var sut: AudioSettingsObserverType!
+    var sessionSpy: SessionModelSpy!
+    var sut: AudioSettingsObserver!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
-        engineSpy = EngineSpy()
-        midiManagerSpy = MidiManagerSpy()
+        sessionSpy = SessionModelSpy()
     }
 
     mutating func createSut() {
-        sut = AudioSettingsObserver(
-            audioSettings: audioSettingsSpy,
-            engine: engineSpy,
-            midiManager: midiManagerSpy
-        )
+        sut = AudioSettingsObserver(audioSettings: audioSettingsSpy, session: sessionSpy)
     }
 
-    // MARK: - start
+    // MARK: - init
 
     @Test
-    mutating func start_becomesModelDelegate() {
+    mutating func init_becomesModelDelegate() {
         createSut()
-
-        sut.start()
 
         #expect(audioSettingsSpy.delegate === sut)
     }
@@ -48,66 +41,52 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_reloadsEngineAndReconnectsMidi() async {
-        createSut()
-        sut.start()
-        audioSettingsSpy.settings = .fake(sampleRate: 48_000)
-
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        #expect(engineSpy.calls == [.reload])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources])
-    }
-
-    @Test
-    mutating func change_sameAudioBindingTwice_reloadsEngineOnce() async {
-        createSut()
-        sut.start()
-        audioSettingsSpy.settings = .fake(sampleRate: 48_000)
-
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        #expect(engineSpy.calls == [.reload])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
-    }
-
-    @Test
-    mutating func change_midiOnly_skipsEngineReload() async {
-        createSut()
-        sut.start()
-        audioSettingsSpy.settings = .fake(sampleRate: 48_000)
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        audioSettingsSpy.settings = .fake(sampleRate: 48_000, selectedMidiDevices: [.fake()])
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        #expect(engineSpy.calls == [.reload])
-        #expect(midiManagerSpy.calls == [.reconnectMIDISources, .reconnectMIDISources])
-    }
-
-    @Test
-    mutating func change_targetDeviceOnly_reloadsEngine() async {
-        createSut()
-        sut.start()
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        audioSettingsSpy.targetDevice = .fake(id: 7)
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
-        #expect(engineSpy.calls == [.reload, .reload])
-    }
-
-    @Test
-    mutating func change_setupOnly_reloadsEngine() async {
-        audioSettingsSpy.setup = .unmet([.microphonePermission])
-        createSut()
-        sut.start()
-        await audioSettingsSpy.delegate?.audioSettingsDidChange()
-
+    mutating func change_setupMet_updatesSessionWithHardwareSettings() async {
         audioSettingsSpy.setup = .met
+        audioSettingsSpy.targetDevice = .fake(id: 7)
+        audioSettingsSpy.settings = .fake(
+            inputDevice: .fake(id: 3, outputChannels: [.fake(id: 1), .fake(id: 2)]),
+            outputDevice: .fake(id: 4),
+            inputChannel: .mono(.fake(id: 2)),
+            outputChannel: .stereo(l: .fake(id: 1), r: .fake(id: 2)),
+            sampleRate: 48_000,
+            selectedMidiDevices: [.fake(ref: 10)]
+        )
+        createSut()
+
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(engineSpy.calls == [.reload, .reload])
+        #expect(sessionSpy.calls == [.updateHardwareSettings(.fake(
+            audio: .fake(
+                deviceID: 7,
+                inputDevice: .fake(id: 3, outputChannelCount: 2),
+                outputDevice: .fake(id: 4, outputChannelCount: 0),
+                inputChannels: [2],
+                outputChannels: [1, 2],
+                sampleRate: 48_000
+            ),
+            midi: .fake(sources: [10])
+        ))])
+    }
+
+    @Test
+    mutating func change_setupNotMet_updatesSessionWithoutSettings() async {
+        audioSettingsSpy.setup = .unmet([.microphonePermission])
+        audioSettingsSpy.targetDevice = .fake()
+        createSut()
+
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(sessionSpy.calls == [.updateHardwareSettings(nil)])
+    }
+
+    @Test
+    mutating func change_withoutTargetDevice_updatesSessionWithoutSettings() async {
+        audioSettingsSpy.setup = .met
+        createSut()
+
+        await audioSettingsSpy.delegate?.audioSettingsDidChange()
+
+        #expect(sessionSpy.calls == [.updateHardwareSettings(nil)])
     }
 }

@@ -6,6 +6,8 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 

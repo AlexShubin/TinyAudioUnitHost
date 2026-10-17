@@ -7,6 +7,7 @@
 //
 
 import Observation
+import SessionKit
 
 @MainActor @Observable
 final class PresetsPresenter {

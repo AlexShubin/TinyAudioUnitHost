@@ -10,6 +10,7 @@ import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 import PurchasesKit
+import SessionKit
 
 @MainActor @Observable
 final class ChannelStripPresenter {
