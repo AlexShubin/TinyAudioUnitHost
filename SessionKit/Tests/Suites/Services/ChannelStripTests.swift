@@ -86,7 +86,9 @@ struct ChannelStripTests {
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
 
-        _ = try await sut.load(.fake(component: Self.effectComponent, state: stateAtMax), at: 0)
+        try await Task(priority: .utility) { [sut] in
+            _ = try await sut!.load(.fake(component: Self.effectComponent, state: stateAtMax), at: 0)
+        }.value
 
         #expect(parameter.value == parameter.maxValue)
     }
