@@ -47,3 +47,9 @@ extension AVAudioEngine: AVAudioEngineType {
         disconnectNodeInput(mainMixerNode)
     }
 }
+
+extension AVAudioEngineType {
+    func format(channelCount: AVAudioChannelCount) -> AVAudioFormat? {
+        AVAudioFormat(standardFormatWithSampleRate: hardwareOutputFormat.sampleRate, channels: channelCount)
+    }
+}

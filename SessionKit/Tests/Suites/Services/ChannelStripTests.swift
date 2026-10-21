@@ -69,7 +69,7 @@ struct ChannelStripTests {
 
         #expect(result.component == Self.effectComponent)
         #expect(avEngineSpy.calls == [.stop, .attach(avAudioUnit), .stop, .start])
-        #expect(audioConnectorSpy.calls == [.disconnect, .disconnect, .connect(input: nil, output: avAudioUnit, settings: .fake())])
+        #expect(audioConnectorSpy.calls == [.disconnect, .disconnect, .bind(.fake()), .connect(input: nil, output: avAudioUnit, settings: .fake())])
         #expect(midiConnectorSpy.calls == [.disconnect, .disconnect, .connect(result, .fake())])
     }
 
@@ -124,7 +124,7 @@ struct ChannelStripTests {
     mutating func load_hardwareNotConnected_keepsNodeWithoutStartingOrMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioConnectorSpy.connectResult = false
+        audioConnectorSpy.bindResult = false
         createSut()
         await sut.updateHardwareSettings(.fake())
 
@@ -201,6 +201,19 @@ struct ChannelStripTests {
         #expect(attachedConverters.count == 1)
         #expect(avEngineSpy.calls.contains(.connect(converter, effect, Self.format(channels: 2))))
         #expect(audioConnectorSpy.calls.last == .connect(input: converter, output: effect, settings: .fake(inputChannels: [1])))
+    }
+
+    @Test
+    mutating func load_deviceBindFails_attachesNoConverter() async throws {
+        let effect = try await Self.makeAVAudioUnit(Self.effectDescription)
+        avAudioUnitFactorySpy.instantiateResult = .success(effect)
+        audioConnectorSpy.bindResult = false
+        createSut()
+        await sut.updateHardwareSettings(.fake(audio: .fake(inputChannels: [1])))
+
+        _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
+
+        #expect(attachedConverters.isEmpty)
     }
 
     @Test
@@ -589,6 +602,7 @@ struct ChannelStripTests {
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsBefore)) == [.stop, .start])
         #expect(Array(audioConnectorSpy.calls.dropFirst(connectorCallsBefore)) == [
             .disconnect,
+            .bind(.fake(sampleRate: 96_000)),
             .connect(input: nil, output: avAudioUnit, settings: .fake(sampleRate: 96_000))
         ])
     }
@@ -682,6 +696,7 @@ struct ChannelStripTests {
         #expect(Array(avEngineSpy.calls.dropFirst(engineCallsAfterLoad)) == [.stop, .start])
         #expect(Array(audioConnectorSpy.calls.dropFirst(connectorCallsAfterLoad)) == [
             .disconnect,
+            .bind(.fake()),
             .connect(input: nil, output: avAudioUnit, settings: .fake())
         ])
         #expect(Array(midiConnectorSpy.calls.dropFirst(midiCallsAfterLoad)) == [.disconnect, .connect(loaded, .fake())])
@@ -692,11 +707,11 @@ struct ChannelStripTests {
     mutating func reconnect_hardwareConnectsAfterLoadingDisconnected_startsChain() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
-        audioConnectorSpy.connectResult = false
+        audioConnectorSpy.bindResult = false
         createSut()
         await sut.updateHardwareSettings(.fake())
         let loaded = try await sut.load(.fake(component: Self.effectComponent), at: 0)
-        audioConnectorSpy.connectResult = true
+        audioConnectorSpy.bindResult = true
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let midiCallsAfterLoad = midiConnectorSpy.calls.count
 
@@ -713,7 +728,7 @@ struct ChannelStripTests {
         createSut()
         await sut.updateHardwareSettings(.fake())
         _ = try await sut.load(.fake(component: Self.effectComponent), at: 0)
-        audioConnectorSpy.connectResult = false
+        audioConnectorSpy.bindResult = false
         let engineCallsAfterLoad = avEngineSpy.calls.count
         let midiCallsAfterLoad = midiConnectorSpy.calls.count
 

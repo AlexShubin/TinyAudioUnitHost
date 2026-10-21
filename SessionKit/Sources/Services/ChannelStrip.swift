@@ -114,11 +114,12 @@ final actor ChannelStrip: ChannelStripType {
         stop()
         let nodes = chain.orderedValues
         guard let first = nodes.first, let last = nodes.last, let hardwareSettings else { return }
+        guard audioConnector.bind(hardwareSettings.audio, in: engine) else { return }
         let inputChannelCount = AVAudioChannelCount(hardwareSettings.audio.inputChannels.count)
         let input = first.avAudioUnit.acceptsAudioInput && inputChannelCount > 0
             ? inputNode(for: first.avAudioUnit, receiving: inputChannelCount)
             : nil
-        guard audioConnector.connect(input: input, output: last.avAudioUnit, to: hardwareSettings.audio, in: engine) else { return }
+        audioConnector.connect(input: input, output: last.avAudioUnit, to: hardwareSettings.audio, in: engine)
         for (source, destination) in zip(nodes, nodes.dropFirst()) {
             let channelCount = source.avAudioUnit.outputChannelCount
             engine.connect(
@@ -215,12 +216,6 @@ private extension Int {
     /// A declared `channelCapabilities` count: -1 and -2 allow any count, below -2 sets a maximum.
     func allowsChannelCount(_ count: Int) -> Bool {
         self < -2 ? count <= -self : self < 0 || self == count
-    }
-}
-
-private extension AVAudioEngineType {
-    func format(channelCount: AVAudioChannelCount) -> AVAudioFormat? {
-        AVAudioFormat(standardFormatWithSampleRate: hardwareOutputFormat.sampleRate, channels: channelCount)
     }
 }
 
