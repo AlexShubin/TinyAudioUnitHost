@@ -9,6 +9,8 @@
 import Foundation
 import PresetKit
 import PresetKitTestSupport
+import SessionKit
+import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 

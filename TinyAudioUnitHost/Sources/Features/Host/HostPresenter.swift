@@ -10,6 +10,7 @@ import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 import PurchasesKit
+import SessionKit
 
 enum HostContent: Sendable, Equatable {
     case unmet(Set<SetupRequirement>)

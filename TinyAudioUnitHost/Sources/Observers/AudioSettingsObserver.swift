@@ -7,66 +7,53 @@
 //
 
 import AudioSettingsKit
-import EngineKit
+import SessionKit
 
 @MainActor
-protocol AudioSettingsObserverType: AnyObject {
-    func start()
-}
-
-@MainActor
-final class AudioSettingsObserver: AudioSettingsObserverType, AudioSettingsModelDelegate {
+final class AudioSettingsObserver: AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
-    private let engine: EngineType
-    private let midiManager: MidiManagerType
-    private var appliedBinding: AudioBinding?
+    private let session: SessionModelType
 
-    init(
-        audioSettings: AudioSettingsModelType,
-        engine: EngineType,
-        midiManager: MidiManagerType
-    ) {
+    init(audioSettings: AudioSettingsModelType, session: SessionModelType) {
         self.audioSettings = audioSettings
-        self.engine = engine
-        self.midiManager = midiManager
-    }
-
-    func start() {
+        self.session = session
         audioSettings.delegate = self
     }
 
     func audioSettingsDidChange() async {
-        let binding = AudioBinding(
-            settings: audioSettings.settings,
-            targetDevice: audioSettings.targetDevice,
-            setup: audioSettings.setup
-        )
-        if binding != appliedBinding {
-            appliedBinding = binding
-            await engine.reload()
+        guard audioSettings.setup == .met, let targetDevice = audioSettings.targetDevice else {
+            await session.updateHardwareSettings(nil)
+            return
         }
-        await midiManager.reconnectMIDISources()
+        let settings = audioSettings.settings
+        await session.updateHardwareSettings(SessionHardwareSettings(
+            audio: .init(settings, targetDevice: targetDevice),
+            midi: .init(settings)
+        ))
     }
 }
 
-private struct AudioBinding: Equatable {
-    let inputDevice: AudioDevice?
-    let outputDevice: AudioDevice?
-    let inputChannel: SelectedChannel?
-    let outputChannel: SelectedChannel?
-    let bufferSize: UInt32?
-    let sampleRate: Float64?
-    let targetDevice: AudioDevice?
-    let setup: SetupState
+private extension SessionHardwareSettings.Audio {
+    init(_ settings: AudioSettings, targetDevice: AudioDevice) {
+        self.init(
+            deviceID: targetDevice.id,
+            inputDevice: settings.inputDevice.map(Device.init),
+            outputDevice: settings.outputDevice.map(Device.init),
+            inputChannels: settings.inputChannel?.channels.map(\.id) ?? [],
+            outputChannels: settings.outputChannel?.channels.map(\.id) ?? [],
+            sampleRate: settings.sampleRate
+        )
+    }
+}
 
-    init(settings: AudioSettings, targetDevice: AudioDevice?, setup: SetupState) {
-        inputDevice = settings.inputDevice
-        outputDevice = settings.outputDevice
-        inputChannel = settings.inputChannel
-        outputChannel = settings.outputChannel
-        bufferSize = settings.bufferSize
-        sampleRate = settings.sampleRate
-        self.targetDevice = targetDevice
-        self.setup = setup
+private extension SessionHardwareSettings.Audio.Device {
+    init(_ device: AudioDevice) {
+        self.init(id: device.id, outputChannelCount: device.outputChannels.count)
+    }
+}
+
+private extension SessionHardwareSettings.Midi {
+    init(_ settings: AudioSettings) {
+        self.init(sources: Set(settings.selectedMidiDevices.map(\.ref)))
     }
 }

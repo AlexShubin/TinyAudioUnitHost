@@ -8,6 +8,7 @@
 
 import Observation
 import PresetKit
+import SessionKit
 
 @MainActor @Observable
 final class PresetNameDialogPresenter {

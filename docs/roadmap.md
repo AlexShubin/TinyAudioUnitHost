@@ -8,7 +8,7 @@ The chain exists for the amp-sim case: many amp sims are bare amps, so players p
 
 ## Next
 
-1. **MIDI fan-out.** MIDI reaches only the first plug-in in the chain (`MidiManager.setupMIDI(for:)`). An effect that reacts to MIDI — tempo sync, its own preset switching, CC-controlled parameters — gets nothing when it sits behind the source. Forward every event list to every plug-in in the chain.
+1. **MIDI fan-out.** MIDI reaches only the first plug-in in the chain (`MidiConnector.connect(_:settings:)`). An effect that reacts to MIDI — tempo sync, its own preset switching, CC-controlled parameters — gets nothing when it sits behind the source. Forward every event list to every plug-in in the chain.
 2. **Output section: master volume, output meter, mute.** The last plug-in in the chain is often a reverb or delay with no output level of its own, so the strip needs a master fader. The meter shows what actually leaves the host. Mute doubles as the panic button for when a plug-in feeds back on stage. The section also finishes the strip visually, since a channel strip ends in a fader.
 3. **Reorder slots by drag.** Once there's a chain, "put the drive before the amp" is the obvious next move. It fits the model and needs no new concepts.
 4. **Switch presets with MIDI Program Change.** A footswitch sends PC *n* and the host loads preset *n*. It's a fixed mapping, so there's no learn UI. A preset is a whole chain, which makes this the core live feature. Switching reloads the plug-ins, so it's a gap between songs, not a gapless change mid-song. Gapless switching means keeping every preset loaded at once, and that's MainStage.
