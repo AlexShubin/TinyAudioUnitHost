@@ -20,8 +20,6 @@ protocol AVAudioEngineType: AnyObject {
     func connect(_ node1: AVAudioNode, to node2: AVAudioNode, format: AVAudioFormat?)
     func connectHardwareInput(to node: AVAudioNode, format: AVAudioFormat?)
     func connectToMainMixer(_ node: AVAudioNode, format: AVAudioFormat?)
-    func disconnectNodeInput(_ node: AVAudioNode)
-    func disconnectNodeOutput(_ node: AVAudioNode)
     func disconnectHardwareInput()
     func disconnectMainMixerInput()
 }

@@ -18,8 +18,6 @@ final class AVAudioEngineSpy: AVAudioEngineType, @unchecked Sendable {
         case connect(AVAudioNode, AVAudioNode, AVAudioFormat?)
         case connectHardwareInput(AVAudioNode, AVAudioFormat?)
         case connectToMainMixer(AVAudioNode, AVAudioFormat?)
-        case disconnectNodeInput(AVAudioNode)
-        case disconnectNodeOutput(AVAudioNode)
         case disconnectHardwareInput
         case disconnectMainMixerInput
     }
@@ -60,14 +58,6 @@ final class AVAudioEngineSpy: AVAudioEngineType, @unchecked Sendable {
 
     func connectToMainMixer(_ node: AVAudioNode, format: AVAudioFormat?) {
         calls.append(.connectToMainMixer(node, format))
-    }
-
-    func disconnectNodeInput(_ node: AVAudioNode) {
-        calls.append(.disconnectNodeInput(node))
-    }
-
-    func disconnectNodeOutput(_ node: AVAudioNode) {
-        calls.append(.disconnectNodeOutput(node))
     }
 
     func disconnectHardwareInput() {

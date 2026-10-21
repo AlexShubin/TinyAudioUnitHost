@@ -7,13 +7,11 @@ let project = Project.library(
         .module("AudioToolboxGatewayKit"),
         .module("Common"),
         .module("CoreMidiGatewayKit"),
-        .module("StorageKit"),
         .module("AudioUnitsKit"),
         .module("PresetKit"),
     ],
     testSupportDependencies: [
         .module("AudioUnitsKit"),
-        .testSupport("AudioUnitsKit"),
     ],
     tests: [
         .module("AudioToolboxGatewayKit"),
@@ -22,8 +20,6 @@ let project = Project.library(
         .testSupport("CoreMidiGatewayKit"),
         .module("Common"),
         .testSupport("Common"),
-        .module("StorageKit"),
-        .testSupport("StorageKit"),
         .module("AudioUnitsKit"),
         .testSupport("AudioUnitsKit"),
         .module("PresetKit"),

@@ -59,7 +59,7 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func load_happyPath_attachesConnectsStartsAndSetsUpMIDI() async throws {
+    mutating func load_happyPath_attachesStartsAndConnectsAudioAndMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()
@@ -94,7 +94,7 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func load_replacesPreviousAU_detachesOldAndTearsDownMIDI() async throws {
+    mutating func load_replacesPreviousAU_detachesOldAndDisconnectsMIDI() async throws {
         let firstAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         let secondAU = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(firstAU)
@@ -276,7 +276,7 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func loadSlots_setsUpMIDIForFirstSlotOnce() async throws {
+    mutating func loadSlots_connectsMIDIToFirstSlotOnce() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let second = try await Self.makeAVAudioUnit(Self.delayDescription)
         avAudioUnitFactorySpy.instantiateResultByDescription = [
@@ -426,7 +426,7 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func load_secondPosition_setsUpMIDIForFirstNode() async throws {
+    mutating func load_secondPosition_connectsMIDIToFirstNode() async throws {
         let first = try await Self.makeAVAudioUnit(Self.effectDescription)
         let second = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(first)
@@ -681,7 +681,7 @@ struct ChannelStripTests {
     }
 
     @Test
-    mutating func reconnect_withAudioUnit_reconnectsRestartsAndSetsUpMIDI() async throws {
+    mutating func reconnect_withAudioUnit_reconnectsRestartsAndConnectsMIDI() async throws {
         let avAudioUnit = try await Self.makeAVAudioUnit(Self.effectDescription)
         avAudioUnitFactorySpy.instantiateResult = .success(avAudioUnit)
         createSut()

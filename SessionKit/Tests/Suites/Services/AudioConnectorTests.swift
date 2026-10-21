@@ -14,7 +14,7 @@ import SessionKitTestSupport
 import Testing
 @testable import SessionKit
 
-@Suite @MainActor
+@Suite
 struct AudioConnectorTests {
     var avEngineSpy: AVAudioEngineSpy!
     var audioUnitGatewaySpy: AudioUnitGatewaySpy!
@@ -185,7 +185,7 @@ struct AudioConnectorTests {
 // MARK: - Test fixtures
 
 private extension AudioConnectorTests {
-    static let outputUnit = AudioUnit(bitPattern: 0xC0FFEE)!
+    static var outputUnit: AudioUnit { AudioUnit(bitPattern: 0xC0FFEE)! }
 
     static let effectDescription = AudioComponentDescription(
         componentType: kAudioUnitType_Effect,
