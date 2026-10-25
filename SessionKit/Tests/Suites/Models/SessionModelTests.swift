@@ -723,17 +723,6 @@ struct SessionModelTests {
         #expect(sut.presetEvent?.kind == .restored)
     }
 
-    @Test
-    mutating func restoreActivePreset_pluginFails_doesNotNotify() async {
-        presetProviderSpy = PresetProviderSpy(presets: ["foo": Preset.fake(name: "foo")], activeName: "foo")
-        channelStripSpy.loadSlotsResult = [.failure(.audioUnitInstantiationFailed)]
-        createSut()
-
-        await sut.restoreActivePreset()
-
-        #expect(sut.presetEvent == nil)
-    }
-
     // MARK: - saveAsNewPreset
 
     @Test

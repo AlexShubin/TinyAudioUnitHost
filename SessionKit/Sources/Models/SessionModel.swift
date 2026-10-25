@@ -139,9 +139,7 @@ final class SessionModel: SessionModelType {
         guard let activePresetName,
               let saved = presetProvider.load(name: activePresetName) else { return }
         await loadPreset(saved)
-        if !slots.contains(where: \.isFailed) {
-            presetEvent = PresetEvent(id: UUID(), kind: .restored)
-        }
+        presetEvent = PresetEvent(id: UUID(), kind: .restored)
     }
 
     func saveAsNewPreset(name: String) {
@@ -233,10 +231,6 @@ private extension PluginSlotContent {
         guard case .loaded(let audioUnit, _) = self else { return self }
         audioUnit.isBypassed = isBypassed
         return .loaded(audioUnit: audioUnit, isBypassed: isBypassed)
-    }
-
-    var isFailed: Bool {
-        if case .failed = self { true } else { false }
     }
 }
 
