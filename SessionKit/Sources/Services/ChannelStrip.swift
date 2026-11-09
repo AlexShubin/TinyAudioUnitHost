@@ -15,8 +15,8 @@ enum ChannelStripLoadError: Error, Equatable {
 }
 
 protocol ChannelStripType: Sendable {
-    func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit
-    func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?]
+    func load(slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit
+    func load(slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?]
     func unload(at position: Int) async
     func reconnect() async
     func updateHardwareSettings(_ settings: SessionHardwareSettings?) async
@@ -50,15 +50,15 @@ final actor ChannelStrip: ChannelStripType {
         self.midiConnector = midiConnector
     }
 
-    func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
+    func load(slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
         stop()
         remove(at: position)
-        let result = await insert(slot, at: position)
+        let result = await insert(slot: slot, at: position)
         start()
         return try result.get()
     }
 
-    func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
+    func load(slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
         stop()
         for position in chain.keys {
             remove(at: position)
@@ -66,7 +66,7 @@ final actor ChannelStrip: ChannelStripType {
         let results = await withTaskGroup(of: (Int, Result<LoadedAudioUnit, ChannelStripLoadError>).self) { group in
             for (position, slot) in slots.enumerated() {
                 guard let slot else { continue }
-                group.addTask { (position, await self.insert(slot, at: position)) }
+                group.addTask { (position, await self.insert(slot: slot, at: position)) }
             }
             var results = [Result<LoadedAudioUnit, ChannelStripLoadError>?](repeating: nil, count: slots.count)
             for await (position, result) in group {
@@ -146,7 +146,7 @@ final actor ChannelStrip: ChannelStripType {
         return converter
     }
 
-    private func insert(_ slot: ChannelStripSlot, at position: Int) async -> Result<LoadedAudioUnit, ChannelStripLoadError> {
+    private func insert(slot: ChannelStripSlot, at position: Int) async -> Result<LoadedAudioUnit, ChannelStripLoadError> {
         guard let avAudioUnit = try? await avAudioUnitFactory.instantiate(
             with: slot.component.componentDescription,
             options: .loadOutOfProcess

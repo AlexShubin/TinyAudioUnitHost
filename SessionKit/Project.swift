@@ -8,10 +8,10 @@ let project = Project.library(
         .module("Common"),
         .module("CoreMidiGatewayKit"),
         .module("AudioUnitsKit"),
-        .module("PresetKit"),
     ],
     testSupportDependencies: [
         .module("AudioUnitsKit"),
+        .testSupport("AudioUnitsKit"),
     ],
     tests: [
         .module("AudioToolboxGatewayKit"),
@@ -22,7 +22,5 @@ let project = Project.library(
         .testSupport("Common"),
         .module("AudioUnitsKit"),
         .testSupport("AudioUnitsKit"),
-        .module("PresetKit"),
-        .testSupport("PresetKit"),
     ]
 )

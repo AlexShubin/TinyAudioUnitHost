@@ -9,41 +9,19 @@
 import AudioUnitsKit
 import Foundation
 import Observation
-import PresetKit
 
 @MainActor
 public protocol SessionModelType: AnyObject, Observable, Sendable {
     var slots: [PluginSlotContent] { get }
     var selectedIndex: Int { get }
     var isBusy: Bool { get }
-    var canSavePreset: Bool { get }
-    var activePresetName: String? { get }
-    var presets: [String] { get }
-    var presetEvent: PresetEvent? { get }
 
-    func load() async
     func updateHardwareSettings(_ settings: SessionHardwareSettings?) async
-    func acknowledgePresetEvent()
-    func load(_ component: AudioUnitComponent, at index: Int) async
+    func load(component: AudioUnitComponent, at index: Int) async
     func unload(at index: Int) async
     func setBypassed(_ isBypassed: Bool, at index: Int)
-    func select(_ index: Int)
-    func selectPreset(name: String) async
-    func saveCurrentPreset()
-    func restoreActivePreset() async
-    func saveAsNewPreset(name: String)
-    func renamePreset(from: String, to: String)
-    func deletePreset(name: String)
-}
-
-public struct PresetEvent: Sendable, Equatable {
-    public enum Kind: Sendable, Equatable {
-        case saved
-        case restored
-    }
-
-    public let id: UUID
-    public let kind: Kind
+    func select(index: Int)
+    func replace(with chain: [PluginSlot?]) async
 }
 
 public enum PluginSlotContent: Sendable, Equatable {
@@ -57,9 +35,6 @@ public enum PluginSlotContent: Sendable, Equatable {
 final class SessionModel: SessionModelType {
     private(set) var slots: [PluginSlotContent] = []
     private(set) var selectedIndex = 0
-    private(set) var activePresetName: String?
-    private(set) var presets: [String] = []
-    private(set) var presetEvent: PresetEvent?
 
     var isBusy: Bool {
         slots.contains { slot in
@@ -67,41 +42,21 @@ final class SessionModel: SessionModelType {
         }
     }
 
-    var canSavePreset: Bool {
-        !isBusy && slots.contains { slot in
-            if case .loaded = slot { true } else { false }
-        }
-    }
-
     @ObservationIgnored private let channelStrip: ChannelStripType
-    @ObservationIgnored private let presetProvider: PresetProviderType
-    init(
-        channelStrip: ChannelStripType,
-        presetProvider: PresetProviderType
-    ) {
-        self.channelStrip = channelStrip
-        self.presetProvider = presetProvider
-        presets = presetProvider.presets
-        activePresetName = presetProvider.activeName
-    }
 
-    func load() async {
-        await loadActivePreset()
+    init(channelStrip: ChannelStripType) {
+        self.channelStrip = channelStrip
     }
 
     func updateHardwareSettings(_ settings: SessionHardwareSettings?) async {
         await channelStrip.updateHardwareSettings(settings)
     }
 
-    func acknowledgePresetEvent() {
-        presetEvent = nil
-    }
-
-    func load(_ component: AudioUnitComponent, at index: Int) async {
+    func load(component: AudioUnitComponent, at index: Int) async {
         selectedIndex = index
         replaceSlot(at: index, with: .loading(component: component))
         do {
-            let audioUnit = try await channelStrip.load(ChannelStripSlot(component: component, state: nil), at: index)
+            let audioUnit = try await channelStrip.load(slot: ChannelStripSlot(component: component, state: nil), at: index)
             finishLoadingSlot(at: index, with: .loaded(audioUnit: audioUnit, isBypassed: false))
         } catch {
             finishLoadingSlot(at: index, with: .failed(component: component, state: nil, isBypassed: false, message: error.message))
@@ -118,62 +73,14 @@ final class SessionModel: SessionModelType {
         slots[index] = slots[index].applyingBypass(isBypassed)
     }
 
-    func select(_ index: Int) {
+    func select(index: Int) {
         selectedIndex = index
     }
 
-    func selectPreset(name: String) async {
-        presetProvider.setActive(name)
-        activePresetName = name
-        await loadActivePreset()
-    }
-
-    func saveCurrentPreset() {
-        guard let activePresetName, let preset = preset(named: activePresetName) else { return }
-        presetProvider.save(preset)
-        presets = presetProvider.presets
-        presetEvent = PresetEvent(id: UUID(), kind: .saved)
-    }
-
-    func restoreActivePreset() async {
-        guard let activePresetName,
-              let saved = presetProvider.load(name: activePresetName) else { return }
-        await loadPreset(saved)
-        presetEvent = PresetEvent(id: UUID(), kind: .restored)
-    }
-
-    func saveAsNewPreset(name: String) {
-        guard let preset = preset(named: name) else { return }
-        presetProvider.save(preset)
-        presetProvider.setActive(preset.name)
-        activePresetName = preset.name
-        presets = presetProvider.presets
-        presetEvent = PresetEvent(id: UUID(), kind: .saved)
-    }
-
-    func renamePreset(from: String, to: String) {
-        presetProvider.rename(from: from, to: to)
-        presets = presetProvider.presets
-        activePresetName = presetProvider.activeName
-    }
-
-    func deletePreset(name: String) {
-        presetProvider.delete(name: name)
-        presets = presetProvider.presets
-        activePresetName = presetProvider.activeName
-    }
-
-    private func loadActivePreset() async {
-        guard let activePresetName else { return }
-        let preset = presetProvider.load(name: activePresetName) ?? Preset(name: activePresetName, pluginSlots: [])
-        await loadPreset(preset)
-    }
-
-    private func loadPreset(_ preset: Preset) async {
-        replaceSlots(with: preset.pluginSlots.map { $0?.initialContent ?? .empty })
-        let channelStripSlots = preset.pluginSlots.map { $0?.channelStripSlot }
-        let results = await channelStrip.load(channelStripSlots)
-        for (index, (pluginSlot, result)) in zip(preset.pluginSlots, results).enumerated() {
+    func replace(with chain: [PluginSlot?]) async {
+        replaceSlots(with: chain.map { $0?.initialContent ?? .empty })
+        let results = await channelStrip.load(slots: chain.map { $0?.channelStripSlot })
+        for (index, (pluginSlot, result)) in zip(chain, results).enumerated() {
             guard let pluginSlot, let result else { continue }
             finishLoadingSlot(at: index, with: pluginSlot.content(for: result))
         }
@@ -209,21 +116,6 @@ final class SessionModel: SessionModelType {
         guard selected == .empty, let firstFilled = slots.firstIndex(where: { $0 != .empty }) else { return }
         selectedIndex = firstFilled
     }
-
-    private func preset(named name: String) -> Preset? {
-        guard canSavePreset else { return nil }
-        let pluginSlots = slots.map { slot -> Preset.PluginSlot? in
-            switch slot {
-            case .empty, .loading:
-                nil
-            case .loaded(let audioUnit, let isBypassed):
-                Preset.PluginSlot(component: audioUnit.component, state: audioUnit.fullState, isBypassed: isBypassed, isInstalled: true)
-            case .failed(let component, let state, let isBypassed, _):
-                Preset.PluginSlot(component: component, state: state, isBypassed: isBypassed, isInstalled: true)
-            }
-        }
-        return Preset(name: name, pluginSlots: pluginSlots)
-    }
 }
 
 private extension PluginSlotContent {
@@ -234,7 +126,7 @@ private extension PluginSlotContent {
     }
 }
 
-private extension Preset.PluginSlot {
+private extension PluginSlot {
     static let notInstalledMessage = "This plug-in isn't installed."
 
     var initialContent: PluginSlotContent {

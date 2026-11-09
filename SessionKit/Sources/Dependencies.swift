@@ -11,7 +11,6 @@ import AudioToolboxGatewayKit
 import AVFoundation
 import Common
 import CoreMidiGatewayKit
-import PresetKit
 
 @MainActor
 public struct Dependencies: Sendable {
@@ -26,10 +25,7 @@ public struct Dependencies: Sendable {
             midiConnector: MidiConnector(coreMidiGateway: CoreMidiGatewayKit.Dependencies.live.coreMidiGateway)
         )
         return Dependencies(
-            sessionModel: SessionModel(
-                channelStrip: channelStrip,
-                presetProvider: PresetKit.Dependencies.live.presetProvider
-            ),
+            sessionModel: SessionModel(channelStrip: channelStrip),
             systemWakeObserver: SystemWakeObserver(
                 channelStrip: channelStrip,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter

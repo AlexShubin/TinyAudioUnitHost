@@ -12,8 +12,8 @@ import Foundation
 
 final class ChannelStripSpy: ChannelStripType, @unchecked Sendable {
     enum Calls: Equatable, Sendable {
-        case load(ChannelStripSlot, at: Int)
-        case load([ChannelStripSlot?])
+        case load(slot: ChannelStripSlot, at: Int)
+        case load(slots: [ChannelStripSlot?])
         case unload(Int)
         case reconnect
         case updateHardwareSettings(SessionHardwareSettings?)
@@ -24,15 +24,15 @@ final class ChannelStripSpy: ChannelStripType, @unchecked Sendable {
     /// Runs while the load is in flight, before the result is returned.
     var onLoad: (@Sendable () async -> Void)?
     var loadResult: Result<LoadedAudioUnit, ChannelStripLoadError> = .failure(.audioUnitInstantiationFailed)
-    func load(_ slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
-        calls.append(.load(slot, at: position))
+    func load(slot: ChannelStripSlot, at position: Int) async throws(ChannelStripLoadError) -> LoadedAudioUnit {
+        calls.append(.load(slot: slot, at: position))
         await onLoad?()
         return try loadResult.get()
     }
 
     var loadSlotsResult: [Result<LoadedAudioUnit, ChannelStripLoadError>?] = []
-    func load(_ slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
-        calls.append(.load(slots))
+    func load(slots: [ChannelStripSlot?]) async -> [Result<LoadedAudioUnit, ChannelStripLoadError>?] {
+        calls.append(.load(slots: slots))
         return loadSlotsResult
     }
 
