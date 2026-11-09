@@ -14,9 +14,9 @@ public final class PresetsModelSpy: PresetsModelType {
     public enum Calls: Equatable, Sendable {
         case load
         case select(name: String)
-        case saveCurrent(chain: [PresetSlot?])
+        case saveCurrent(preset: Preset)
         case restoreActive
-        case saveAsNew(name: String, chain: [PresetSlot?])
+        case saveAsNew(name: String, preset: Preset)
         case rename(from: String, to: String)
         case delete(name: String)
         case acknowledgeEvent
@@ -39,16 +39,16 @@ public final class PresetsModelSpy: PresetsModelType {
         calls.append(.select(name: name))
     }
 
-    public func saveCurrent(chain: [PresetSlot?]) {
-        calls.append(.saveCurrent(chain: chain))
+    public func saveCurrent(preset: Preset) {
+        calls.append(.saveCurrent(preset: preset))
     }
 
     public func restoreActive() async {
         calls.append(.restoreActive)
     }
 
-    public func saveAsNew(name: String, chain: [PresetSlot?]) {
-        calls.append(.saveAsNew(name: name, chain: chain))
+    public func saveAsNew(name: String, preset: Preset) {
+        calls.append(.saveAsNew(name: name, preset: preset))
     }
 
     public func rename(from oldName: String, to newName: String) {

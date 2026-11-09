@@ -20,9 +20,9 @@ public protocol PresetsModelType: AnyObject, Observable, Sendable {
 
     func load() async
     func select(name: String) async
-    func saveCurrent(chain: [PresetSlot?])
+    func saveCurrent(preset: Preset)
     func restoreActive() async
-    func saveAsNew(name: String, chain: [PresetSlot?])
+    func saveAsNew(name: String, preset: Preset)
     func rename(from: String, to: String)
     func delete(name: String)
     func acknowledgeEvent()
@@ -30,7 +30,7 @@ public protocol PresetsModelType: AnyObject, Observable, Sendable {
 
 @MainActor
 public protocol PresetsModelDelegate: AnyObject {
-    func presetsDidActivate(chain: [PresetSlot?]) async
+    func presetsDidActivate(preset: Preset) async
 }
 
 @MainActor @Observable
@@ -56,30 +56,30 @@ final class PresetsModel: PresetsModelType {
 
     func load() async {
         guard let activeName else { return }
-        await delegate?.presetsDidActivate(chain: chain(named: activeName) ?? [])
+        await delegate?.presetsDidActivate(preset: preset(named: activeName) ?? Preset(slots: []))
     }
 
     func select(name: String) async {
         rawStore.saveActivePreset(RawActivePresetState(name: name))
         activeName = name
-        await delegate?.presetsDidActivate(chain: chain(named: name) ?? [])
+        await delegate?.presetsDidActivate(preset: preset(named: name) ?? Preset(slots: []))
     }
 
-    func saveCurrent(chain: [PresetSlot?]) {
+    func saveCurrent(preset: Preset) {
         guard let activeName else { return }
-        save(chain: chain, name: activeName)
+        save(preset: preset, name: activeName)
     }
 
     func restoreActive() async {
-        guard let activeName, let chain = chain(named: activeName) else { return }
-        await delegate?.presetsDidActivate(chain: chain)
+        guard let activeName, let preset = preset(named: activeName) else { return }
+        await delegate?.presetsDidActivate(preset: preset)
         event = PresetEvent(id: UUID(), kind: .restored)
     }
 
-    func saveAsNew(name: String, chain: [PresetSlot?]) {
+    func saveAsNew(name: String, preset: Preset) {
         rawStore.saveActivePreset(RawActivePresetState(name: name))
         activeName = name
-        save(chain: chain, name: name)
+        save(preset: preset, name: name)
     }
 
     func rename(from oldName: String, to newName: String) {
@@ -104,8 +104,8 @@ final class PresetsModel: PresetsModelType {
         event = nil
     }
 
-    private func save(chain: [PresetSlot?], name: String) {
-        rawStore.save(RawPreset(pluginSlots: chain.map { $0.map(\.raw) }), name: name)
+    private func save(preset: Preset, name: String) {
+        rawStore.save(preset.raw, name: name)
         names = rawStore.names
         event = PresetEvent(id: UUID(), kind: .saved)
     }
@@ -115,13 +115,13 @@ final class PresetsModel: PresetsModelType {
         activeName = rawStore.activePreset?.name
     }
 
-    private func chain(named name: String) -> [PresetSlot?]? {
-        rawStore.load(name: name).map { $0.pluginSlots.map { $0.map(slot(from:)) } }
+    private func preset(named name: String) -> Preset? {
+        rawStore.load(name: name).map { Preset(slots: $0.pluginSlots.map { $0.map(slot(from:)) }) }
     }
 
-    private func slot(from raw: RawPreset.PluginSlot) -> PresetSlot {
+    private func slot(from raw: RawPreset.PluginSlot) -> Preset.Slot {
         let installed = library.components.first { $0.id == raw.componentID }
-        return PresetSlot(
+        return Preset.Slot(
             component: installed ?? AudioUnitComponent(id: raw.componentID, name: raw.name, manufacturer: raw.manufacturer),
             state: raw.state,
             isBypassed: raw.isBypassed,
@@ -130,7 +130,13 @@ final class PresetsModel: PresetsModelType {
     }
 }
 
-private extension PresetSlot {
+private extension Preset {
+    var raw: RawPreset {
+        RawPreset(pluginSlots: slots.map { $0.map(\.raw) })
+    }
+}
+
+private extension Preset.Slot {
     var raw: RawPreset.PluginSlot {
         RawPreset.PluginSlot(
             componentType: component.id.type,

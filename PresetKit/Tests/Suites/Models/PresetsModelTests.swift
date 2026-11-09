@@ -86,9 +86,9 @@ struct PresetsModelTests {
 
         await sut.load()
 
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: [
             .fake(component: component, state: Data([0x01]), isBypassed: true, isInstalled: true),
-        ])])
+        ]))])
     }
 
     @Test
@@ -100,7 +100,7 @@ struct PresetsModelTests {
 
         await sut.load()
 
-        let slot = try #require(delegateSpy.activatedChain?.first ?? nil)
+        let slot = try #require(delegateSpy.activatedSlots?.first ?? nil)
         #expect(slot.component.name == "Live Name")
     }
 
@@ -122,7 +122,7 @@ struct PresetsModelTests {
 
         await sut.load()
 
-        let slot = try #require(delegateSpy.activatedChain?.first ?? nil)
+        let slot = try #require(delegateSpy.activatedSlots?.first ?? nil)
         #expect(slot == .fake(
             component: .fake(id: AudioUnitComponent.ID(type: 99, subType: 98, manufacturer: 97)),
             state: Data([0x02]),
@@ -134,7 +134,7 @@ struct PresetsModelTests {
     }
 
     @Test
-    mutating func load_chain_keepsGapsAndResolvesEachSlot() async {
+    mutating func load_slots_keepGapsAndResolveEach() async {
         let component = AudioUnitComponent.fake()
         rawStoreSpy.presets = [
             "Chain": .fake(pluginSlots: [nil, component.rawSlot(), .fake(componentType: 99, name: "Gone")]),
@@ -145,11 +145,11 @@ struct PresetsModelTests {
 
         await sut.load()
 
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: [
             nil,
             .fake(component: component, isInstalled: true),
             .fake(component: .fake(id: AudioUnitComponent.ID(type: 99, subType: 0, manufacturer: 0)), isInstalled: false),
-        ])])
+        ]))])
     }
 
     @Test
@@ -159,7 +159,7 @@ struct PresetsModelTests {
 
         await sut.load()
 
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [])])
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: []))])
         #expect(sut.activeName == "ghost")
         #expect(rawStoreSpy.currentActivePreset == RawActivePresetState(name: "ghost"))
     }
@@ -177,7 +177,7 @@ struct PresetsModelTests {
 
         #expect(sut.activeName == "foo")
         #expect(rawStoreSpy.currentActivePreset == RawActivePresetState(name: "foo"))
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [.fake(component: component)])])
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: [.fake(component: component)]))])
     }
 
     @Test
@@ -187,7 +187,7 @@ struct PresetsModelTests {
         await sut.select(name: "missing")
 
         #expect(sut.activeName == "missing")
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [])])
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: []))])
     }
 
     // MARK: - saveCurrent
@@ -196,7 +196,7 @@ struct PresetsModelTests {
     mutating func saveCurrent_noActive_isNoOp() {
         createSut()
 
-        sut.saveCurrent(chain: [.fake()])
+        sut.saveCurrent(preset: .fake(slots: [.fake()]))
 
         #expect(rawStoreSpy.presets.isEmpty)
         #expect(sut.event == nil)
@@ -208,7 +208,7 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "MyPreset")
         createSut()
 
-        sut.saveCurrent(chain: [.fake(component: component, state: Data([0xBE, 0xEF]), isBypassed: true)])
+        sut.saveCurrent(preset: .fake(slots: [.fake(component: component, state: Data([0xBE, 0xEF]), isBypassed: true)]))
 
         #expect(rawStoreSpy.presets["MyPreset"] == .fake(pluginSlots: [component.rawSlot(state: Data([0xBE, 0xEF]), isBypassed: true)]))
     }
@@ -218,7 +218,7 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "Orphan")
         createSut()
 
-        sut.saveCurrent(chain: [.fake(
+        sut.saveCurrent(preset: .fake(slots: [.fake(
             component: .fake(
                 id: AudioUnitComponent.ID(type: 99, subType: 98, manufacturer: 97),
                 name: "Gone",
@@ -227,7 +227,7 @@ struct PresetsModelTests {
             state: Data([0x02]),
             isBypassed: true,
             isInstalled: false
-        )])
+        )]))
 
         #expect(rawStoreSpy.presets["Orphan"] == .fake(pluginSlots: [.fake(
             componentType: 99,
@@ -241,12 +241,12 @@ struct PresetsModelTests {
     }
 
     @Test
-    mutating func saveCurrent_chain_keepsGaps() {
+    mutating func saveCurrent_slots_keepGaps() {
         let component = AudioUnitComponent.fake()
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "Chain")
         createSut()
 
-        sut.saveCurrent(chain: [nil, .fake(component: component)])
+        sut.saveCurrent(preset: .fake(slots: [nil, .fake(component: component)]))
 
         #expect(rawStoreSpy.presets["Chain"] == .fake(pluginSlots: [nil, component.rawSlot()]))
     }
@@ -257,7 +257,7 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "Fresh")
         createSut()
 
-        sut.saveCurrent(chain: [.fake(component: component, state: nil)])
+        sut.saveCurrent(preset: .fake(slots: [.fake(component: component, state: nil)]))
 
         #expect(rawStoreSpy.presets["Fresh"] == .fake(pluginSlots: [component.rawSlot(state: nil)]))
     }
@@ -267,7 +267,7 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "foo")
         createSut()
 
-        sut.saveCurrent(chain: [.fake()])
+        sut.saveCurrent(preset: .fake(slots: [.fake()]))
 
         #expect(sut.names == ["foo"])
         #expect(sut.event?.kind == .saved)
@@ -275,7 +275,7 @@ struct PresetsModelTests {
 
     @Test
     mutating func saveCurrent_thenRestore_notInstalledPluginRoundTrips() async throws {
-        let slot = PresetSlot.fake(
+        let slot = Preset.Slot.fake(
             component: .fake(id: AudioUnitComponent.ID(type: 99, subType: 0, manufacturer: 0), name: "Gone"),
             state: Data([0x03]),
             isInstalled: false
@@ -283,11 +283,11 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "Orphan")
         createSut()
 
-        sut.saveCurrent(chain: [slot])
+        sut.saveCurrent(preset: .fake(slots: [slot]))
         await sut.restoreActive()
 
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [slot])])
-        let restored = try #require(delegateSpy.activatedChain?.first ?? nil)
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: [slot]))])
+        let restored = try #require(delegateSpy.activatedSlots?.first ?? nil)
         #expect(restored.component.name == "Gone")
     }
 
@@ -324,7 +324,7 @@ struct PresetsModelTests {
 
         await sut.restoreActive()
 
-        #expect(delegateSpy.calls == [.presetsDidActivate(chain: [.fake(component: component)])])
+        #expect(delegateSpy.calls == [.presetsDidActivate(preset: .fake(slots: [.fake(component: component)]))])
         #expect(sut.event?.kind == .restored)
     }
 
@@ -337,7 +337,7 @@ struct PresetsModelTests {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "old")
         createSut()
 
-        sut.saveAsNew(name: "new", chain: [.fake(component: component)])
+        sut.saveAsNew(name: "new", preset: .fake(slots: [.fake(component: component)]))
 
         #expect(rawStoreSpy.presets["new"] == .fake(pluginSlots: [component.rawSlot()]))
         #expect(rawStoreSpy.currentActivePreset == RawActivePresetState(name: "new"))
@@ -352,7 +352,7 @@ struct PresetsModelTests {
     mutating func acknowledgeEvent_clearsEvent() {
         rawStoreSpy.currentActivePreset = RawActivePresetState(name: "foo")
         createSut()
-        sut.saveCurrent(chain: [.fake()])
+        sut.saveCurrent(preset: .fake(slots: [.fake()]))
 
         sut.acknowledgeEvent()
 
@@ -450,8 +450,8 @@ private extension AudioUnitComponent {
 }
 
 private extension PresetsModelDelegateSpy {
-    var activatedChain: [PresetSlot?]? {
-        guard case .presetsDidActivate(let chain) = calls.last else { return nil }
-        return chain
+    var activatedSlots: [Preset.Slot?]? {
+        guard case .presetsDidActivate(let preset) = calls.last else { return nil }
+        return preset.slots
     }
 }

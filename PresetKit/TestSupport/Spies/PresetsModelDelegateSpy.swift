@@ -11,14 +11,14 @@ import PresetKit
 @MainActor
 public final class PresetsModelDelegateSpy: PresetsModelDelegate {
     public enum Calls: Equatable, Sendable {
-        case presetsDidActivate(chain: [PresetSlot?])
+        case presetsDidActivate(preset: Preset)
     }
 
     public private(set) var calls: [Calls] = []
 
     public init() {}
 
-    public func presetsDidActivate(chain: [PresetSlot?]) async {
-        calls.append(.presetsDidActivate(chain: chain))
+    public func presetsDidActivate(preset: Preset) async {
+        calls.append(.presetsDidActivate(preset: preset))
     }
 }
