@@ -9,20 +9,20 @@
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct AppCommandsPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: AppCommandsPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
         presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 

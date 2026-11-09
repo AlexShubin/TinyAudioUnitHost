@@ -10,7 +10,7 @@ import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 import PurchasesKit
-import SessionKit
+import ChannelStripKit
 
 @MainActor @Observable
 final class ChannelStripPresenter {
@@ -33,13 +33,13 @@ final class ChannelStripPresenter {
     }
 
     private let library: AudioUnitComponentsLibraryType
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
     private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
         library: AudioUnitComponentsLibraryType,
-        session: SessionModelType,
+        session: ChannelStripModelType,
         audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {

@@ -7,7 +7,7 @@
 //
 
 import Observation
-import SessionKit
+import ChannelStripKit
 
 @MainActor @Observable
 final class PresetsPresenter {
@@ -21,11 +21,11 @@ final class PresetsPresenter {
         set { presetsNavigation.presentedNameDialogMode = newValue }
     }
 
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
     private let presetsNavigation: PresetsNavigationModelType
 
     init(
-        session: SessionModelType,
+        session: ChannelStripModelType,
         presetsNavigation: PresetsNavigationModelType
     ) {
         self.session = session

@@ -10,7 +10,7 @@ let workspace = Workspace(
         "AudioUnitsKit",
         "CoreAudioGatewayKit",
         "CoreMidiGatewayKit",
-        "SessionKit",
+        "ChannelStripKit",
         "PresetKit",
         "PurchasesKit",
         "Common",

@@ -12,8 +12,8 @@ import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import PurchasesKit
 import PurchasesKitTestSupport
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -21,14 +21,14 @@ import Testing
 @Suite
 struct ChannelStripPresenterTests {
     var librarySpy: AudioUnitComponentsLibrarySpy!
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var audioSettingsSpy: AudioSettingsModelSpy!
     var purchasesSpy: PurchasesModelSpy!
     var sut: ChannelStripPresenter!
 
     init() {
         librarySpy = AudioUnitComponentsLibrarySpy()
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
         audioSettingsSpy = AudioSettingsModelSpy()
         purchasesSpy = PurchasesModelSpy()
     }

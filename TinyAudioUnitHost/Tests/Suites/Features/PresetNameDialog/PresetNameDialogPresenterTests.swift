@@ -9,20 +9,20 @@
 import Foundation
 import PresetKit
 import PresetKitTestSupport
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct PresetNameDialogPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var validatorSpy: PresetNameValidatorSpy!
     var sut: PresetNameDialogPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
         validatorSpy = PresetNameValidatorSpy()
     }
 

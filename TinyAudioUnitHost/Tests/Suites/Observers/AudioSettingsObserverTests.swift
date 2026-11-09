@@ -8,8 +8,8 @@
 
 import AudioSettingsKit
 import AudioSettingsKitTestSupport
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
@@ -17,12 +17,12 @@ import Testing
 @Suite
 struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var sut: AudioSettingsObserver!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
     }
 
     mutating func createSut() {

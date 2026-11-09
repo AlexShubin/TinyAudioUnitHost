@@ -15,21 +15,21 @@ import PresetKit
 import PresetKitTestSupport
 import PurchasesKit
 import PurchasesKitTestSupport
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct HostPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var audioSettingsSpy: AudioSettingsModelSpy!
     var purchasesSpy: PurchasesModelSpy!
     var sut: HostPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
         audioSettingsSpy = AudioSettingsModelSpy()
         purchasesSpy = PurchasesModelSpy()
     }

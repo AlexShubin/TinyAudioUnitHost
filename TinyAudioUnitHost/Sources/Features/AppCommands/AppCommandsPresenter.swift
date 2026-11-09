@@ -7,7 +7,7 @@
 //
 
 import Observation
-import SessionKit
+import ChannelStripKit
 
 @MainActor @Observable
 final class AppCommandsPresenter {
@@ -15,10 +15,10 @@ final class AppCommandsPresenter {
     var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
     var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
 
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
     private let presetsNavigation: PresetsNavigationModelType
 
-    init(session: SessionModelType, presetsNavigation: PresetsNavigationModelType) {
+    init(session: ChannelStripModelType, presetsNavigation: PresetsNavigationModelType) {
         self.session = session
         self.presetsNavigation = presetsNavigation
     }

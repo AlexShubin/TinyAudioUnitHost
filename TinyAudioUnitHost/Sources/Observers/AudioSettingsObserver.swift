@@ -7,14 +7,14 @@
 //
 
 import AudioSettingsKit
-import SessionKit
+import ChannelStripKit
 
 @MainActor
 final class AudioSettingsObserver: AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
 
-    init(audioSettings: AudioSettingsModelType, session: SessionModelType) {
+    init(audioSettings: AudioSettingsModelType, session: ChannelStripModelType) {
         self.audioSettings = audioSettings
         self.session = session
         audioSettings.delegate = self
@@ -26,14 +26,14 @@ final class AudioSettingsObserver: AudioSettingsModelDelegate {
             return
         }
         let settings = audioSettings.settings
-        await session.updateHardwareSettings(SessionHardwareSettings(
+        await session.updateHardwareSettings(ChannelStripHardwareSettings(
             audio: .init(settings, targetDevice: targetDevice),
             midi: .init(settings)
         ))
     }
 }
 
-private extension SessionHardwareSettings.Audio {
+private extension ChannelStripHardwareSettings.Audio {
     init(_ settings: AudioSettings, targetDevice: AudioDevice) {
         self.init(
             deviceID: targetDevice.id,
@@ -46,13 +46,13 @@ private extension SessionHardwareSettings.Audio {
     }
 }
 
-private extension SessionHardwareSettings.Audio.Device {
+private extension ChannelStripHardwareSettings.Audio.Device {
     init(_ device: AudioDevice) {
         self.init(id: device.id, outputChannelCount: device.outputChannels.count)
     }
 }
 
-private extension SessionHardwareSettings.Midi {
+private extension ChannelStripHardwareSettings.Midi {
     init(_ settings: AudioSettings) {
         self.init(sources: Set(settings.selectedMidiDevices.map(\.ref)))
     }

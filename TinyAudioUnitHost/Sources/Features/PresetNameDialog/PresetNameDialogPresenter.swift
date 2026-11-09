@@ -8,7 +8,7 @@
 
 import Observation
 import PresetKit
-import SessionKit
+import ChannelStripKit
 
 @MainActor @Observable
 final class PresetNameDialogPresenter {
@@ -26,7 +26,7 @@ final class PresetNameDialogPresenter {
     var canCommit: Bool { validationError == nil }
 
     private let mode: PresetNameDialogMode
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
     private let validator: PresetNameValidatorType
 
     private var validationError: PresetNameError? {
@@ -35,7 +35,7 @@ final class PresetNameDialogPresenter {
 
     init(
         mode: PresetNameDialogMode,
-        session: SessionModelType,
+        session: ChannelStripModelType,
         validator: PresetNameValidatorType
     ) {
         self.name = mode.initialName

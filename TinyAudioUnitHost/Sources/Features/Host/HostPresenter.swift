@@ -10,7 +10,7 @@ import AudioSettingsKit
 import AudioUnitsKit
 import Observation
 import PurchasesKit
-import SessionKit
+import ChannelStripKit
 
 enum HostContent: Sendable, Equatable {
     case unmet(Set<SetupRequirement>)
@@ -43,12 +43,12 @@ final class HostPresenter {
     var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
     var isStarFilled: Bool { purchases.state.isPro }
 
-    private let session: SessionModelType
+    private let session: ChannelStripModelType
     private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
-        session: SessionModelType,
+        session: ChannelStripModelType,
         audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {

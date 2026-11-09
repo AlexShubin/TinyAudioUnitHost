@@ -6,20 +6,20 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import SessionKit
-import SessionKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct PresetsPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var sessionSpy: ChannelStripModelSpy!
     var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: PresetsPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        sessionSpy = ChannelStripModelSpy()
         presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 
