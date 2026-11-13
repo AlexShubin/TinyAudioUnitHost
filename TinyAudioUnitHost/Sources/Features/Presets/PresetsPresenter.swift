@@ -6,34 +6,38 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import ChannelStripKit
 import Observation
-import SessionKit
+import PresetKit
 
 @MainActor @Observable
 final class PresetsPresenter {
-    var presets: [String] { session.presets }
-    var activeName: String? { session.activePresetName }
-    var isInteractionDisabled: Bool { session.isBusy }
-    var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
+    var names: [String] { presets.names }
+    var activeName: String? { presets.activeName }
+    var isInteractionDisabled: Bool { channelStrip.isBusy }
+    var isSaveAsButtonDisabled: Bool { !channelStrip.isSavable }
 
     var presentedNameDialogMode: PresetNameDialogMode? {
         get { presetsNavigation.presentedNameDialogMode }
         set { presetsNavigation.presentedNameDialogMode = newValue }
     }
 
-    private let session: SessionModelType
+    private let channelStrip: ChannelStripModelType
+    private let presets: PresetsModelType
     private let presetsNavigation: PresetsNavigationModelType
 
     init(
-        session: SessionModelType,
+        channelStrip: ChannelStripModelType,
+        presets: PresetsModelType,
         presetsNavigation: PresetsNavigationModelType
     ) {
-        self.session = session
+        self.channelStrip = channelStrip
+        self.presets = presets
         self.presetsNavigation = presetsNavigation
     }
 
     func select(name: String) async {
-        await session.selectPreset(name: name)
+        await presets.select(name: name)
     }
 
     func rename(name: String) {
@@ -41,7 +45,7 @@ final class PresetsPresenter {
     }
 
     func delete(name: String) {
-        session.deletePreset(name: name)
+        presets.delete(name: name)
     }
 
     func saveAs() {

@@ -6,26 +6,33 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
-import SessionKit
-import SessionKitTestSupport
+import AudioUnitsKit
+import AudioUnitsKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
+import PresetKit
+import PresetKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct PresetsPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var channelStripSpy: ChannelStripModelSpy!
+    var presetsSpy: PresetsModelSpy!
     var presetsNavigationSpy: PresetsNavigationModelSpy!
     var sut: PresetsPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        channelStripSpy = ChannelStripModelSpy()
+        presetsSpy = PresetsModelSpy()
         presetsNavigationSpy = PresetsNavigationModelSpy()
     }
 
     mutating func createSut() {
         sut = PresetsPresenter(
-            session: sessionSpy,
+            channelStrip: channelStripSpy,
+            presets: presetsSpy,
             presetsNavigation: presetsNavigationSpy
         )
     }
@@ -33,71 +40,71 @@ struct PresetsPresenterTests {
     // MARK: - forwarded state
 
     @Test
-    mutating func activeName_forwardsSessionActivePresetName() async {
-        sessionSpy.activePresetName = "foo"
+    mutating func activeName_forwardsPresetsActiveName() async {
+        presetsSpy.activeName = "foo"
         createSut()
 
         #expect(sut.activeName == "foo")
     }
 
     @Test
-    mutating func isInteractionDisabled_sessionBusy_isTrue() async {
-        sessionSpy.isBusy = true
+    mutating func isInteractionDisabled_channelStripBusy_isTrue() async {
+        channelStripSpy.isBusy = true
         createSut()
 
         #expect(sut.isInteractionDisabled == true)
     }
 
     @Test
-    mutating func isInteractionDisabled_sessionNotBusy_isFalse() async {
+    mutating func isInteractionDisabled_channelStripNotBusy_isFalse() async {
         createSut()
 
         #expect(sut.isInteractionDisabled == false)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_cannotSave_isTrue() async {
+    mutating func isSaveAsButtonDisabled_nothingLoaded_isTrue() async {
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveAsButtonDisabled_canSave_isFalse() async {
-        sessionSpy.canSavePreset = true
+    mutating func isSaveAsButtonDisabled_loaded_isFalse() async {
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: .fake()), isBypassed: false)]
         createSut()
 
         #expect(sut.isSaveAsButtonDisabled == false)
     }
 
-    // MARK: - presets
+    // MARK: - names
 
     @Test
-    mutating func presets_forwardsEverySessionPreset() async {
-        sessionSpy.presets = ["a", "b", "c"]
+    mutating func names_forwardsEveryPresetName() async {
+        presetsSpy.names = ["a", "b", "c"]
         createSut()
 
-        #expect(sut.presets == ["a", "b", "c"])
+        #expect(sut.names == ["a", "b", "c"])
     }
 
     // MARK: - select / delete (forwarding)
 
     @Test
-    mutating func select_forwardsToSession() async {
+    mutating func select_forwardsToPresets() async {
         createSut()
 
         await sut.select(name: "foo")
 
-        #expect(sessionSpy.calls == [.selectPreset(name: "foo")])
+        #expect(presetsSpy.calls == [.select(name: "foo")])
     }
 
     @Test
-    mutating func delete_forwardsToSession() {
+    mutating func delete_forwardsToPresets() {
         createSut()
 
         sut.delete(name: "foo")
 
-        #expect(sessionSpy.calls == [.deletePreset(name: "foo")])
+        #expect(presetsSpy.calls == [.delete(name: "foo")])
     }
 
     // MARK: - name dialog

@@ -12,21 +12,18 @@ import Foundation
 import PresetKit
 
 public extension Preset {
-    static func fake(
-        name: String = "test",
-        pluginSlots: [PluginSlot?] = [.fake()]
-    ) -> Preset {
-        Preset(name: name, pluginSlots: pluginSlots)
+    static func fake(slots: [Slot?] = [.fake()]) -> Preset {
+        Preset(slots: slots)
     }
 }
 
-public extension Preset.PluginSlot {
+public extension Preset.Slot {
     static func fake(
         component: AudioUnitComponent = .fake(),
         state: Data? = Data(),
         isBypassed: Bool = false,
         isInstalled: Bool = true
-    ) -> Preset.PluginSlot {
-        Preset.PluginSlot(component: component, state: state, isBypassed: isBypassed, isInstalled: isInstalled)
+    ) -> Preset.Slot {
+        Preset.Slot(component: component, state: state, isBypassed: isBypassed, isInstalled: isInstalled)
     }
 }

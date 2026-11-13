@@ -11,13 +11,13 @@ import StorageKit
 
 @MainActor
 public struct Dependencies: Sendable {
-    public let presetProvider: PresetProviderType
+    public let presetsModel: PresetsModelType
     public let presetNameValidator: PresetNameValidatorType
 
     public static let live: Dependencies = {
         let rawStore = StorageKit.Dependencies.live.rawPresetStore
         return Dependencies(
-            presetProvider: PresetProvider(
+            presetsModel: PresetsModel(
                 rawStore: rawStore,
                 library: AudioUnitsKit.Dependencies.live.audioUnitComponentsLibrary
             ),

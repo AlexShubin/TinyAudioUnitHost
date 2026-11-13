@@ -11,58 +11,116 @@ import AudioSettingsKitTestSupport
 import AudioUnitsKit
 import AudioUnitsKitTestSupport
 import Foundation
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import PresetKit
 import PresetKitTestSupport
 import PurchasesKit
 import PurchasesKitTestSupport
-import SessionKit
-import SessionKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct HostPresenterTests {
-    var sessionSpy: SessionModelSpy!
+    var channelStripSpy: ChannelStripModelSpy!
+    var presetsSpy: PresetsModelSpy!
     var audioSettingsSpy: AudioSettingsModelSpy!
     var purchasesSpy: PurchasesModelSpy!
     var sut: HostPresenter!
 
     init() {
-        sessionSpy = SessionModelSpy()
+        channelStripSpy = ChannelStripModelSpy()
+        presetsSpy = PresetsModelSpy()
         audioSettingsSpy = AudioSettingsModelSpy()
         purchasesSpy = PurchasesModelSpy()
     }
 
     mutating func createSut() {
         sut = HostPresenter(
-            session: sessionSpy,
+            channelStrip: channelStripSpy,
+            presets: presetsSpy,
             audioSettings: audioSettingsSpy,
             purchases: purchasesSpy
         )
     }
 
-    // MARK: - save / restore (forwarding)
+    // MARK: - savePreset
 
     @Test
-    mutating func savePreset_forwardsToSession() {
+    mutating func savePreset_nothingLoaded_isNoOp() {
         createSut()
 
         sut.savePreset()
 
-        #expect(sessionSpy.calls == [.saveCurrentPreset])
+        #expect(presetsSpy.calls.isEmpty)
     }
 
     @Test
-    mutating func restorePreset_forwardsToSession() async {
+    mutating func savePreset_busy_isNoOp() {
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: .fake()), isBypassed: false)]
+        channelStripSpy.isBusy = true
+        createSut()
+
+        sut.savePreset()
+
+        #expect(presetsSpy.calls.isEmpty)
+    }
+
+    @Test
+    mutating func savePreset_loadedPlugin_savesItsComponentAndState() {
+        let component = AudioUnitComponent.fake()
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: component, fullState: Data([0xBE, 0xEF])), isBypassed: false)]
+        createSut()
+
+        sut.savePreset()
+
+        #expect(presetsSpy.calls == [.saveCurrent(preset: .fake(slots: [.fake(component: component, state: Data([0xBE, 0xEF]))]))])
+    }
+
+    @Test
+    mutating func savePreset_wholeChain_savesGapsAndFailedPluginsWithTheirState() {
+        let first = AudioUnitComponent.fake(name: "First")
+        let missing = AudioUnitComponent.fake(id: .init(type: 1, subType: 2, manufacturer: 3), name: "Missing")
+        channelStripSpy.slots = [
+            .loaded(audioUnit: LoadedAudioUnit(component: first, fullState: Data([0xAA])), isBypassed: false),
+            .empty,
+            .failed(component: missing, state: Data([0x02]), isBypassed: true, message: "oops"),
+        ]
+        createSut()
+
+        sut.savePreset()
+
+        #expect(presetsSpy.calls == [.saveCurrent(preset: .fake(slots: [
+            .fake(component: first, state: Data([0xAA])),
+            nil,
+            .fake(component: missing, state: Data([0x02]), isBypassed: true),
+        ]))])
+    }
+
+    @Test
+    mutating func savePreset_bypassedPlugin_savesBypass() {
+        let component = AudioUnitComponent.fake()
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: component, fullState: Data([0x01])), isBypassed: true)]
+        createSut()
+
+        sut.savePreset()
+
+        #expect(presetsSpy.calls == [.saveCurrent(preset: .fake(slots: [.fake(component: component, state: Data([0x01]), isBypassed: true)]))])
+    }
+
+    // MARK: - restorePreset
+
+    @Test
+    mutating func restorePreset_forwardsToPresets() async {
         createSut()
 
         await sut.restorePreset()
 
-        #expect(sessionSpy.calls == [.restoreActivePreset])
+        #expect(presetsSpy.calls == [.restoreActive])
     }
 
-    // MARK: - feedback from session preset events
+    // MARK: - feedback
 
     @Test
     mutating func feedback_nilWithoutPresetEvent() {
@@ -74,7 +132,7 @@ struct HostPresenterTests {
     @Test
     mutating func feedback_savedEvent_projectsSaved() {
         let id = UUID()
-        sessionSpy.presetEvent = .fake(id: id, kind: .saved)
+        presetsSpy.event = .fake(id: id, kind: .saved)
         createSut()
 
         #expect(sut.feedback == FeedbackToastViewState(id: id, kind: .saved))
@@ -83,7 +141,7 @@ struct HostPresenterTests {
     @Test
     mutating func feedback_restoredEvent_projectsRestored() {
         let id = UUID()
-        sessionSpy.presetEvent = .fake(id: id, kind: .restored)
+        presetsSpy.event = .fake(id: id, kind: .restored)
         createSut()
 
         #expect(sut.feedback == FeedbackToastViewState(id: id, kind: .restored))
@@ -91,12 +149,12 @@ struct HostPresenterTests {
 
     @Test
     mutating func feedbackToastTimedOut_acknowledgesPresetEvent() {
-        sessionSpy.presetEvent = .fake()
+        presetsSpy.event = .fake()
         createSut()
 
         sut.feedbackTimedOut()
 
-        #expect(sessionSpy.calls == [.acknowledgePresetEvent])
+        #expect(presetsSpy.calls == [.acknowledgeEvent])
     }
 
     // MARK: - isStarFilled
@@ -137,7 +195,7 @@ struct HostPresenterTests {
 
     @Test
     mutating func presetLabel_withActive_showsName() async {
-        sessionSpy.activePresetName = "foo"
+        presetsSpy.activeName = "foo"
         createSut()
 
         #expect(sut.presetLabel == "Preset: foo")
@@ -147,24 +205,43 @@ struct HostPresenterTests {
 
     @Test
     mutating func isSaveButtonDisabled_noActive() async {
-        sessionSpy.canSavePreset = true
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: .fake()), isBypassed: false)]
         createSut()
 
         #expect(sut.isSaveButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveButtonDisabled_activeButCannotSave() async {
-        sessionSpy.activePresetName = "foo"
+    mutating func isSaveButtonDisabled_activeButNothingLoaded() async {
+        presetsSpy.activeName = "foo"
         createSut()
 
         #expect(sut.isSaveButtonDisabled == true)
     }
 
     @Test
-    mutating func isSaveButtonDisabled_activeAndCanSave_enabled() async {
-        sessionSpy.activePresetName = "foo"
-        sessionSpy.canSavePreset = true
+    mutating func isSaveButtonDisabled_activeButOnlyFailedSlots() async {
+        presetsSpy.activeName = "foo"
+        channelStripSpy.slots = [.failed(component: .fake(), state: nil, isBypassed: false, message: "oops")]
+        createSut()
+
+        #expect(sut.isSaveButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isSaveButtonDisabled_activeButBusy() async {
+        presetsSpy.activeName = "foo"
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: .fake()), isBypassed: false), .loading(component: .fake())]
+        channelStripSpy.isBusy = true
+        createSut()
+
+        #expect(sut.isSaveButtonDisabled == true)
+    }
+
+    @Test
+    mutating func isSaveButtonDisabled_activeAndLaterSlotLoaded_enabled() async {
+        presetsSpy.activeName = "foo"
+        channelStripSpy.slots = [.empty, .loaded(audioUnit: LoadedAudioUnit(component: .fake()), isBypassed: false)]
         createSut()
 
         #expect(sut.isSaveButtonDisabled == false)
@@ -179,8 +256,8 @@ struct HostPresenterTests {
 
     @Test
     mutating func isRestoreButtonDisabled_activeButBusy() async {
-        sessionSpy.activePresetName = "foo"
-        sessionSpy.isBusy = true
+        presetsSpy.activeName = "foo"
+        channelStripSpy.isBusy = true
         createSut()
 
         #expect(sut.isRestoreButtonDisabled == true)
@@ -188,7 +265,7 @@ struct HostPresenterTests {
 
     @Test
     mutating func isRestoreButtonDisabled_activeAndNotBusy_enabled() async {
-        sessionSpy.activePresetName = "foo"
+        presetsSpy.activeName = "foo"
         createSut()
 
         #expect(sut.isRestoreButtonDisabled == false)
@@ -222,7 +299,7 @@ struct HostPresenterTests {
     @Test
     mutating func content_selectedSlotLoading_isLoading() async {
         audioSettingsSpy.setup = .met
-        sessionSpy.slots = [.loading(component: .fake())]
+        channelStripSpy.slots = [.loading(component: .fake())]
         createSut()
 
         #expect(sut.content == .loading)
@@ -231,7 +308,7 @@ struct HostPresenterTests {
     @Test
     mutating func content_selectedSlotFailed_projectsMessage() async {
         audioSettingsSpy.setup = .met
-        sessionSpy.slots = [.failed(component: .fake(), state: nil, isBypassed: false, message: "oops")]
+        channelStripSpy.slots = [.failed(component: .fake(), state: nil, isBypassed: false, message: "oops")]
         createSut()
 
         #expect(sut.content == .failed("oops"))
@@ -242,8 +319,8 @@ struct HostPresenterTests {
         let first = LoadedAudioUnit(component: .fake())
         let second = LoadedAudioUnit(component: .fake())
         audioSettingsSpy.setup = .met
-        sessionSpy.slots = [.loaded(audioUnit: first, isBypassed: false), .loaded(audioUnit: second, isBypassed: false)]
-        sessionSpy.selectedIndex = 1
+        channelStripSpy.slots = [.loaded(audioUnit: first, isBypassed: false), .loaded(audioUnit: second, isBypassed: false)]
+        channelStripSpy.selectedIndex = 1
         createSut()
 
         #expect(sut.content == .loaded(second))

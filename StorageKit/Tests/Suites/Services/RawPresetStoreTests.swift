@@ -123,8 +123,6 @@ struct RawPresetStoreTests {
 
         sut.rename(from: "old", to: "new")
 
-        // The store is a thin wrapper — it does not adjust active state on rename.
-        // PresetProvider is responsible for that policy.
         #expect(sut.activePreset == RawActivePresetState(name: "old"))
     }
 
@@ -158,8 +156,6 @@ struct RawPresetStoreTests {
 
         sut.delete(name: "foo")
 
-        // The store does not clear active state when its file is deleted —
-        // that policy lives in PresetProvider.
         #expect(sut.activePreset == RawActivePresetState(name: "foo"))
     }
 

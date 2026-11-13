@@ -6,29 +6,37 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import ChannelStripKit
 import Observation
-import SessionKit
+import PresetKit
 
 @MainActor @Observable
 final class AppCommandsPresenter {
-    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
-    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
-    var isSaveAsButtonDisabled: Bool { !session.canSavePreset }
+    var isSaveButtonDisabled: Bool { presets.activeName == nil || !channelStrip.isSavable }
+    var isRestoreButtonDisabled: Bool { presets.activeName == nil || channelStrip.isBusy }
+    var isSaveAsButtonDisabled: Bool { !channelStrip.isSavable }
 
-    private let session: SessionModelType
+    private let channelStrip: ChannelStripModelType
+    private let presets: PresetsModelType
     private let presetsNavigation: PresetsNavigationModelType
 
-    init(session: SessionModelType, presetsNavigation: PresetsNavigationModelType) {
-        self.session = session
+    init(
+        channelStrip: ChannelStripModelType,
+        presets: PresetsModelType,
+        presetsNavigation: PresetsNavigationModelType
+    ) {
+        self.channelStrip = channelStrip
+        self.presets = presets
         self.presetsNavigation = presetsNavigation
     }
 
     func savePreset() {
-        session.saveCurrentPreset()
+        guard let preset = channelStrip.preset else { return }
+        presets.saveCurrent(preset: preset)
     }
 
     func restorePreset() async {
-        await session.restoreActivePreset()
+        await presets.restoreActive()
     }
 
     func saveAsPreset() {

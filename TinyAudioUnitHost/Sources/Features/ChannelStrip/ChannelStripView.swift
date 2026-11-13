@@ -13,27 +13,29 @@ struct ChannelStripView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(spacing: 12) {
-            section(presenter.sourceTitle) {
-                slot(presenter.sourceSlot)
-            }
-            if !presenter.insertSlots.isEmpty {
-                section("Inserts") {
-                    VStack(spacing: 6) {
-                        ForEach(presenter.insertSlots) { state in
-                            slot(state)
+        ScrollView {
+            VStack(spacing: 12) {
+                section(presenter.sourceTitle) {
+                    slot(presenter.sourceSlot)
+                }
+                if !presenter.insertSlots.isEmpty {
+                    section("Inserts") {
+                        VStack(spacing: 6) {
+                            ForEach(presenter.insertSlots) { state in
+                                slot(state)
+                            }
                         }
-                    }
-                    .background {
-                        Capsule()
-                            .fill(.quaternary)
-                            .frame(width: 2)
+                        .background {
+                            Capsule()
+                                .fill(.quaternary)
+                                .frame(width: 2)
+                        }
                     }
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 12)
         .frame(width: 148)
         .frame(maxHeight: .infinity, alignment: .top)
         .onChange(of: presenter.isProWindowRequested) { _, isRequested in

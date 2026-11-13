@@ -8,14 +8,14 @@
 
 import AudioSettingsKit
 import AudioUnitsKit
+import ChannelStripKit
 import Observation
 import PurchasesKit
-import SessionKit
 
 @MainActor @Observable
 final class ChannelStripPresenter {
     var sourceTitle: String {
-        session.slots.first?.component?.kind == .instrument ? "Instrument" : "Input"
+        channelStrip.slots.first?.component?.kind == .instrument ? "Instrument" : "Input"
     }
 
     var sourceSlot: ChannelStripSlotViewState {
@@ -23,28 +23,28 @@ final class ChannelStripPresenter {
     }
 
     var insertSlots: [ChannelStripSlotViewState] {
-        (1..<session.slots.count + 1).map(slotState)
+        (1..<channelStrip.slots.count + 1).map(slotState)
     }
 
     private(set) var isProWindowRequested = false
 
     private var canAddPlugin: Bool {
-        purchases.state.isPro || session.slots.isEmpty
+        purchases.state.isPro || channelStrip.slots.isEmpty
     }
 
     private let library: AudioUnitComponentsLibraryType
-    private let session: SessionModelType
+    private let channelStrip: ChannelStripModelType
     private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
         library: AudioUnitComponentsLibraryType,
-        session: SessionModelType,
+        channelStrip: ChannelStripModelType,
         audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {
         self.library = library
-        self.session = session
+        self.channelStrip = channelStrip
         self.audioSettings = audioSettings
         self.purchases = purchases
     }
@@ -52,14 +52,14 @@ final class ChannelStripPresenter {
     func handleSlot(_ action: ChannelStripSlotViewAction, at index: Int) async {
         switch action {
         case .select:
-            session.select(index)
+            channelStrip.select(index: index)
         case .load(let component):
-            await session.load(component, at: index)
+            await channelStrip.load(component: component, at: index)
         case .remove:
-            await session.unload(at: index)
+            await channelStrip.unload(at: index)
         case .toggleBypass:
             guard case .loaded(_, let isBypassed) = slot(at: index) else { return }
-            session.setBypassed(!isBypassed, at: index)
+            channelStrip.setBypassed(!isBypassed, at: index)
         case .unlock:
             isProWindowRequested = true
         }
@@ -84,7 +84,7 @@ final class ChannelStripPresenter {
         guard audioSettings.setup == .met else {
             return slot.component.map { .disabled(component: $0) } ?? .empty(isEnabled: false)
         }
-        let isSelected = session.selectedIndex == index
+        let isSelected = channelStrip.selectedIndex == index
         switch slot {
         case .empty:
             return canAddPlugin ? .empty(isEnabled: true) : .locked
@@ -102,7 +102,7 @@ final class ChannelStripPresenter {
     }
 
     private func slot(at index: Int) -> PluginSlotContent {
-        session.slots.indices.contains(index) ? session.slots[index] : .empty
+        channelStrip.slots.indices.contains(index) ? channelStrip.slots[index] : .empty
     }
 
     private func catalog(_ title: String, kind: AudioUnitComponent.Kind) -> ChannelStripSlotViewState.Catalog {
