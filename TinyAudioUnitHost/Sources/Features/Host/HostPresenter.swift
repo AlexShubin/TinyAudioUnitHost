@@ -8,9 +8,10 @@
 
 import AudioSettingsKit
 import AudioUnitsKit
-import Observation
-import PurchasesKit
 import ChannelStripKit
+import Observation
+import PresetKit
+import PurchasesKit
 
 enum HostContent: Sendable, Equatable {
     case unmet(Set<SetupRequirement>)
@@ -29,44 +30,48 @@ final class HostPresenter {
         case .unmet(let requirements):
             .unmet(requirements)
         case .met:
-            session.slots.indices.contains(session.selectedIndex) ? session.slots[session.selectedIndex].hostContent : .empty
+            channelStrip.slots.indices.contains(channelStrip.selectedIndex) ? channelStrip.slots[channelStrip.selectedIndex].hostContent : .empty
         }
     }
 
     var feedback: FeedbackToastViewState? {
-        session.presetEvent.map { FeedbackToastViewState(id: $0.id, kind: $0.kind.feedbackKind) }
+        presets.event.map { FeedbackToastViewState(id: $0.id, kind: $0.kind.feedbackKind) }
     }
 
-    var presetLabel: String { "Preset: \(session.activePresetName ?? "—")" }
+    var presetLabel: String { "Preset: \(presets.activeName ?? "—")" }
 
-    var isSaveButtonDisabled: Bool { session.activePresetName == nil || !session.canSavePreset }
-    var isRestoreButtonDisabled: Bool { session.activePresetName == nil || session.isBusy }
+    var isSaveButtonDisabled: Bool { presets.activeName == nil || !channelStrip.isSavable }
+    var isRestoreButtonDisabled: Bool { presets.activeName == nil || channelStrip.isBusy }
     var isStarFilled: Bool { purchases.state.isPro }
 
-    private let session: ChannelStripModelType
+    private let channelStrip: ChannelStripModelType
+    private let presets: PresetsModelType
     private let audioSettings: AudioSettingsModelType
     private let purchases: PurchasesModelType
 
     init(
-        session: ChannelStripModelType,
+        channelStrip: ChannelStripModelType,
+        presets: PresetsModelType,
         audioSettings: AudioSettingsModelType,
         purchases: PurchasesModelType
     ) {
-        self.session = session
+        self.channelStrip = channelStrip
+        self.presets = presets
         self.audioSettings = audioSettings
         self.purchases = purchases
     }
 
     func savePreset() {
-        session.saveCurrentPreset()
+        guard let preset = channelStrip.preset else { return }
+        presets.saveCurrent(preset: preset)
     }
 
     func restorePreset() async {
-        await session.restoreActivePreset()
+        await presets.restoreActive()
     }
 
     func feedbackTimedOut() {
-        session.acknowledgePresetEvent()
+        presets.acknowledgeEvent()
     }
 }
 

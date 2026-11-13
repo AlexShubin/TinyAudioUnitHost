@@ -6,30 +6,35 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import AudioUnitsKit
+import AudioUnitsKitTestSupport
+import ChannelStripKit
+import ChannelStripKitTestSupport
 import Foundation
 import PresetKit
 import PresetKitTestSupport
-import ChannelStripKit
-import ChannelStripKitTestSupport
 import Testing
 @testable import TinyAudioUnitHost
 
 @MainActor
 @Suite
 struct PresetNameDialogPresenterTests {
-    var sessionSpy: ChannelStripModelSpy!
+    var channelStripSpy: ChannelStripModelSpy!
+    var presetsSpy: PresetsModelSpy!
     var validatorSpy: PresetNameValidatorSpy!
     var sut: PresetNameDialogPresenter!
 
     init() {
-        sessionSpy = ChannelStripModelSpy()
+        channelStripSpy = ChannelStripModelSpy()
+        presetsSpy = PresetsModelSpy()
         validatorSpy = PresetNameValidatorSpy()
     }
 
     mutating func createSut(mode: PresetNameDialogMode = .saveAs) {
         sut = PresetNameDialogPresenter(
             mode: mode,
-            session: sessionSpy,
+            channelStrip: channelStripSpy,
+            presets: presetsSpy,
             validator: validatorSpy
         )
     }
@@ -153,18 +158,18 @@ struct PresetNameDialogPresenterTests {
     }
 
     @Test
-    mutating func cancel_doesNotCallSession() {
+    mutating func cancel_doesNotCallPresets() {
         createSut()
 
         sut.cancel()
 
-        #expect(sessionSpy.calls.isEmpty)
+        #expect(presetsSpy.calls.isEmpty)
     }
 
     // MARK: - commit
 
     @Test
-    mutating func commit_validatorRejects_keepsDialogAndSession() {
+    mutating func commit_validatorRejects_keepsDialogAndPresets() {
         validatorSpy.result = .duplicate
         createSut(mode: .saveAs)
         sut.name = "foo"
@@ -172,17 +177,30 @@ struct PresetNameDialogPresenterTests {
         sut.commit()
 
         #expect(sut.isDismissed == false)
-        #expect(sessionSpy.calls.isEmpty)
+        #expect(presetsSpy.calls.isEmpty)
     }
 
     @Test
-    mutating func commit_saveAs_savesAndDismisses() {
+    mutating func commit_saveAs_savesChainAndDismisses() {
+        let component = AudioUnitComponent.fake()
+        channelStripSpy.slots = [.loaded(audioUnit: LoadedAudioUnit(component: component, fullState: Data([0x01])), isBypassed: false)]
         createSut(mode: .saveAs)
         sut.name = "MyNew"
 
         sut.commit()
 
-        #expect(sessionSpy.calls == [.saveAsNewPreset(name: "MyNew")])
+        #expect(presetsSpy.calls == [.saveAsNew(name: "MyNew", preset: .fake(slots: [.fake(component: component, state: Data([0x01]))]))])
+        #expect(sut.isDismissed == true)
+    }
+
+    @Test
+    mutating func commit_saveAsNothingLoaded_dismissesWithoutSaving() {
+        createSut(mode: .saveAs)
+        sut.name = "MyNew"
+
+        sut.commit()
+
+        #expect(presetsSpy.calls.isEmpty)
         #expect(sut.isDismissed == true)
     }
 
@@ -193,7 +211,7 @@ struct PresetNameDialogPresenterTests {
 
         sut.commit()
 
-        #expect(sessionSpy.calls == [.renamePreset(from: "old", to: "new")])
+        #expect(presetsSpy.calls == [.rename(from: "old", to: "new")])
         #expect(sut.isDismissed == true)
     }
 }

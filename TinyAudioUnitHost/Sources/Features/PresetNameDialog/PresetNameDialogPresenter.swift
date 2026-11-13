@@ -6,9 +6,9 @@
 //  Copyright © 2026 Alex Shubin. All rights reserved.
 //
 
+import ChannelStripKit
 import Observation
 import PresetKit
-import ChannelStripKit
 
 @MainActor @Observable
 final class PresetNameDialogPresenter {
@@ -26,7 +26,8 @@ final class PresetNameDialogPresenter {
     var canCommit: Bool { validationError == nil }
 
     private let mode: PresetNameDialogMode
-    private let session: ChannelStripModelType
+    private let channelStrip: ChannelStripModelType
+    private let presets: PresetsModelType
     private let validator: PresetNameValidatorType
 
     private var validationError: PresetNameError? {
@@ -35,12 +36,14 @@ final class PresetNameDialogPresenter {
 
     init(
         mode: PresetNameDialogMode,
-        session: ChannelStripModelType,
+        channelStrip: ChannelStripModelType,
+        presets: PresetsModelType,
         validator: PresetNameValidatorType
     ) {
         self.name = mode.initialName
         self.mode = mode
-        self.session = session
+        self.channelStrip = channelStrip
+        self.presets = presets
         self.validator = validator
     }
 
@@ -48,9 +51,11 @@ final class PresetNameDialogPresenter {
         guard canCommit else { return }
         switch mode {
         case .saveAs:
-            session.saveAsNewPreset(name: name)
+            if let preset = channelStrip.preset {
+                presets.saveAsNew(name: name, preset: preset)
+            }
         case .rename(let currentName):
-            session.renamePreset(from: currentName, to: name)
+            presets.rename(from: currentName, to: name)
         }
         isDismissed = true
     }

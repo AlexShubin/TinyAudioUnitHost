@@ -17,16 +17,16 @@ import Testing
 @Suite
 struct AudioSettingsObserverTests {
     var audioSettingsSpy: AudioSettingsModelSpy!
-    var sessionSpy: ChannelStripModelSpy!
+    var channelStripSpy: ChannelStripModelSpy!
     var sut: AudioSettingsObserver!
 
     init() {
         audioSettingsSpy = AudioSettingsModelSpy()
-        sessionSpy = ChannelStripModelSpy()
+        channelStripSpy = ChannelStripModelSpy()
     }
 
     mutating func createSut() {
-        sut = AudioSettingsObserver(audioSettings: audioSettingsSpy, session: sessionSpy)
+        sut = AudioSettingsObserver(audioSettings: audioSettingsSpy, channelStrip: channelStripSpy)
     }
 
     // MARK: - init
@@ -41,7 +41,7 @@ struct AudioSettingsObserverTests {
     // MARK: - audio settings change
 
     @Test
-    mutating func change_setupMet_updatesSessionWithHardwareSettings() async {
+    mutating func change_setupMet_updatesChannelStripWithHardwareSettings() async {
         audioSettingsSpy.setup = .met
         audioSettingsSpy.targetDevice = .fake(id: 7)
         audioSettingsSpy.settings = .fake(
@@ -56,7 +56,7 @@ struct AudioSettingsObserverTests {
 
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(sessionSpy.calls == [.updateHardwareSettings(.fake(
+        #expect(channelStripSpy.calls == [.updateHardwareSettings(.fake(
             audio: .fake(
                 deviceID: 7,
                 inputDevice: .fake(id: 3, outputChannelCount: 2),
@@ -70,23 +70,23 @@ struct AudioSettingsObserverTests {
     }
 
     @Test
-    mutating func change_setupNotMet_updatesSessionWithoutSettings() async {
+    mutating func change_setupNotMet_updatesChannelStripWithoutSettings() async {
         audioSettingsSpy.setup = .unmet([.microphonePermission])
         audioSettingsSpy.targetDevice = .fake()
         createSut()
 
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(sessionSpy.calls == [.updateHardwareSettings(nil)])
+        #expect(channelStripSpy.calls == [.updateHardwareSettings(nil)])
     }
 
     @Test
-    mutating func change_withoutTargetDevice_updatesSessionWithoutSettings() async {
+    mutating func change_withoutTargetDevice_updatesChannelStripWithoutSettings() async {
         audioSettingsSpy.setup = .met
         createSut()
 
         await audioSettingsSpy.delegate?.audioSettingsDidChange()
 
-        #expect(sessionSpy.calls == [.updateHardwareSettings(nil)])
+        #expect(channelStripSpy.calls == [.updateHardwareSettings(nil)])
     }
 }

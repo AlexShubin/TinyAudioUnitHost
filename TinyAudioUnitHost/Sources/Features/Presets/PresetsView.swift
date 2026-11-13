@@ -15,7 +15,7 @@ struct PresetsView: View {
     var body: some View {
         List(selection: selectionBinding) {
             Section {
-                ForEach(presenter.presets, id: \.self) { preset in
+                ForEach(presenter.names, id: \.self) { preset in
                     Text(preset)
                         .tag(preset)
                         .contextMenu {

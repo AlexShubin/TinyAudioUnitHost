@@ -12,21 +12,21 @@ import ChannelStripKit
 @MainActor
 final class AudioSettingsObserver: AudioSettingsModelDelegate {
     private let audioSettings: AudioSettingsModelType
-    private let session: ChannelStripModelType
+    private let channelStrip: ChannelStripModelType
 
-    init(audioSettings: AudioSettingsModelType, session: ChannelStripModelType) {
+    init(audioSettings: AudioSettingsModelType, channelStrip: ChannelStripModelType) {
         self.audioSettings = audioSettings
-        self.session = session
+        self.channelStrip = channelStrip
         audioSettings.delegate = self
     }
 
     func audioSettingsDidChange() async {
         guard audioSettings.setup == .met, let targetDevice = audioSettings.targetDevice else {
-            await session.updateHardwareSettings(nil)
+            await channelStrip.updateHardwareSettings(nil)
             return
         }
         let settings = audioSettings.settings
-        await session.updateHardwareSettings(ChannelStripHardwareSettings(
+        await channelStrip.updateHardwareSettings(ChannelStripHardwareSettings(
             audio: .init(settings, targetDevice: targetDevice),
             midi: .init(settings)
         ))
