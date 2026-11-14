@@ -67,6 +67,23 @@ struct ChannelStripPresenterTests {
         #expect(sut.sourceTitle == "Input")
     }
 
+    // MARK: - isInteractionDisabled
+
+    @Test
+    mutating func isInteractionDisabled_channelStripBusy_isTrue() {
+        channelStripSpy.isBusy = true
+        createSut()
+
+        #expect(sut.isInteractionDisabled == true)
+    }
+
+    @Test
+    mutating func isInteractionDisabled_channelStripNotBusy_isFalse() {
+        createSut()
+
+        #expect(sut.isInteractionDisabled == false)
+    }
+
     // MARK: - slots
 
     @Test

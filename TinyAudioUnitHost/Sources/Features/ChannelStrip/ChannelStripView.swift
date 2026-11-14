@@ -35,6 +35,7 @@ struct ChannelStripView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 12)
+            .disabled(presenter.isInteractionDisabled)
         }
         .frame(width: 148)
         .frame(maxHeight: .infinity, alignment: .top)

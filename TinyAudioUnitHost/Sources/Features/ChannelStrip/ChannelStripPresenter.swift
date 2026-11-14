@@ -26,6 +26,8 @@ final class ChannelStripPresenter {
         (1..<channelStrip.slots.count + 1).map(slotState)
     }
 
+    var isInteractionDisabled: Bool { channelStrip.isBusy }
+
     private(set) var isProWindowRequested = false
 
     private var canAddPlugin: Bool {
