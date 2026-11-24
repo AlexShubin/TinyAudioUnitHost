@@ -105,6 +105,22 @@ struct ChannelStripPresenterTests {
         #expect(sut.insertSlots.last?.content == .empty(isEnabled: true))
     }
 
+    @Test
+    mutating func insertSlots_nineInserts_addsTrailingEmptyInsert() {
+        channelStripSpy.slots = Array(repeating: .loading(component: Self.effect), count: 10)
+        createSut()
+
+        #expect(sut.insertSlots.map(\.id) == Array(1...10))
+    }
+
+    @Test
+    mutating func insertSlots_tenInserts_addsNoTrailingEmptyInsert() {
+        channelStripSpy.slots = Array(repeating: .loading(component: Self.effect), count: 11)
+        createSut()
+
+        #expect(sut.insertSlots.map(\.id) == Array(1...10))
+    }
+
     // MARK: - content
 
     @Test
