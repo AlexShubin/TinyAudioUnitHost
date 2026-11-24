@@ -23,12 +23,16 @@ final class ChannelStripPresenter {
     }
 
     var insertSlots: [ChannelStripSlotViewState] {
-        (1..<channelStrip.slots.count + 1).map(slotState)
+        let slotCount = channelStrip.slots.count
+        let endIndex = slotCount > insertCapacity ? slotCount : slotCount + 1
+        return (1..<endIndex).map(slotState)
     }
 
     var isInteractionDisabled: Bool { channelStrip.isBusy }
 
     private(set) var isProWindowRequested = false
+
+    private let insertCapacity = 10
 
     private var canAddPlugin: Bool {
         purchases.state.isPro || channelStrip.slots.isEmpty
