@@ -9,6 +9,7 @@
 import AudioSettingsKit
 import AudioUnitsKit
 import ChannelStripKit
+import Foundation
 import Observation
 import PurchasesKit
 
@@ -28,7 +29,7 @@ final class ChannelStripPresenter {
 
     var isInteractionDisabled: Bool { channelStrip.isBusy }
 
-    private(set) var isProWindowRequested = false
+    private(set) var proWindowRequest: UUID?
 
     private let insertCapacity = 10
 
@@ -65,12 +66,8 @@ final class ChannelStripPresenter {
             guard case .loaded(_, let isBypassed) = slot(at: index) else { return }
             channelStrip.setBypassed(!isBypassed, at: index)
         case .unlock:
-            isProWindowRequested = true
+            proWindowRequest = UUID()
         }
-    }
-
-    func proWindowOpened() {
-        isProWindowRequested = false
     }
 
     private func slotState(at index: Int) -> ChannelStripSlotViewState {

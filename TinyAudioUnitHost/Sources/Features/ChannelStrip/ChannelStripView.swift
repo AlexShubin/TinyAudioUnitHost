@@ -37,11 +37,8 @@ struct ChannelStripView: View {
         .disabled(presenter.isInteractionDisabled)
         .frame(width: 148)
         .frame(maxHeight: .infinity, alignment: .top)
-        .onChange(of: presenter.isProWindowRequested) { _, isRequested in
-            if isRequested {
-                openWindow(id: "purchases")
-                presenter.proWindowOpened()
-            }
+        .onChange(of: presenter.proWindowRequest) {
+            openWindow(id: "purchases")
         }
     }
 
