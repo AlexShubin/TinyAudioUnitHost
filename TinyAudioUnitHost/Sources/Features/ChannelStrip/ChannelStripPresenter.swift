@@ -23,9 +23,7 @@ final class ChannelStripPresenter {
     }
 
     var insertSlots: [ChannelStripSlotViewState] {
-        let slotCount = channelStrip.slots.count
-        let endIndex = slotCount > insertCapacity ? slotCount : slotCount + 1
-        return (1..<endIndex).map(slotState)
+        (1..<min(channelStrip.slots.count, insertCapacity) + 1).map(slotState)
     }
 
     var isInteractionDisabled: Bool { channelStrip.isBusy }
