@@ -13,7 +13,10 @@ All commits and pushes in this flow follow the project's git rules: explicit per
 
 - `appVersion` and `buildNumber` are declared once at the top of `TinyAudioUnitHost/Project.swift` and feed both the Info.plist (`CFBundleShortVersionString` / `CFBundleVersion`) and the build settings (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`). Edit them there, nowhere else.
 - **`appVersion` is always three-part `MAJOR.MINOR.PATCH`** (e.g. `1.2.0`) — including the trailing `.0` for non-patch releases. This matches the git release tags (`vMAJOR.MINOR.PATCH`): a release's tag is its `appVersion` with a `v` prefix, one-to-one.
-- **A regular release bumps MINOR** (`1.3.0` → `1.4.0`), regardless of the change's size or user-visibility. **PATCH is reserved for hotfixes** — urgent fixes on top of an already-released version. Never pick the patch number just because a release "feels small".
+- **Pick the bump by what the release changes for the user:**
+  - **MAJOR** (`1.4.0` → `2.0.0`, MINOR and PATCH reset to `0`) when the release changes the app's core model — what the app *is* or how users work with it, or a one-way change to the user's saved data. Before starting, compare main against the last release tag (`git log <tag>..main`) and propose MAJOR when this applies; the user decides.
+  - **MINOR** (`1.3.0` → `1.4.0`) for every other regular release, regardless of its size or user-visibility.
+  - **PATCH** only for hotfixes — urgent fixes on top of an already-released version. Never pick the patch number just because a release "feels small".
 - **`buildNumber` only ever goes up — never reset it.** It must strictly increase across the app's entire lifetime. The App Store rejects any upload whose build number isn't higher than the last build it received, even when the marketing version changes. Bumping `appVersion` does **not** allow resetting `buildNumber` — every version bump also increments `buildNumber`.
 - After editing `Project.swift`, run `mise run generate`.
 
