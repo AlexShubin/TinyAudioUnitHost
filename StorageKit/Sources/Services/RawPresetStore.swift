@@ -25,6 +25,7 @@ struct RawPresetStore: RawPresetStoreType {
 
     init(fileStorage: FileStorageType) {
         self.fileStorage = fileStorage
+        migrateLegacyPresets()
     }
 
     var names: [String] {
@@ -58,6 +59,14 @@ struct RawPresetStore: RawPresetStoreType {
 
     func deleteActivePreset() {
         fileStorage.delete(at: Self.activePresetPath)
+    }
+
+    /// Rewrites every preset saved in an older schema, so the legacy decoding can be dropped later.
+    private func migrateLegacyPresets() {
+        for name in names {
+            guard let preset = load(name: name), preset.version < RawPreset.currentVersion else { continue }
+            save(RawPreset(pluginSlots: preset.pluginSlots), name: name)
+        }
     }
 
     private func path(for name: String) -> String {

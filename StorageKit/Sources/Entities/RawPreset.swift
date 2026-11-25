@@ -43,7 +43,11 @@ public struct RawPreset: Sendable, Equatable, Codable {
     public let pluginSlots: [PluginSlot?]
 
     public init(pluginSlots: [PluginSlot?]) {
-        self.version = Self.currentVersion
+        self.init(version: Self.currentVersion, pluginSlots: pluginSlots)
+    }
+
+    init(version: Int, pluginSlots: [PluginSlot?]) {
+        self.version = version
         self.pluginSlots = pluginSlots
     }
 
@@ -69,6 +73,7 @@ struct RawPresetV1: Decodable {
 
     var migrated: RawPreset {
         RawPreset(
+            version: 1,
             pluginSlots: [
                 RawPreset.PluginSlot(
                     componentType: componentType,

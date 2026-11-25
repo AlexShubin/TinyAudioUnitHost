@@ -24,6 +24,18 @@ struct RawPresetStoreTests {
         sut = RawPresetStore(fileStorage: fileStorageSpy)
     }
 
+    // MARK: - init
+
+    @Test
+    mutating func init_migratesLegacyPresetsToCurrentVersion() {
+        fileStorageSpy.storage["presets/legacy"] = RawPreset(version: 1, pluginSlots: [.fake(name: "Legacy")])
+        fileStorageSpy.storage["presets/current"] = RawPreset.fake(pluginSlots: [.fake(name: "Current")])
+        createSut()
+
+        #expect(fileStorageSpy.storage["presets/legacy"] as? RawPreset == .fake(pluginSlots: [.fake(name: "Legacy")]))
+        #expect(fileStorageSpy.storage["presets/current"] as? RawPreset == .fake(pluginSlots: [.fake(name: "Current")]))
+    }
+
     // MARK: - names
 
     @Test
