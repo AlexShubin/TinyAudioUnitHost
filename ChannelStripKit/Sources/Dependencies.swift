@@ -16,6 +16,7 @@ import CoreMidiGatewayKit
 public struct Dependencies: Sendable {
     public let channelStripModel: ChannelStripModelType
     let systemWakeObserver: SystemWakeObserver
+    let engineConfigurationObserver: EngineConfigurationObserver
 
     public static let live: Dependencies = {
         let channelStrip = ChannelStrip(
@@ -29,6 +30,10 @@ public struct Dependencies: Sendable {
             systemWakeObserver: SystemWakeObserver(
                 channelStrip: channelStrip,
                 workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
+            ),
+            engineConfigurationObserver: EngineConfigurationObserver(
+                channelStrip: channelStrip,
+                notificationCenter: NotificationCenter.default
             )
         )
     }()

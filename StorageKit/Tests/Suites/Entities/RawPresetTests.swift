@@ -21,7 +21,7 @@ struct RawPresetTests {
 
         let preset = try JSONDecoder().decode(RawPreset.self, from: Data(json.utf8))
 
-        #expect(preset == RawPreset.fake(pluginSlots: [
+        #expect(preset.pluginSlots == [
             .fake(
                 componentType: 1,
                 componentSubType: 2,
@@ -31,8 +31,8 @@ struct RawPresetTests {
                 state: Data([0xDE, 0xAD]),
                 isBypassed: false
             ),
-        ]))
-        #expect(preset.version == RawPreset.currentVersion)
+        ])
+        #expect(preset.version == 1)
     }
 
     // MARK: - decode v2

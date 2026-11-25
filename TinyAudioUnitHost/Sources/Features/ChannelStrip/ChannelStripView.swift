@@ -13,37 +13,32 @@ struct ChannelStripView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                section(presenter.sourceTitle) {
-                    slot(presenter.sourceSlot)
-                }
-                if !presenter.insertSlots.isEmpty {
-                    section("Inserts") {
-                        VStack(spacing: 6) {
-                            ForEach(presenter.insertSlots) { state in
-                                slot(state)
-                            }
+        VStack(spacing: 12) {
+            section(presenter.sourceTitle) {
+                slot(presenter.sourceSlot)
+            }
+            if !presenter.insertSlots.isEmpty {
+                section("Inserts") {
+                    VStack(spacing: 6) {
+                        ForEach(presenter.insertSlots) { state in
+                            slot(state)
                         }
-                        .background {
-                            Capsule()
-                                .fill(.quaternary)
-                                .frame(width: 2)
-                        }
+                    }
+                    .background {
+                        Capsule()
+                            .fill(.quaternary)
+                            .frame(width: 2)
                     }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 12)
-            .disabled(presenter.isInteractionDisabled)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 12)
+        .disabled(presenter.isInteractionDisabled)
         .frame(width: 148)
         .frame(maxHeight: .infinity, alignment: .top)
-        .onChange(of: presenter.isProWindowRequested) { _, isRequested in
-            if isRequested {
-                openWindow(id: "purchases")
-                presenter.proWindowOpened()
-            }
+        .onChange(of: presenter.proWindowRequest) {
+            openWindow(id: "purchases")
         }
     }
 

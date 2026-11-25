@@ -105,6 +105,22 @@ struct ChannelStripPresenterTests {
         #expect(sut.insertSlots.last?.content == .empty(isEnabled: true))
     }
 
+    @Test
+    mutating func insertSlots_nineInserts_addsTrailingEmptyInsert() {
+        channelStripSpy.slots = Array(repeating: .loading(component: Self.effect), count: 10)
+        createSut()
+
+        #expect(sut.insertSlots.map(\.id) == Array(1...10))
+    }
+
+    @Test
+    mutating func insertSlots_tenInserts_addsNoTrailingEmptyInsert() {
+        channelStripSpy.slots = Array(repeating: .loading(component: Self.effect), count: 11)
+        createSut()
+
+        #expect(sut.insertSlots.map(\.id) == Array(1...10))
+    }
+
     // MARK: - content
 
     @Test
@@ -242,18 +258,19 @@ struct ChannelStripPresenterTests {
 
         await sut.handleSlot(.unlock, at: 1)
 
-        #expect(sut.isProWindowRequested)
+        #expect(sut.proWindowRequest != nil)
         #expect(channelStripSpy.calls.isEmpty)
     }
 
     @Test
-    mutating func proWindowOpened_clearsRequest() async {
+    mutating func handleSlot_unlockAgain_requestsProWindowAgain() async {
         createSut()
         await sut.handleSlot(.unlock, at: 1)
+        let firstRequest = sut.proWindowRequest
 
-        sut.proWindowOpened()
+        await sut.handleSlot(.unlock, at: 1)
 
-        #expect(sut.isProWindowRequested == false)
+        #expect(sut.proWindowRequest != firstRequest)
     }
 
     // MARK: - catalogs

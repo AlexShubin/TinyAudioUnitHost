@@ -65,6 +65,9 @@ final class ChannelStripModel: ChannelStripModelType {
 
     func unload(at index: Int) async {
         replaceSlot(at: index, with: .empty)
+        while slots.last == .empty {
+            slots.removeLast()
+        }
         await channelStrip.unload(at: index)
     }
 
@@ -80,8 +83,8 @@ final class ChannelStripModel: ChannelStripModelType {
     func replace(with chain: [PluginSlot?]) async {
         replaceSlots(with: chain.map { $0?.initialContent ?? .empty })
         let results = await channelStrip.load(slots: chain.map { $0?.channelStripSlot })
-        for (index, (pluginSlot, result)) in zip(chain, results).enumerated() {
-            guard let pluginSlot, let result else { continue }
+        for (index, result) in results.enumerated() {
+            guard let pluginSlot = chain[index], let result else { continue }
             finishLoadingSlot(at: index, with: pluginSlot.content(for: result))
         }
     }
@@ -103,15 +106,7 @@ final class ChannelStripModel: ChannelStripModelType {
     }
 
     private func replaceSlots(with contents: [PluginSlotContent]) {
-        var trimmed = contents
-        while trimmed.last == .empty {
-            trimmed.removeLast()
-        }
-        slots = trimmed
-        selectFilledSlotIfNeeded()
-    }
-
-    private func selectFilledSlotIfNeeded() {
+        slots = contents
         let selected = slots.indices.contains(selectedIndex) ? slots[selectedIndex] : .empty
         guard selected == .empty, let firstFilled = slots.firstIndex(where: { $0 != .empty }) else { return }
         selectedIndex = firstFilled
